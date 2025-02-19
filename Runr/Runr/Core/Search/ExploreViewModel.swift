@@ -10,64 +10,91 @@ import Firebase
 
 @MainActor
 class ExploreViewModel: ObservableObject {
-    
-    @Published var users: [User] = []
+    @Published var exploreFeedItems: [ExploreFeedItem] = []
+    @Published var users: [User] = [] // 🔹 Add users array
     @Published var searchText = ""
 
     init() {
         Task {
+            await fetchExploreFeedItems()
             await fetchUsers()
         }
     }
 
-    // Fetch users from Firestore's "users" collection
+    // 🔹 Fetch running programs and blogs
+    func fetchExploreFeedItems() async {
+        do {
+            let snapshot = try await Firestore.firestore().collection("exploreFeedItems").getDocuments()
+            DispatchQueue.main.async {
+                self.exploreFeedItems = snapshot.documents.compactMap { doc -> ExploreFeedItem? in
+                    let data = doc.data()
+                    guard let title = data["title"] as? String,
+                          let content = data["content"] as? String,
+                          let category = data["category"] as? String,
+                          let imageUrl = data["imageUrl"] as? String else { return nil }
+                    
+                    return ExploreFeedItem(
+                        exploreFeedId: doc.documentID,
+                        title: title,
+                        content: content,
+                        category: category,
+                        imageUrl: imageUrl
+                    )
+                }
+            }
+        } catch {
+            print("Error fetching explore feed items: \(error.localizedDescription)")
+        }
+    }
+
+    // 🔹 Fetch users from Firestore
     func fetchUsers() async {
         do {
             let snapshot = try await Firestore.firestore().collection("users").getDocuments()
-            
             DispatchQueue.main.async {
                 self.users = snapshot.documents.compactMap { doc -> User? in
                     let data = doc.data()
-                    print("Fetched user data: \(data)") // Debugging log
-                    
-                    guard let id = data["id"] as? String,
-                          let username = data["username"] as? String,
-                          let email = data["email"] as? String else {
-                        return nil
-                    }
-                    
-                    let realName = data["realName"] as? String // Handle missing fullname
-                    let profileImageUrl = data["profileImageUrl"] as? String
-                    
-                    return User(id: id, username: username, profileImageUrl: profileImageUrl, email: email, realName: realName)
+                    guard let username = data["username"] as? String,
+                          let email = data["email"] as? String, // 🔹 Ensure `email` is included
+                          let profileImageUrl = data["profileImageUrl"] as? String? else { return nil }
+
+                    return User(
+                        id: doc.documentID,
+                        username: username,
+                        profileImageUrl: profileImageUrl,
+                        fullname: data["fullname"] as? String,
+                        bio: data["bio"] as? String,
+                        email: email, // 🔹 Required field
+                        realName: data["realName"] as? String,
+                        totalDistance: data["totalDistance"] as? Double ?? 0.0,
+                        totalTime: data["totalTime"] as? Double ?? 0.0,
+                        averagePace: data["averagePace"] as? Double ?? 0.0
+                    )
                 }
-                
-                print("Loaded \(self.users.count) users from Firestore")
             }
         } catch {
             print("Error fetching users: \(error.localizedDescription)")
         }
     }
-    
-    // Search functionality filtering based on username and fullname
+
+
+    // 🔹 Filter users based on search input
     var filteredUsers: [User] {
         let trimmedSearch = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         
-        if trimmedSearch.isEmpty {
-            return users
-        } else {
-            return users.filter {
-                $0.username.trimmingCharacters(in: .whitespacesAndNewlines)
-                    .localizedCaseInsensitiveContains(trimmedSearch) ||
-                ($0.fullname?.trimmingCharacters(in: .whitespacesAndNewlines)
-                    .localizedCaseInsensitiveContains(trimmedSearch) ?? false)
-            }
-        }
+        // Ensure search text is not empty
+        if trimmedSearch.isEmpty { return [] }
+        
+        // Get current user ID
+        guard let currentUserId = AuthService.shared.userSession?.uid else { return [] }
+        
+        // Filter users based on search and exclude the current user
+        return users
+            .filter { $0.username.localizedCaseInsensitiveContains(trimmedSearch) && $0.id != currentUserId }
+            .prefix(5) // Limit to 5 users
+            .map { $0 } // Convert ArraySlice<User> back to [User]
     }
+
+
 }
 
-struct ExploreView_Previews: PreviewProvider {
-    static var previews: some View {
-        RunrSearchView()
-    }
-}

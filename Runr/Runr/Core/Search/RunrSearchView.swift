@@ -9,55 +9,57 @@ import SwiftUI
 
 struct RunrSearchView: View {
     @StateObject var viewModel = ExploreViewModel()
-    
+    @State private var isShowingUploadView = false // 🔹 Control modal visibility
+
     var body: some View {
         NavigationStack {
-            ScrollView {
-                LazyVStack(spacing: 12) {
-                    ForEach(viewModel.filteredUsers) { user in
-                        NavigationLink(destination: ProfileView(user: user)) {
-                            HStack {
-                                AsyncImage(url: URL(string: user.profileImageUrl ?? "")) { image in
-                                    image.resizable()
-                                        .scaledToFill()
-                                        .frame(width: 40, height: 40)
-                                        .clipShape(Circle())
-                                } placeholder: {
-                                    Circle().fill(Color.gray)
-                                }
-                                .frame(width: 40, height: 40)
-                                .clipShape(Circle())
-                                
-                                VStack(alignment: .leading) {
-                                    Text(user.username)
-                                        .fontWeight(.semibold)
+            ZStack(alignment: .bottomTrailing) { // 🔹 Ensure button stays in the same place
+                VStack {
+                    // 🔹 Search Bar
+                    TextField("Search...", text: $viewModel.searchText)
+                        .padding()
+                        .background(Color(.systemGray6))
+                        .cornerRadius(8)
+                        .padding(.horizontal)
+                    
+                    // 🔹 Show Users
+                    UserSearchListView(viewModel: viewModel)
 
-                                    if let displayName = user.realName ?? user.fullname {
-                                        Text(displayName)
-                                            .foregroundColor(.gray)
-                                    }
-                                }
-                                .font(.footnote)
-                                
-                                Spacer()
-                            }
-                            .foregroundColor(.black)
-                            .padding(.horizontal)
-                        }
-                    }
+                    // 🔹 Show ExploreFeedItems
+                    ExploreFeedListView(viewModel: viewModel)
                 }
-                .padding(.top, 8)
+                
+                // 🔹 Floating Add Button
+                Button(action: {
+                    isShowingUploadView.toggle() // 🔹 Open upload screen
+                }) {
+                    Image(systemName: "plus")
+                        .resizable()
+                        .frame(width: 20, height: 20)
+                        .padding()
+                        .background(Color.blue)
+                        .foregroundColor(.white)
+                        .clipShape(Circle())
+                        .shadow(radius: 5)
+                }
+                .padding(20) // 🔹 Keep button in bottom-right corner
+                .sheet(isPresented: $isShowingUploadView) { // 🔹 Show upload view
+                    ExploreUploadView()
+                }
             }
             .navigationTitle("Explore")
             .navigationBarTitleDisplayMode(.inline)
-            .searchable(text: $viewModel.searchText, prompt: "Search...")
         }
     }
 }
+
+
 
 struct RunrSearchView_Previews: PreviewProvider {
     static var previews: some View {
         RunrSearchView()
     }
 }
+
+
 

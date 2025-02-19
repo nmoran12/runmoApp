@@ -75,35 +75,45 @@ class RunTracker: NSObject, ObservableObject {
         
         let db = Firestore.firestore()
         let userRef = db.collection("users").document(userId)
-        let runData: [String: Any] = [
-            "date": Timestamp(date: Date()),
-            "distance": distanceTraveled,
-            "elapsedTime": elapsedTime,
-            "routeCoordinates": routeCoordinates.map { ["latitude": $0.latitude, "longitude": $0.longitude] }
-        ]
         
         do {
-            // Add the new run data
-            try await userRef.collection("runs").addDocument(data: runData)
+            // 🔹 Fetch username from Firestore
+            let userSnapshot = try await userRef.getDocument()
+            guard let username = userSnapshot.data()?["username"] as? String else {
+                print("DEBUG: Username not found for userId \(userId)")
+                return
+            }
+
+            // 🔹 Create timestamp for the document ID
+            let timestamp = Date().formatted(date: .numeric, time: .standard)
+                .replacingOccurrences(of: "/", with: "-")
+                .replacingOccurrences(of: ":", with: "-")
+                .replacingOccurrences(of: " ", with: "_") // Ensure compatibility
+
+            let runDocumentId = "\(username)_\(timestamp)" // 🔹 Format: username_timestamp
+
+            let runData: [String: Any] = [
+                "date": Timestamp(date: Date()),
+                "distance": distanceTraveled,
+                "elapsedTime": elapsedTime,
+                "routeCoordinates": routeCoordinates.map { ["latitude": $0.latitude, "longitude": $0.longitude] }
+            ]
+
+            // 🔹 Save run using custom document ID
+            try await userRef.collection("runs").document(runDocumentId).setData(runData)
             
-            // Update the total distance, total time, and average pace in a transaction
+            // 🔹 Update total distance, total time, and average pace
             try await db.runTransaction { transaction -> Any? in
                 do {
                     let userSnapshot = try transaction.getDocument(userRef)
                     
-                    // Get the current total distance and time, or default to 0 if not present
                     let currentTotalDistance = userSnapshot.data()?["totalDistance"] as? Double ?? 0
                     let currentTotalTime = userSnapshot.data()?["totalTime"] as? Double ?? 0
                     
-                    // Calculate the new total distance and time
                     let newTotalDistance = currentTotalDistance + self.distanceTraveled
                     let newTotalTime = currentTotalTime + Double(self.elapsedTime) / 3600 // Convert seconds to hours
+                    let newAveragePace = (newTotalTime * 60) / newTotalDistance // Pace in min/km
                     
-                    // Calculate the new average pace (hours per km)
-                    let newAveragePace = (newTotalTime * 60) / newTotalDistance
-
-                    
-                    // Update Firestore with the new totals
                     transaction.updateData([
                         "totalDistance": newTotalDistance,
                         "totalTime": newTotalTime,
@@ -116,11 +126,13 @@ class RunTracker: NSObject, ObservableObject {
                 return nil
             }
             
-            print("DEBUG: Run data uploaded and totals updated successfully.")
+            print("DEBUG: Run data uploaded with ID: \(runDocumentId)")
+
         } catch {
             print("DEBUG: Failed to upload run data with error \(error.localizedDescription)")
         }
     }
+
 
 
 

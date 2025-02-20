@@ -6,18 +6,19 @@
 //
 
 import SwiftUI
+import Firebase
 
 struct BlogUploadView: View {
     @State private var title = ""
     @State private var content = ""
-    @State private var linkedBlogs = [""]
-    
+    @Environment(\.presentationMode) var presentationMode // Add this to dismiss the view
+
     var body: some View {
         VStack(alignment: .leading) {
             Text("Create a Blog")
                 .font(.headline)
                 .padding(.bottom, 5)
-            
+
             TextField("Enter blog title...", text: $title)
                 .textFieldStyle(RoundedBorderTextFieldStyle())
                 .padding(.bottom)
@@ -28,34 +29,8 @@ struct BlogUploadView: View {
                 .cornerRadius(8)
                 .padding(.bottom)
 
-            Text("Link Other Blogs:")
-                .font(.subheadline)
-                .padding(.bottom, 5)
-            
-            ForEach($linkedBlogs.indices, id: \.self) { index in
-                HStack {
-                    TextField("Paste blog URL...", text: $linkedBlogs[index])
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                    
-                    if linkedBlogs.count > 1 {
-                        Button(action: { linkedBlogs.remove(at: index) }) {
-                            Image(systemName: "minus.circle.fill")
-                                .foregroundColor(.red)
-                        }
-                    }
-                }
-            }
-            
-            Button(action: { linkedBlogs.append("") }) {
-                HStack {
-                    Image(systemName: "plus.circle.fill")
-                    Text("Add Link")
-                }
-            }
-            .padding(.top, 5)
-            
             Spacer()
-            
+
             Button(action: uploadBlog) {
                 Text("Upload Blog")
                     .bold()
@@ -68,14 +43,53 @@ struct BlogUploadView: View {
         }
         .padding()
     }
-    
+
     func uploadBlog() {
-        print("Uploading blog titled: \(title)")
-        // Here you can integrate with Firestore to save the blog
+        guard !title.isEmpty, !content.isEmpty else {
+            print("Title or content is empty.")
+            return
+        }
+
+        let db = Firestore.firestore()
+        let collectionRef = db.collection("exploreFeedItems")
+
+        // Fetch the highest numeric ID
+        collectionRef.order(by: FieldPath.documentID(), descending: true).limit(to: 1).getDocuments { snapshot, error in
+            if let error = error {
+                print("Error fetching last document ID: \(error.localizedDescription)")
+                return
+            }
+
+            var newId = 1
+            if let lastDoc = snapshot?.documents.first, let lastDocId = Int(lastDoc.documentID) {
+                newId = lastDocId + 1
+            }
+
+            let blogData: [String: Any] = [
+                "title": title,
+                "content": content,
+                "category": "Blog",
+                "imageUrl": "https://via.placeholder.com/200",
+                "timestamp": Timestamp()
+            ]
+
+            collectionRef.document("\(newId)").setData(blogData) { error in
+                if let error = error {
+                    print("Error uploading blog: \(error.localizedDescription)")
+                } else {
+                    print("Blog uploaded successfully with ID: \(newId)")
+                    title = ""
+                    content = ""
+                    
+                    // ✅ Dismiss the upload view and go back to the Explore page
+                    presentationMode.wrappedValue.dismiss()
+                }
+            }
+        }
     }
 }
-
 
 #Preview {
     BlogUploadView()
 }
+

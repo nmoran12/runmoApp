@@ -32,20 +32,24 @@ class ExploreViewModel: ObservableObject {
                           let content = data["content"] as? String,
                           let category = data["category"] as? String,
                           let imageUrl = data["imageUrl"] as? String else { return nil }
-                    
-                    return ExploreFeedItem(
+
+                    let item = ExploreFeedItem(
                         exploreFeedId: doc.documentID,
                         title: title,
                         content: content,
                         category: category,
                         imageUrl: imageUrl
                     )
+
+                    print("Fetched item: \(item.title) - Category: \(item.category)") // Debugging print
+                    return item
                 }
             }
         } catch {
             print("Error fetching explore feed items: \(error.localizedDescription)")
         }
     }
+
 
     // 🔹 Fetch users from Firestore
     func fetchUsers() async {

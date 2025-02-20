@@ -12,8 +12,29 @@ struct ExploreFeedListView: View {
     
     var body: some View {
         ScrollView {
+            // 🔹 Running Programs Section (Horizontal Scroll)
+            let runningPrograms = viewModel.exploreFeedItems.filter { $0.category == "Running_Program" }
+
+            if !runningPrograms.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(spacing: 16) {
+                        ForEach(runningPrograms) { item in
+                            ExploreFeedCardRPView(exploreFeedItem: item)
+                        }
+                    }
+                }
+                .frame(height: 320)
+            } else {
+                Text("No Running Programs Available")
+                    .foregroundColor(.gray)
+                    .padding()
+            }
+
+            Divider() // Visual separation between sections
+
+            // 🔹 Blog Posts Section (Vertical Scroll)
             LazyVStack(spacing: 16) {
-                ForEach(viewModel.exploreFeedItems) { item in
+                ForEach(viewModel.exploreFeedItems.filter { $0.category == "Blog" }) { item in
                     ExploreFeedCardView(exploreFeedItem: item)
                 }
             }
@@ -22,8 +43,9 @@ struct ExploreFeedListView: View {
     }
 }
 
-
 #Preview {
-    ExploreFeedListView(viewModel: ExploreViewModel()) // 🔹 Provide a sample viewModel
+    ExploreFeedListView(viewModel: ExploreViewModel())
 }
+
+
 

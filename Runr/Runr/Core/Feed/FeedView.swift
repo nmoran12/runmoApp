@@ -11,34 +11,35 @@ struct FeedView: View {
     @ObservedObject var viewModel = FeedViewModel()
     
     var body: some View {
-        ZStack {
-            NavigationStack {
-                ScrollView {
-                    LazyVStack(spacing: 32) {
-                        ForEach(viewModel.posts) { post in
+        NavigationStack {
+            ScrollView {
+                LazyVStack(spacing: 32) {
+                    ForEach(viewModel.posts) { post in
+                        NavigationLink(destination: RunDetailView(post: post)) {
                             FeedCell(post: post)
                         }
-                    }
-                    .padding(.top, 8)
-                }
-                .onAppear {
-                    print("DEBUG: FeedView appeared")
-                    Task {
-                        await viewModel.fetchPosts()
+                        .buttonStyle(PlainButtonStyle()) // Removes default button styling
                     }
                 }
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .topBarLeading) {
-                        Text("Runr")
-                            .fontWeight(.semibold)
-                            .font(.system(size: 20))
-                    }
-                    ToolbarItem(placement: .topBarTrailing) {
-                        NavigationLink(destination: MessagesView()) { // Opens messaging screen
-                            Image(systemName: "paperplane")
-                                .imageScale(.large)
-                        }
+                .padding(.top, 8)
+            }
+            .onAppear {
+                print("DEBUG: FeedView appeared")
+                Task {
+                    await viewModel.fetchPosts()
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Text("Runr")
+                        .fontWeight(.semibold)
+                        .font(.system(size: 20))
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink(destination: MessagesView()) { // Opens messaging screen
+                        Image(systemName: "paperplane")
+                            .imageScale(.large)
                     }
                 }
             }
@@ -50,6 +51,7 @@ struct FeedView: View {
 #Preview {
     FeedView()
 }
+
 
 
 

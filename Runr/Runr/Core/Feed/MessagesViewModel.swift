@@ -38,19 +38,36 @@ class MessagesViewModel: ObservableObject {
     
     func fetchConversations() {
         guard let currentUserId = Auth.auth().currentUser?.uid else { return }
-        
+
         db.collection("conversations")
             .whereField("users", arrayContains: currentUserId)
             .addSnapshotListener { snapshot, error in
                 guard let documents = snapshot?.documents else { return }
-                
+
                 var conversations = documents.compactMap { doc -> Conversation? in
                     try? doc.data(as: Conversation.self)
                 }
-                
+
                 let group = DispatchGroup()
-                
+
                 for i in 0..<conversations.count {
+                    let conversationId = conversations[i].id
+
+                    // Fetch the latest message by querying messages collection sorted by timestamp
+                    group.enter()
+                    self.db.collection("conversations")
+                        .document(conversationId)
+                        .collection("messages")
+                        .order(by: "timestamp", descending: true) // Get latest message
+                        .limit(to: 1)
+                        .getDocuments { snapshot, error in
+                            if let latestMessageDoc = snapshot?.documents.first {
+                                conversations[i].lastMessage = try? latestMessageDoc.data(as: Message.self)
+                            }
+                            group.leave()
+                        }
+
+                    // Fetch username of the other user
                     if let otherUserId = conversations[i].otherUserId {
                         group.enter()
                         self.fetchUsername(for: otherUserId) { username in
@@ -59,15 +76,15 @@ class MessagesViewModel: ObservableObject {
                         }
                     }
                 }
-                
+
                 group.notify(queue: .main) {
-                    // Sort conversations by lastMessage timestamp (most recent first)
                     self.conversations = conversations.sorted {
                         ($0.lastMessage?.timestamp ?? Date.distantPast) > ($1.lastMessage?.timestamp ?? Date.distantPast)
                     }
                 }
             }
     }
+
 
 
     

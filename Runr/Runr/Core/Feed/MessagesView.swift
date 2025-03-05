@@ -72,9 +72,9 @@ struct MessagesView: View {
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     HStack {
-                        Text("Messages")
-                            .font(.largeTitle)
-                            .bold()
+                                Text("Messages")
+                                    .fontWeight(.semibold)
+                                    .font(.system(size: 24))
                         Spacer()
                     }
                 }

@@ -46,8 +46,9 @@ struct ProfileView: View {
                             .foregroundColor(.gray)
                     } else {
                         ForEach(runs) { run in
-                            RunCell(run: run)
+                            RunCell(run: run, userId: user.id)
                         }
+
                     }
                 }
                 .padding()
@@ -83,6 +84,7 @@ struct ProfileView: View {
         do {
             try await AuthService.shared.loadUserData()
             self.runs = try await AuthService.shared.fetchUserRuns()
+            self.runs.sort { $0.date > $1.date } // Sort runs newest to oldest
 
             if var currentUser = AuthService.shared.currentUser {
                 currentUser.totalDistance = totalDistance
@@ -96,6 +98,7 @@ struct ProfileView: View {
             self.isLoading = false
         }
     }
+
 
     private func updateFirestoreWithStats() async {
         let userRef = Firestore.firestore().collection("users").document(user.id)

@@ -28,7 +28,8 @@ struct ExploreUploadView: View {
                     RunningProgramUploadView() // 🔹 Running Program Upload Screen
                         .tag(1)
                 }
-                .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
+                .tabViewStyle(DefaultTabViewStyle()) // Standard tab behavior
+
                 
                 Spacer()
                 

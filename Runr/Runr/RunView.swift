@@ -67,15 +67,15 @@ class RunTracker: NSObject, ObservableObject {
     }
     
     // Uploading the run data to google firebase database
-    func uploadRunData() async {
+    func uploadRunData(withCaption caption: String) async {
         guard let userId = AuthService.shared.userSession?.uid else {
             print("DEBUG: No user logged in.")
             return
         }
-        
+
         let db = Firestore.firestore()
         let userRef = db.collection("users").document(userId)
-        
+
         do {
             // 🔹 Fetch username from Firestore
             let userSnapshot = try await userRef.getDocument()
@@ -84,54 +84,80 @@ class RunTracker: NSObject, ObservableObject {
                 return
             }
 
-            // 🔹 Create timestamp for the document ID
+            // 🔹 Generate timestamp for the run ID
             let timestamp = Date().formatted(date: .numeric, time: .standard)
                 .replacingOccurrences(of: "/", with: "-")
                 .replacingOccurrences(of: ":", with: "-")
-                .replacingOccurrences(of: " ", with: "_") // Ensure compatibility
+                .replacingOccurrences(of: " ", with: "_")
 
-            let runDocumentId = "\(username)_\(timestamp)" // 🔹 Format: username_timestamp
+            let runId = "\(username)_\(timestamp)" // Custom ID format
+            let runRef = userRef.collection("runs").document(runId)
 
             let runData: [String: Any] = [
                 "date": Timestamp(date: Date()),
-                "distance": distanceTraveled,
-                "elapsedTime": elapsedTime,
-                "routeCoordinates": routeCoordinates.map { ["latitude": $0.latitude, "longitude": $0.longitude] }
+                "distance": self.distanceTraveled,
+                "elapsedTime": self.elapsedTime,
+                "routeCoordinates": self.routeCoordinates.map { ["latitude": $0.latitude, "longitude": $0.longitude] },
+                "caption": caption // Add user-entered caption
             ]
 
-            // 🔹 Save run using custom document ID
-            try await userRef.collection("runs").document(runDocumentId).setData(runData)
-            
-            // 🔹 Update total distance, total time, and average pace
-            try await db.runTransaction { transaction -> Any? in
+            // Save the run in "users → runs"
+            try await runRef.setData(runData)
+            print("DEBUG: Run data uploaded with custom ID: \(runId)")
+
+            // Update total distance, total time, and average pace in Firestore
+            try await db.runTransaction({ (transaction, errorPointer) -> Any? in
                 do {
                     let userSnapshot = try transaction.getDocument(userRef)
-                    
-                    let currentTotalDistance = userSnapshot.data()?["totalDistance"] as? Double ?? 0
-                    let currentTotalTime = userSnapshot.data()?["totalTime"] as? Double ?? 0
-                    
-                    let newTotalDistance = currentTotalDistance + self.distanceTraveled
-                    let newTotalTime = currentTotalTime + Double(self.elapsedTime) / 3600 // Convert seconds to hours
-                    let newAveragePace = (newTotalTime * 60) / newTotalDistance // Pace in min/km
-                    
+
+                    var currentTotalDistance = userSnapshot.data()?["totalDistance"] as? Double ?? 0
+                    var currentTotalTime = userSnapshot.data()?["totalTime"] as? Double ?? 0
+
+                    let newTotalDistance = currentTotalDistance + (self.distanceTraveled / 1000) // Convert meters to km
+                    let newTotalTime = currentTotalTime + (self.elapsedTime / 3600) // Convert seconds to hours
+                    let newAveragePace = newTotalDistance > 0 ? (newTotalTime * 60) / newTotalDistance : 0.0 // min/km
+
                     transaction.updateData([
                         "totalDistance": newTotalDistance,
                         "totalTime": newTotalTime,
                         "averagePace": newAveragePace
                     ], forDocument: userRef)
+
+                    print("DEBUG: Updated user stats in Firestore. Distance: \(newTotalDistance) km, Time: \(newTotalTime) hrs, Pace: \(newAveragePace) min/km")
+                    return nil
                 } catch {
-                    print("DEBUG: Error during transaction: \(error.localizedDescription)")
-                    throw error
+                    print("Transaction failed: \(error.localizedDescription)")
+                    errorPointer?.pointee = NSError(domain: "FirestoreTransaction", code: -1, userInfo: nil)
+                    return nil
                 }
-                return nil
-            }
-            
-            print("DEBUG: Run data uploaded with ID: \(runDocumentId)")
+            })
+
+            // Save only reference to run in "posts"
+            let postRef = db.collection("posts").document(runId)
+            let postData: [String: Any] = [
+                "id": runId,
+                "ownerUid": userId,
+                "username": username,
+                "runId": runId,
+                "likes": 0,
+                "caption": caption, // Store caption in post data
+                "timestamp": Timestamp(date: Date())
+            ]
+
+            try await postRef.setData(postData)
+            print("DEBUG: Run data uploaded with ID: \(runId) and referenced in posts.")
 
         } catch {
             print("DEBUG: Failed to upload run data with error \(error.localizedDescription)")
         }
     }
+
+
+
+
+
+
+
 
 
 
@@ -323,12 +349,18 @@ struct RunView: View {
 
                     // Start Button at the bottom
                     NavigationLink(
-                        destination: RunInfoDisplayView(routeCoordinates: runTracker.routeCoordinates)
-                            .environmentObject(runTracker),
+                        destination: PostRunDetailsView(
+                            routeCoordinates: runTracker.routeCoordinates,
+                            distance: runTracker.distanceTraveled / 1000,
+                            elapsedTime: runTracker.elapsedTime,
+                            pace: runTracker.paceString
+                        )
+                        .environmentObject(runTracker),
                         isActive: $showRunInfo
                     ) {
                         EmptyView()
                     }
+
 
                     
                     

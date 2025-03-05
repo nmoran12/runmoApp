@@ -15,78 +15,86 @@ struct RunInfoDisplayView: View {
     @Environment(\.presentationMode) var presentationMode
     
     var body: some View {
-        VStack {
-            Text("Run")
-                .font(.system(size: 34, weight: .bold))
-                .padding(.top, 10)
+        ZStack {
+            // Background gradient for subtle depth
+            LinearGradient(
+                gradient: Gradient(colors: [Color.white, Color(.systemGray6)]),
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
             
-            Spacer()
-            
-            // Map displaying the route
-            RouteMapView(routeCoordinates: routeCoordinates)
-                .frame(height: 300)
-                .cornerRadius(15)
-                .shadow(radius: 5)
-                .padding(.horizontal)
+            VStack {
+                // Title
+                Text("Run")
+                    .font(.system(size: 34, weight: .bold))
+                    .padding(.top, 10)
+                
+                
+                // Map displaying the route
+                RouteMapView(routeCoordinates: routeCoordinates)
+                    .frame(height: 400)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                
+                Spacer()
+                
+                // Display run statistics
+                HStack {
+                    runStatView(title: "Distance", value: "\(String(format: "%.2f", runTracker.distanceTraveled / 1000)) km")
+                    Spacer()
+                    Spacer()
+                    runStatView(title: "Time", value: "\(Int(runTracker.elapsedTime) / 60) min \(Int(runTracker.elapsedTime) % 60) sec")
+                    Spacer()
+                    Spacer()
+                    runStatView(title: "Pace", value: "\(runTracker.paceString)")
+                }
+                .padding(.horizontal, 30)
+                
+                Spacer()
+                
+                // Finish Button
+                NavigationLink(destination: PostRunDetailsView(
+                    routeCoordinates: routeCoordinates,
+                    distance: runTracker.distanceTraveled / 1000,
+                    elapsedTime: runTracker.elapsedTime,
+                    pace: runTracker.paceString
+                )) {
 
-            Spacer()
-            
-            // Display run statistics
-            HStack {
-                VStack(alignment: .leading, spacing: 5) {
-                    Text("Distance")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.gray)
-                    Text("\(runTracker.distanceTraveled / 1000, specifier: "%.2f") km")
-                        .font(.system(size: 22, weight: .semibold))
+                    Text("Finish")
+                        .font(.system(size: 20, weight: .bold))
+                        .frame(width: 200, height: 50)
+                        .background(
+                            LinearGradient(
+                                gradient: Gradient(colors: [Color.blue, Color.purple]),
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .foregroundColor(.white)
+                        .clipShape(Capsule())
+                        .shadow(radius: 5)
                 }
-                Spacer()
-                VStack(alignment: .leading, spacing: 5) {
-                    Text("Time")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.gray)
-                    Text("\(Int(runTracker.elapsedTime) / 60) min \(Int(runTracker.elapsedTime) % 60) sec")
-                        .font(.system(size: 22, weight: .semibold))
-                }
-                Spacer()
-                VStack(alignment: .leading, spacing: 5) {
-                    Text("Pace")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.gray)
-                    Text("\(runTracker.paceString)")
-                        .font(.system(size: 22, weight: .semibold))
-                }
+                .padding(.bottom, 20)
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 10)
-            
-            Spacer()
-            
-            // Finish Button
-            Button(action: {
-                Task {
-                    await runTracker.uploadRunData()
-                    print("Upload button is working")
-                    
-                    presentationMode.wrappedValue.dismiss() // Navigate back
-                }
-            }) {
-                Text("Finish")
-                    .font(.system(size: 20, weight: .bold))
-                    .frame(width: 200, height: 50)
-                    .background(Color.blue)
-                    .foregroundColor(.white)
-                    .cornerRadius(10)
-                    .shadow(radius: 3)
-            }
-            .padding(.bottom, 20)
+        }
+    }
+    
+    // Helper function for run statistics
+    private func runStatView(title: String, value: String) -> some View {
+        VStack(alignment: .center, spacing: 5) {
+            Text(title)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+            Text(value)
+                .font(.title2)
+                .bold()
         }
     }
 }
-
 
 #Preview {
     RunInfoDisplayView(routeCoordinates: [])
         .environmentObject(RunTracker())
 }
+
 

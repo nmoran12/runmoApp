@@ -7,30 +7,57 @@
 
 import SwiftUI
 import MapKit
+import FirebaseFirestore
 
 struct RunCell: View {
     var run: RunData
+    var userId: String // To track which user's run this is
+    
+    @State private var showDetailView = false
+    @State private var showMenu = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Header showing run date
             HStack {
                 Image(systemName: "figure.run.circle")
                     .resizable()
                     .frame(width: 40, height: 40)
                     .clipShape(Circle())
+                
                 VStack(alignment: .leading) {
                     Text("Run")
-                        .fontWeight(.bold)
+                        .font(.headline)
                     Text(run.date, formatter: dateFormatter)
+                        .font(.caption)
                         .foregroundColor(.gray)
-                        .font(.footnote)
                 }
+                
                 Spacer()
+                
+                // Ellipsis Button for Menu
+                Button(action: {
+                    showMenu.toggle()
+                }) {
+                    Image(systemName: "ellipsis")
+                        .font(.title2)
+                        .foregroundColor(.gray)
+                }
+                .confirmationDialog("Run Options", isPresented: $showMenu, titleVisibility: .visible) {
+                    Button("Delete Run", role: .destructive) {
+                        deleteRun()
+                    }
+                    Button("Cancel", role: .cancel) { }
+                }
             }
             .padding(.horizontal)
 
-            // Running data
+            // Navigation to RunDetailView
+            NavigationLink(destination: RunDetailView(run: run, userId: userId), isActive: $showDetailView) {
+                EmptyView()
+            }
+            .hidden()
+
+            // Running Stats
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Distance:")
@@ -60,17 +87,34 @@ struct RunCell: View {
             .font(.footnote)
             .padding(.horizontal)
 
-            // Route map (if coordinates are available)
+            // Route Map
             if !run.routeCoordinates.isEmpty {
                 RouteMapView(routeCoordinates: run.routeCoordinates)
-                    .frame(height: 200)
-                    .cornerRadius(10)
-                    .padding(.horizontal)
+                    .frame(height: 250)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .padding(.top, 6)
             }
 
             Divider()
         }
         .padding(.vertical)
+        .onTapGesture {
+            showDetailView = true
+        }
+    }
+
+    // Function to delete the run
+    private func deleteRun() {
+        let db = Firestore.firestore()
+        let runRef = db.collection("users").document(userId).collection("runs").document(run.id)
+        
+        runRef.delete { error in
+            if let error = error {
+                print("Error deleting run: \(error.localizedDescription)")
+            } else {
+                print("Run deleted successfully!")
+            }
+        }
     }
 
     // Date formatter for displaying the run date
@@ -82,6 +126,5 @@ struct RunCell: View {
 }
 
 #Preview {
-    RunCell(run: RunData(date: Date(), distance: 5000, elapsedTime: 1800, routeCoordinates: []))
+    RunCell(run: RunData(date: Date(), distance: 5000, elapsedTime: 1800, routeCoordinates: []), userId: "testUser")
 }
-

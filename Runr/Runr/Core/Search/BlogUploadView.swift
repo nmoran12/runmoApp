@@ -51,20 +51,51 @@ struct BlogUploadView: View {
         }
 
         let db = Firestore.firestore()
-        let collectionRef = db.collection("exploreFeedItems")
+        let counterRef = db.collection("counters").document("blogCounter")
 
-        // Fetch the highest numeric ID
-        collectionRef.order(by: FieldPath.documentID(), descending: true).limit(to: 1).getDocuments { snapshot, error in
+        // ✅ Step 1: Check if the counter exists
+        counterRef.getDocument { document, error in
             if let error = error {
-                print("Error fetching last document ID: \(error.localizedDescription)")
+                print("Error checking blog counter: \(error.localizedDescription)")
                 return
             }
 
-            var newId = 1
-            if let lastDoc = snapshot?.documents.first, let lastDocId = Int(lastDoc.documentID) {
-                newId = lastDocId + 1
+            if document == nil || !document!.exists {
+                // ✅ Step 2: Initialize counter if it doesn't exist
+                counterRef.setData(["lastBlogId": 0]) { error in
+                    if let error = error {
+                        print("Error initializing blog counter: \(error.localizedDescription)")
+                        return
+                    }
+                    print("Initialized blog counter. Now proceeding with blog upload.")
+                    self.runUploadTransaction(db: db, counterRef: counterRef)
+                }
+            } else {
+                // ✅ Step 3: If counter exists, proceed with the transaction
+                self.runUploadTransaction(db: db, counterRef: counterRef)
+            }
+        }
+    }
+
+    func runUploadTransaction(db: Firestore, counterRef: DocumentReference) {
+        db.runTransaction({ (transaction, errorPointer) -> Any? in
+            let counterDocument: DocumentSnapshot
+            do {
+                counterDocument = try transaction.getDocument(counterRef)
+            } catch {
+                print("Error fetching blog counter: \(error.localizedDescription)")
+                return nil
             }
 
+            var newId = 1
+            if let lastId = counterDocument.data()?["lastBlogId"] as? Int {
+                newId = lastId + 1
+            }
+
+            // Update the counter document with the new ID
+            transaction.updateData(["lastBlogId": newId], forDocument: counterRef)
+
+            // Generate new blog data
             let blogData: [String: Any] = [
                 "title": title,
                 "content": content,
@@ -73,20 +104,26 @@ struct BlogUploadView: View {
                 "timestamp": Timestamp()
             ]
 
-            collectionRef.document("\(newId)").setData(blogData) { error in
-                if let error = error {
-                    print("Error uploading blog: \(error.localizedDescription)")
-                } else {
-                    print("Blog uploaded successfully with ID: \(newId)")
-                    title = ""
-                    content = ""
-                    
-                    // ✅ Dismiss the upload view and go back to the Explore page
-                    presentationMode.wrappedValue.dismiss()
-                }
+            // Set the blog document with the custom ID format
+            let blogRef = db.collection("exploreFeedItems").document("blogPost\(newId)")
+            transaction.setData(blogData, forDocument: blogRef)
+
+            return nil
+        }) { (object, error) in
+            if let error = error {
+                print("Transaction failed: \(error.localizedDescription)")
+            } else {
+                print("Blog uploaded successfully!")
+                title = ""
+                content = ""
+
+                // ✅ Dismiss the upload view
+                presentationMode.wrappedValue.dismiss()
             }
         }
     }
+
+
 }
 
 #Preview {

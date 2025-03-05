@@ -32,8 +32,9 @@ struct CurrentUserProfileView: View {
                             .foregroundColor(.gray)
                     } else {
                         ForEach(runs) { run in
-                            RunCell(run: run)
+                            RunCell(run: run, userId: user.id)
                         }
+
                     }
                 } else {
                     ProgressView("Loading profile...")
@@ -74,11 +75,13 @@ struct CurrentUserProfileView: View {
                 self.averagePace = currentUser.averagePace
                 
                 self.runs = try await AuthService.shared.fetchUserRuns()
+                self.runs.sort { $0.date > $1.date } // Sort runs newest to oldest
             }
         } catch {
             print("DEBUG: Failed to load profile data with error \(error.localizedDescription)")
         }
     }
+
 }
 
 

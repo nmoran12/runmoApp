@@ -15,9 +15,9 @@ struct User: Identifiable, Hashable, Codable{
     var bio: String?
     let email: String
     var realName: String?
-    var totalDistance: Double = 0.0
-    var totalTime: Double = 0.0
-    var averagePace: Double = 0.0
+    var totalDistance: Double? = 0.0
+    var totalTime: Double? = 0.0
+    var averagePace: Double? = 0.0
     
     
 }

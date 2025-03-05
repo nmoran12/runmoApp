@@ -18,103 +18,72 @@ class FeedViewModel: ObservableObject {
     @Published var posts: [Post] = []
     
     func fetchPosts() async {
-        print("DEBUG: Fetching runs from all users...")
-
+        print("DEBUG: Fetching posts...")
+        
         do {
-            let usersSnapshot = try await Firestore.firestore().collection("users").getDocuments()
+            let postsSnapshot = try await Firestore.firestore().collection("posts")
+                .order(by: "timestamp", descending: true)
+                .getDocuments()
             
             var fetchedPosts: [Post] = []
-
-            for userDoc in usersSnapshot.documents {
-                let userData = userDoc.data()
+            
+            for postDoc in postsSnapshot.documents {
+                let postData = postDoc.data()
+                
                 guard
-                    let userId = userData["id"] as? String,
-                    let username = userData["username"] as? String,
-                    let email = userData["email"] as? String
+                    let postId = postData["id"] as? String,
+                    let userId = postData["ownerUid"] as? String,
+                    let username = postData["username"] as? String,
+                    let runId = postData["runId"] as? String, // Get run reference
+                    let likes = postData["likes"] as? Int,
+                    let timestamp = (postData["timestamp"] as? Timestamp)?.dateValue()
                 else {
-                    print("DEBUG: Skipping user due to missing fields")
+                    print("DEBUG: Skipping post due to missing fields -> \(postData)") // Print the post data
                     continue
                 }
 
-                let user = User(id: userId, username: username, email: email)
-
-                // Fetch user's runs
-                let runsSnapshot = try await Firestore.firestore()
-                    .collection("users")
-                    .document(userId)
-                    .collection("runs")
-                    .order(by: "date", descending: true)
-                    .getDocuments()
-
-                for runDoc in runsSnapshot.documents {
-                    let runData = runDoc.data()
-
-                    guard
-                        let date = (runData["date"] as? Timestamp)?.dateValue(),
-                        let distance = runData["distance"] as? Double,
-                        let elapsedTime = runData["elapsedTime"] as? Double,
-                        let routeCoordinatesArray = runData["routeCoordinates"] as? [[String: Double]]
-                    else {
-                        print("DEBUG: Skipping run due to missing fields")
-                        continue
-                    }
-
-                    // Convert route coordinates
-                    let routeCoordinates = routeCoordinatesArray.compactMap { coord -> CLLocationCoordinate2D? in
-                        guard let lat = coord["latitude"], let lon = coord["longitude"] else { return nil }
-                        return CLLocationCoordinate2D(latitude: lat, longitude: lon)
-                    }
-
-                    let run = RunData(date: date, distance: distance, elapsedTime: elapsedTime, routeCoordinates: routeCoordinates)
-
-                    // Store the run data inside the posts collection
-                    let postRef = Firestore.firestore().collection("posts").document(runDoc.documentID)
-                    
-                    let postSnapshot = try? await postRef.getDocument()
-                    let existingLikes = postSnapshot?.data()?["likes"] as? Int ?? 0
-
-                    let postData: [String: Any] = [
-                        "id": runDoc.documentID,
-                        "ownerUid": userId,
-                        "username": username,
-                        "email": email,
-                        "timestamp": date,
-                        "runData": [
-                            "distance": distance,
-                            "elapsedTime": elapsedTime,
-                            "routeCoordinates": routeCoordinates.map { ["latitude": $0.latitude, "longitude": $0.longitude] }
-                        ],
-                        "likes": existingLikes,
-                        "caption": "\(username)'s run - \(String(format: "%.2f km", distance))"
-                    ]
-                    
-                    try await postRef.setData(postData, merge: true)
-                    
-                    let post = Post(
-                        id: runDoc.documentID,
-                        ownerUid: userId,
-                        caption: "\(username)'s run - \(String(format: "%.2f km", distance))",
-                        likes: 0,
-                        imageUrl: "",
-                        timestamp: date,
-                        user: user,
-                        runData: run
-                    )
-
-                    fetchedPosts.append(post)
+                
+                let userRef = Firestore.firestore().collection("users").document(userId)
+                let runRef = userRef.collection("runs").document(runId) // Fetch run data
+                
+                let runSnapshot = try? await runRef.getDocument()
+                guard let runData = runSnapshot?.data(),
+                      let distance = runData["distance"] as? Double,
+                      let elapsedTime = runData["elapsedTime"] as? Double,
+                      let routeCoordinatesArray = runData["routeCoordinates"] as? [[String: Double]]
+                else {
+                    print("DEBUG: Skipping run due to missing fields")
+                    continue
                 }
+                
+                let routeCoordinates = routeCoordinatesArray.compactMap { coord -> CLLocationCoordinate2D? in
+                    guard let lat = coord["latitude"], let lon = coord["longitude"] else { return nil }
+                    return CLLocationCoordinate2D(latitude: lat, longitude: lon)
+                }
+                
+                let run = RunData(date: timestamp, distance: distance, elapsedTime: elapsedTime, routeCoordinates: routeCoordinates)
+                
+                let post = Post(
+                    id: postId,
+                    ownerUid: userId,
+                    caption: postData["caption"] as? String ?? "",
+                    likes: likes,
+                    imageUrl: "",
+                    timestamp: timestamp,
+                    user: User(id: userId, username: username, email: ""), // You may fetch email if required
+                    runData: run
+                )
+                
+                fetchedPosts.append(post)
             }
-
-            // Sort all fetched posts by timestamp (most recent first)
-            fetchedPosts.sort { $0.timestamp > $1.timestamp }
-
+            
             DispatchQueue.main.async {
                 self.posts = fetchedPosts
-                print("DEBUG: Total posts loaded: \(self.posts.count) in sorted order")
+                print("DEBUG: Total posts loaded: \(self.posts.count)")
             }
-
+            
         } catch {
-            print("DEBUG: Failed to fetch runs with error \(error.localizedDescription)")
+            print("DEBUG: Failed to fetch posts with error \(error.localizedDescription)")
         }
     }
 }

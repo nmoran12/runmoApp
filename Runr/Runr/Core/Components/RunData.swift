@@ -2,7 +2,7 @@
 //  RunStruct.swift
 //  Runr
 //
-//  Created by Noah Moran on 14/1/2025.
+//  Created by Noah Moran on 13/3/2025.
 //
 
 import Foundation

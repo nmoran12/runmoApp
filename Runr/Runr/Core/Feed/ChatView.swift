@@ -26,13 +26,13 @@ struct ChatView: View {
                                         .padding()
                                         .background(Color.blue)
                                         .foregroundColor(.white)
-                                        .cornerRadius(10)
+                                        .cornerRadius(20)
                                         .id(message.id) // Assign ID for scrolling
                                 } else {
                                     Text(message.text)
                                         .padding()
                                         .background(Color.gray.opacity(0.2))
-                                        .cornerRadius(10)
+                                        .cornerRadius(20)
                                         .id(message.id) // Assign ID for scrolling
                                     Spacer()
                                 }

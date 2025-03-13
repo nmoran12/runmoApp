@@ -8,11 +8,16 @@ import SwiftUI
 import FirebaseFirestore
 
 struct ProfileView: View {
-    @State var user: User
+    @Binding var user: User
     @State private var runs: [RunData] = []
     @State private var isLoading = true
     @State private var updateTrigger = false
     @State private var showMenu = false //
+    @State private var selectedImage: UIImage?
+    @State private var isImagePickerPresented = false
+    @State private var isFirst = false
+    @StateObject private var rankChecker = UserRankChecker()
+
 
     private var totalDistance: Double {
         runs.reduce(0) { $0 + $1.distance } / 1000
@@ -25,6 +30,10 @@ struct ProfileView: View {
     private var averagePace: Double {
         totalDistance > 0 ? totalTime / totalDistance : 0.0
     }
+
+
+    
+    
     
     var body: some View {
         NavigationStack {
@@ -34,9 +43,22 @@ struct ProfileView: View {
                         user: user,
                         totalDistance: totalDistance,
                         totalTime: totalTime,
-                        averagePace: averagePace
+                        averagePace: averagePace,
+                        isFirst: rankChecker.isFirst
                     )
                     .id(updateTrigger)
+                    
+                    if let selectedImage{
+                        Button("Upload Image"){
+                            Task{
+                                do{
+                                    try await AuthService.shared.uploadProfileImage(selectedImage)
+                                } catch {
+                                    print("DEBUG: Failed to upload image \(error.localizedDescription)")
+                                }
+                            }
+                        }
+                    }
                     
                     if isLoading {
                         ProgressView("Loading runs...")
@@ -55,6 +77,7 @@ struct ProfileView: View {
                 .onAppear {
                     Task {
                         await fetchUserRuns()
+                        await rankChecker.checkIfUserIsFirst(userId: user.id)
                     }
                 }
             }
@@ -80,24 +103,19 @@ struct ProfileView: View {
         }
     }
 
+    // Fetch user's runs
     private func fetchUserRuns() async {
         do {
-            try await AuthService.shared.loadUserData()
-            self.runs = try await AuthService.shared.fetchUserRuns()
+            // Fetch runs for the searched user's id instead of the current user.
+            self.runs = try await AuthService.shared.fetchUserRuns(for: user.id)
             self.runs.sort { $0.date > $1.date } // Sort runs newest to oldest
-
-            if var currentUser = AuthService.shared.currentUser {
-                currentUser.totalDistance = totalDistance
-                currentUser.totalTime = totalTime
-                currentUser.averagePace = averagePace
-                self.user = currentUser
-                await updateFirestoreWithStats()
-            }
             self.isLoading = false
         } catch {
             self.isLoading = false
+            print("DEBUG: Failed to fetch runs for user \(user.id) with error \(error.localizedDescription)")
         }
     }
+
 
 
     private func updateFirestoreWithStats() async {
@@ -119,5 +137,6 @@ struct ProfileView: View {
 }
 
 #Preview {
-    ProfileView(user: User.MOCK_USERS[0])
+    @State var mockUser = User.MOCK_USERS[0]
+    return ProfileView(user: $mockUser) // Pass as a binding
 }

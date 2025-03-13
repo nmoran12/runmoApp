@@ -7,38 +7,48 @@
 
 import SwiftUI
 
+enum FeedType: String, CaseIterable {
+    case runningPrograms = "Running Programs"
+    case blogs = "Blogs"
+}
+
 struct ExploreFeedListView: View {
     @ObservedObject var viewModel: ExploreViewModel
-    
+    @State private var selectedFeed: FeedType = .runningPrograms
+    @State private var searchText = ""
+
     var body: some View {
         ScrollView {
-            // 🔹 Running Programs Section (Horizontal Scroll)
-            let runningPrograms = viewModel.exploreFeedItems.filter { $0.category == "Running_Program" }
+            VStack {
 
-            if !runningPrograms.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    LazyHStack(spacing: 16) {
-                        ForEach(runningPrograms) { item in
-                            ExploreFeedCardRPView(exploreFeedItem: item)
+                // Buttons for toggling feed sections
+                HStack(spacing: 0) {
+                    ForEach(FeedType.allCases, id: \.self) { feed in
+                        Button(action: {
+                            withAnimation {
+                                selectedFeed = feed
+                            }
+                        }) {
+                            Text(feed.rawValue)
+                                .font(.headline)
+                                .foregroundColor(selectedFeed == feed ? .black : .gray)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 8)
                         }
                     }
                 }
-                .frame(height: 320)
-            } else {
-                Text("No Running Programs Available")
-                    .foregroundColor(.gray)
-                    .padding()
-            }
+                .background(Color(.systemGray6))
+                .cornerRadius(10)
+                .padding(.horizontal)
+                .padding(.top, 8)
 
-            Divider() // Visual separation between sections
-
-            // 🔹 Blog Posts Section (Vertical Scroll)
-            LazyVStack(spacing: 16) {
-                ForEach(viewModel.exploreFeedItems.filter { $0.category == "Blog" }) { item in
-                    ExploreFeedCardView(exploreFeedItem: item)
+                // Show the selected feed
+                if selectedFeed == .runningPrograms {
+                    RunningProgramsFeed(viewModel: viewModel)
+                } else {
+                    BlogsFeed(viewModel: viewModel)
                 }
             }
-            .padding(.top, viewModel.filteredUsers.isEmpty ? 8 : 0)
         }
     }
 }
@@ -46,6 +56,5 @@ struct ExploreFeedListView: View {
 #Preview {
     ExploreFeedListView(viewModel: ExploreViewModel())
 }
-
 
 

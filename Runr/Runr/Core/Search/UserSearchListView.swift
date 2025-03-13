@@ -15,7 +15,7 @@ struct UserSearchListView: View {
             ScrollView {
                 VStack(spacing: 8) {
                     ForEach(viewModel.filteredUsers) { user in
-                        NavigationLink(destination: ProfileView(user: user)) { // 🔹 Navigate to ProfileView
+                        NavigationLink(destination: ProfileView(user: .constant(user))) { // 🔹 Navigate to ProfileView
                             HStack {
                                 AsyncImage(url: URL(string: user.profileImageUrl ?? "")) { image in
                                     image.resizable()

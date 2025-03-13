@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import FirebaseFirestore
 
 struct CurrentUserProfileView: View {
     @State private var user: User?
@@ -14,6 +15,12 @@ struct CurrentUserProfileView: View {
     @State private var totalTime: Double?
     @State private var averagePace: Double?
     @State private var showMenu = false
+    @State private var selectedImage: UIImage?
+    @State private var isImagePickerPresented = false
+    @State private var newBio: String = ""
+    @State private var showBioAlert = false
+    @State private var isFirst = false
+    @StateObject private var rankChecker = UserRankChecker()
 
     var body: some View {
         NavigationStack {
@@ -23,8 +30,22 @@ struct CurrentUserProfileView: View {
                         user: user,
                         totalDistance: totalDistance,
                         totalTime: totalTime,
-                        averagePace: averagePace
+                        averagePace: averagePace,
+                        isFirst: rankChecker.isFirst
                     )
+
+                                            // Button to upload selected image
+                                            if let selectedImage {
+                                                Button("Upload Image") {
+                                                    Task {
+                                                        await handleProfileImageUpload(selectedImage)
+                                                    }
+                                                }
+                                                .padding()
+                                                .background(Color.blue)
+                                                .foregroundColor(.white)
+                                                .cornerRadius(8)
+                                            }
                     
                     if runs.isEmpty {
                         Text("No runs yet")
@@ -54,13 +75,44 @@ struct CurrentUserProfileView: View {
                 }
             }
             .confirmationDialog("Menu", isPresented: $showMenu, titleVisibility: .visible) {
+                Button("Update Bio"){
+                    showBioUpdateAlert()
+                }
                 Button("Sign Out", role: .destructive) {
                     AuthService.shared.signout()
                 }
                 Button("Cancel", role: .cancel) { }
             }
+            .alert("Update Bio", isPresented: $showBioAlert) {
+                    TextField("Enter new bio", text: $newBio)
+                    Button("Save", action: updateBio)
+                    Button("Cancel", role: .cancel) { }
+                }
             .task {
                 await loadProfileData()
+                if let userId = user?.id{
+                    await rankChecker.checkIfUserIsFirst(userId: userId)
+                }
+            }
+        }
+    }
+    
+    private func showBioUpdateAlert(){
+        showBioAlert = true
+    }
+    
+    private func updateBio(){
+        guard let userId = user?.id else { return }
+        
+        let db = Firestore.firestore()
+        db.collection("users").document(userId).updateData(["bio": newBio]) { error in
+            if let error = error {
+                print("DEBUG: Failed to update bio - \(error.localizedDescription)")
+            } else {
+                print("DEBUG: Bio updated successfully")
+                DispatchQueue.main.async{
+                    user?.bio = newBio
+                }
             }
         }
     }
@@ -81,6 +133,22 @@ struct CurrentUserProfileView: View {
             print("DEBUG: Failed to load profile data with error \(error.localizedDescription)")
         }
     }
+    
+    // Function to upload profile image to Firebase
+    private func handleProfileImageUpload(_ image: UIImage) async {
+        do {
+            let imageUrl = try await AuthService.shared.uploadProfileImage(image) // Calls AuthService
+            await MainActor.run {
+                if var updatedUser = user {
+                    updatedUser.profileImageUrl = imageUrl  // Update profile image URL locally
+                    self.user = updatedUser
+                }
+            }
+        } catch {
+            print("DEBUG: Failed to upload image \(error.localizedDescription)")
+        }
+    }
+
 
 }
 

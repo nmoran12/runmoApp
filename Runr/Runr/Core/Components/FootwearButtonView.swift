@@ -8,9 +8,9 @@
 import SwiftUI
 
 struct FootwearButtonView: View {
+    @Binding var selectedFootwear: String
     @State private var showFootwearMenu = false // Controls visibility of the pop-down menu
     @State private var footwearOptions: [String] = ["Adidas", "Nike Superfly"] // Initial list of options
-    @State private var selectedFootwear: String = "Select Footwear" // Currently selected footwear
     @State private var searchQuery = "" // Stores the search query
 
     var body: some View {
@@ -94,5 +94,6 @@ struct FootwearButtonView: View {
 }
 
 #Preview {
-    FootwearButtonView()
+    @State var previewFootwear = "Select Footwear"
+    FootwearButtonView(selectedFootwear: $previewFootwear)
 }

@@ -10,6 +10,7 @@ import SwiftUI
 import Firebase
 import FirebaseAuth
 import FirebaseFirestoreCombineSwift
+import FirebaseStorage
 
 class AuthService: ObservableObject {
     
@@ -19,9 +20,58 @@ class AuthService: ObservableObject {
     
     static let shared = AuthService()
     
+    private let storageRef = Storage.storage().reference()
+    
     init(){
         self.userSession = Auth.auth().currentUser
     }
+    
+    // Uploads a profile image to Firebase Storage and updates Firestore with the image URL
+    func uploadProfileImage(_ image: UIImage) async throws -> String {
+        guard let userId = Auth.auth().currentUser?.uid else {
+            throw URLError(.badURL)
+        }
+        guard let imageData = image.jpegData(compressionQuality: 0.4) else {
+            throw URLError(.badURL)
+        }
+
+        let profileImageRef = Storage.storage().reference().child("profile_images/\(userId).jpg")
+        let metadata = StorageMetadata()
+        metadata.contentType = "image/jpeg"
+
+        print("DEBUG: Starting image upload for user \(userId)...")
+
+        // Upload the image and check for completion
+        do {
+            let metadataResult = try await profileImageRef.putDataAsync(imageData, metadata: metadata)
+            print("DEBUG: Image successfully uploaded with metadata: \(metadataResult)")
+        } catch {
+            print("DEBUG: Error uploading image to Firebase Storage: \(error.localizedDescription)")
+            throw error
+        }
+
+        // Retrieve download URL AFTER successful upload
+        do {
+            let downloadURL = try await profileImageRef.downloadURL()
+            print("DEBUG: Retrieved download URL: \(downloadURL.absoluteString)")
+
+            // Update Firestore with new profile image URL
+            let userRef = Firestore.firestore().collection("users").document(userId)
+            try await userRef.updateData(["profileImageUrl": downloadURL.absoluteString])
+
+            DispatchQueue.main.async {
+                self.currentUser?.profileImageUrl = downloadURL.absoluteString
+            }
+
+            return downloadURL.absoluteString  // ✅ Ensure we return the image URL
+        } catch {
+            print("DEBUG: Failed to retrieve download URL: \(error.localizedDescription)")
+            throw error
+        }
+    }
+
+
+    
     
     @MainActor
     func login(withEmail email: String, password: String) async throws {
@@ -72,6 +122,22 @@ class AuthService: ObservableObject {
         
         return runs
     }
+    
+    // Function to fetch ANY USER's runs
+    func fetchUserRuns(for userId: String) async throws -> [RunData] {
+        let snapshot = try await Firestore.firestore().collection("users").document(userId).collection("runs").getDocuments()
+        let runs = snapshot.documents.compactMap { doc -> RunData? in
+            do {
+                let data = try doc.data(as: RunData.self)
+                return data
+            } catch {
+                print("DEBUG: Failed to decode run data with error \(error.localizedDescription)")
+                return nil
+            }
+        }
+        return runs
+    }
+
 
     
     

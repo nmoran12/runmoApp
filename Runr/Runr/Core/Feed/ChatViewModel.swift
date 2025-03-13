@@ -28,16 +28,20 @@ class ChatViewModel: ObservableObject {
     private let db = Firestore.firestore()
 
     func loadMessages(conversationId: String) {
+        guard !conversationId.isEmpty else {
+            print("DEBUG: conversationId is empty! Cannot load messages.")
+            return
+        }
         db.collection("conversations").document(conversationId).collection("messages")
-            .order(by: "timestamp", descending: false) // Change to ascending order
+            .order(by: "timestamp", descending: false)
             .addSnapshotListener { snapshot, error in
                 guard let documents = snapshot?.documents else { return }
-                
                 self.messages = documents.compactMap { doc -> Message? in
                     try? doc.data(as: Message.self)
                 }
             }
     }
+
 
 
 

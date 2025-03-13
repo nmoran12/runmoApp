@@ -13,6 +13,7 @@ struct RunInfoDisplayView: View {
     
     @EnvironmentObject var runTracker: RunTracker
     @Environment(\.presentationMode) var presentationMode
+    var selectedFootwear: String
     
     var body: some View {
         ZStack {
@@ -93,7 +94,7 @@ struct RunInfoDisplayView: View {
 }
 
 #Preview {
-    RunInfoDisplayView(routeCoordinates: [])
+    RunInfoDisplayView(routeCoordinates: [], selectedFootwear: "Adidas Predator")
         .environmentObject(RunTracker())
 }
 

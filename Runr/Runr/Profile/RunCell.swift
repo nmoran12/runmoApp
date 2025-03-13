@@ -126,5 +126,14 @@ struct RunCell: View {
 }
 
 #Preview {
-    RunCell(run: RunData(date: Date(), distance: 5000, elapsedTime: 1800, routeCoordinates: []), userId: "testUser")
+    RunCell(
+        run: RunData(
+            date: Date(),
+            distance: 5000,
+            elapsedTime: 1800,
+            routeCoordinates: []
+        ),
+        userId: "testUser"
+    )
 }
+

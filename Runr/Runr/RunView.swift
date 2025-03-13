@@ -22,6 +22,7 @@ class RunTracker: NSObject, ObservableObject {
     @Published var paceString: String = "0:00 / km"
 
 
+
     
     // Location Tracking
     private var locationManager: CLLocationManager?
@@ -98,7 +99,7 @@ class RunTracker: NSObject, ObservableObject {
                 "distance": self.distanceTraveled,
                 "elapsedTime": self.elapsedTime,
                 "routeCoordinates": self.routeCoordinates.map { ["latitude": $0.latitude, "longitude": $0.longitude] },
-                "caption": caption // Add user-entered caption
+                "caption": caption, // Add user-entered caption
             ]
 
             // Save the run in "users → runs"
@@ -109,21 +110,31 @@ class RunTracker: NSObject, ObservableObject {
             try await db.runTransaction({ (transaction, errorPointer) -> Any? in
                 do {
                     let userSnapshot = try transaction.getDocument(userRef)
+                    
+                    print("DEBUG: Firestore user document fetched successfully.")
 
                     var currentTotalDistance = userSnapshot.data()?["totalDistance"] as? Double ?? 0
                     var currentTotalTime = userSnapshot.data()?["totalTime"] as? Double ?? 0
 
+                    print("DEBUG: Current total distance: \(currentTotalDistance)")
+                    print("DEBUG: Current total time: \(currentTotalTime)")
+
                     let newTotalDistance = currentTotalDistance + (self.distanceTraveled / 1000) // Convert meters to km
-                    let newTotalTime = currentTotalTime + (self.elapsedTime / 3600) // Convert seconds to hours
-                    let newAveragePace = newTotalDistance > 0 ? (newTotalTime * 60) / newTotalDistance : 0.0 // min/km
+                    let newTotalTime = currentTotalTime + (self.elapsedTime) // measurement is seconds
+                    let newAveragePace = newTotalDistance > 0 ? (newTotalTime) / newTotalDistance : 0.0 // takes "seconds" for newTotalTime and "km" for newTotalDistance
+
+                    print("DEBUG: New total distance: \(newTotalDistance)")
+                    print("DEBUG: New total time: \(newTotalTime)")
+                    print("DEBUG: New average pace: \(newAveragePace)")
 
                     transaction.updateData([
                         "totalDistance": newTotalDistance,
                         "totalTime": newTotalTime,
                         "averagePace": newAveragePace
                     ], forDocument: userRef)
+                
 
-                    print("DEBUG: Updated user stats in Firestore. Distance: \(newTotalDistance) km, Time: \(newTotalTime) hrs, Pace: \(newAveragePace) min/km")
+                    print("DEBUG: Firestore transaction committed successfully.")
                     return nil
                 } catch {
                     print("Transaction failed: \(error.localizedDescription)")
@@ -131,6 +142,7 @@ class RunTracker: NSObject, ObservableObject {
                     return nil
                 }
             })
+
 
             // Save only reference to run in "posts"
             let postRef = db.collection("posts").document(runId)
@@ -179,7 +191,14 @@ class RunTracker: NSObject, ObservableObject {
                 else { return nil }
                 
                 let route = coordinates.map { CLLocationCoordinate2D(latitude: $0["latitude"] ?? 0, longitude: $0["longitude"] ?? 0) }
-                return RunData(date: date.dateValue(), distance: distance, elapsedTime: elapsedTime, routeCoordinates: route)
+
+                return RunData(
+                    date: date.dateValue(),
+                    distance: distance,
+                    elapsedTime: elapsedTime,
+                    routeCoordinates: route
+                )
+
             }
             return runs
         } catch {
@@ -269,6 +288,7 @@ struct RunView: View {
     @State private var isPressed = false
     @State private var isImagePressed = false
     @State private var showRunInfo = false
+    @State private var selectedFootwear: String = "Select Footwear"
 
     
     
@@ -295,7 +315,7 @@ struct RunView: View {
                             
                             if runTracker.isRunning == false{
                                 // button to select footwear
-                                FootwearButtonView()
+                                FootwearButtonView(selectedFootwear: $selectedFootwear)
                             }
                         }
                         .padding()

@@ -16,6 +16,15 @@ struct LeaderUser: Identifiable {
     var imageUrl: String
 }
 
+extension LeaderUser {
+    static let MOCK_USER = LeaderUser(
+        id: "1",
+        name: "Mock User",
+        totalDistance: 42.5,
+        imageUrl: "https://example.com/default-profile.jpg"
+    )
+}
+
 class LeaderboardViewModel: ObservableObject {
     @Published var users: [LeaderUser] = []
     
@@ -36,15 +45,17 @@ class LeaderboardViewModel: ObservableObject {
                         return
                     }
                     
-                    self.users = documents.compactMap { doc -> LeaderUser? in
-                        let data = doc.data()
-                        guard
-                            let username = data["username"] as? String,
-                            let totalDistance = data["totalDistance"] as? Double else { return nil }
-                        
-                        let profileImageUrl = data["profileImageUrl"] as? String ?? "https://example.com/default-profile.jpg"
-                        
-                        return LeaderUser(id: doc.documentID, name: username, totalDistance: totalDistance, imageUrl: profileImageUrl)
+                    withAnimation{
+                        self.users = documents.compactMap { doc -> LeaderUser? in
+                            let data = doc.data()
+                            guard
+                                let username = data["username"] as? String,
+                                let totalDistance = data["totalDistance"] as? Double else { return nil }
+                            
+                            let profileImageUrl = data["profileImageUrl"] as? String ?? "https://example.com/default-profile.jpg"
+                            
+                            return LeaderUser(id: doc.documentID, name: username, totalDistance: totalDistance, imageUrl: profileImageUrl)
+                        }
                     }
                 }
             }

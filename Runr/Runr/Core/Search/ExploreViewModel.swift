@@ -16,42 +16,67 @@ class ExploreViewModel: ObservableObject {
 
     init() {
         Task {
-            await fetchExploreFeedItems()
+            await fetchRunningPrograms()
             await fetchUsers()
         }
     }
 
-    // 🔹 Fetch running programs and blogs
-    func fetchExploreFeedItems() async {
+    // Fetch running programs to display in its explore tab
+    func fetchRunningPrograms() async {
         do {
-            let snapshot = try await Firestore.firestore().collection("exploreFeedItems").getDocuments()
-            DispatchQueue.main.async {
-                self.exploreFeedItems = snapshot.documents.compactMap { doc -> ExploreFeedItem? in
-                    let data = doc.data()
-                    guard let title = data["title"] as? String,
-                          let content = data["content"] as? String,
-                          let category = data["category"] as? String,
-                          let imageUrl = data["imageUrl"] as? String else { return nil }
-
-                    let item = ExploreFeedItem(
-                        exploreFeedId: doc.documentID,
-                        title: title,
-                        content: content,
-                        category: category,
-                        imageUrl: imageUrl
-                    )
-
-                    print("Fetched item: \(item.title) - Category: \(item.category)") // Debugging print
-                    return item
+            let db = Firestore.firestore()
+            
+            // If you know the parent doc is "runningPrograms":
+            let subSnapshot = try await db
+                .collection("exploreFeedItems")
+                .document("runningPrograms")
+                .collection("programs")
+                .getDocuments()
+            
+            var programItems: [ExploreFeedItem] = []
+            for doc in subSnapshot.documents {
+                if let parsed = parseDocument(doc) {
+                    programItems.append(parsed)
                 }
             }
+            
+            DispatchQueue.main.async {
+                self.exploreFeedItems = programItems
+            }
+            
         } catch {
-            print("Error fetching explore feed items: \(error.localizedDescription)")
+            print("Error: \(error)")
         }
     }
 
 
-    // 🔹 Fetch users from Firestore
+    private func parseDocument(_ doc: QueryDocumentSnapshot) -> ExploreFeedItem? {
+        let data = doc.data()
+        
+        // We know your items have at least a title, category, and imageUrl.
+        guard let title = data["title"] as? String,
+              let category = data["category"] as? String,
+              let imageUrl = data["imageUrl"] as? String
+        else { return nil }
+        
+        // Some items might have "content", others "planOverview".
+        // We can combine them into a single `content` field for ExploreFeedItem.
+        let content = data["content"] as? String
+            ?? data["planOverview"] as? String
+            ?? ""
+        
+        return ExploreFeedItem(
+            exploreFeedId: doc.documentID,
+            title: title,
+            content: content,
+            category: category,
+            imageUrl: imageUrl
+        )
+    }
+
+
+
+    // Fetch users from Firestore for the search function
     func fetchUsers() async {
         do {
             let snapshot = try await Firestore.firestore().collection("users").getDocuments()
@@ -82,7 +107,7 @@ class ExploreViewModel: ObservableObject {
     }
 
 
-    // 🔹 Filter users based on search input
+    // Filter users based on search input
     var filteredUsers: [User] {
         let trimmedSearch = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         

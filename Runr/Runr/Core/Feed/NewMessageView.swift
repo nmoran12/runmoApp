@@ -18,50 +18,78 @@ struct NewMessageView: View {
         if searchText.isEmpty {
             return users
         } else {
-            return users.filter { $0.username.lowercased().contains(searchText.lowercased()) }
+            return users.filter {
+                $0.username.lowercased().contains(searchText.lowercased())
+            }
         }
     }
 
     var body: some View {
         NavigationView {
-            VStack {
-                TextField("Search users", text: $searchText)
-                    .padding(10)
+            VStack(spacing: 0) {
+                // Search bar at the top
+                TextField("Search", text: $searchText)
+                    .padding(8)
                     .background(Color(.systemGray6))
-                    .cornerRadius(10)
+                    .cornerRadius(8)
                     .padding(.horizontal)
+                    .padding(.top, 8)
 
-                List(filteredUsers) { user in
-                    Button(action: {
-                        startNewConversation(with: user)
-                    }) {
-                        HStack {
-                            Image(systemName: "person.circle.fill")
-                                .resizable()
-                                .frame(width: 50, height: 50)
-                                .clipShape(Circle())
-
-                            Text(user.username)
-                                .font(.headline)
-                            Spacer()
+                // List of filtered users
+                List {
+                    ForEach(filteredUsers) { user in
+                        Button {
+                            startNewConversation(with: user)
+                        } label: {
+                            userRow(user)
                         }
-                        .padding(.vertical, 5)
+                        .padding(.vertical, 4)
+                        .listRowSeparator(.hidden)
                     }
                 }
                 .listStyle(PlainListStyle())
             }
-            .navigationTitle("New Message")
-            .navigationBarItems(trailing:
-                Button("Cancel") {
-                    isPresented = false
+            // Custom Nav Bar
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                // Title on the left
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Text("New Message")
+                        .font(.system(size: 18, weight: .semibold))
                 }
-            )
+                // Cancel button on the right
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Cancel") {
+                        isPresented = false
+                    }
+                    .font(.system(size: 16))
+                }
+            }
             .onAppear {
                 fetchUsers()
             }
         }
     }
 
+    // MARK: - User Row
+    @ViewBuilder
+    private func userRow(_ user: User) -> some View {
+        HStack(spacing: 12) {
+            // Profile image (placeholder)
+            Image(systemName: "person.circle.fill")
+                .resizable()
+                .scaledToFill()
+                .frame(width: 44, height: 44)
+                .clipShape(Circle())
+
+            Text(user.username)
+                .font(.system(size: 16, weight: .medium))
+
+            Spacer()
+        }
+    }
+
+    // MARK: - Fetch Users
     private func fetchUsers() {
         let db = Firestore.firestore()
         guard let currentUserId = Auth.auth().currentUser?.uid else { return }
@@ -74,27 +102,28 @@ struct NewMessageView: View {
 
             self.users = snapshot?.documents.compactMap { doc -> User? in
                 let data = doc.data()
-                guard let username = data["username"] as? String,
-                      let id = data["id"] as? String,
-                      let email = data["email"] as? String,
-                      id != currentUserId else { return nil } // Exclude current user
+                guard
+                    let username = data["username"] as? String,
+                    let id = data["id"] as? String,
+                    let email = data["email"] as? String,
+                    id != currentUserId  // Exclude current user
+                else { return nil }
                 return User(id: id, username: username, email: email)
             } ?? []
         }
     }
 
-
+    // MARK: - Start Conversation
     private func startNewConversation(with user: User) {
         let currentUserId = Auth.auth().currentUser?.uid ?? ""
         let db = Firestore.firestore()
-        
+
         let conversationRef = db.collection("conversations").document()
-        
         let conversationData: [String: Any] = [
             "id": conversationRef.documentID,
             "users": [currentUserId, user.id]
         ]
-        
+
         conversationRef.setData(conversationData) { error in
             if let error = error {
                 print("DEBUG: Failed to create conversation \(error.localizedDescription)")
@@ -109,3 +138,4 @@ struct NewMessageView: View {
 #Preview {
     NewMessageView(isPresented: .constant(false))
 }
+

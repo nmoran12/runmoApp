@@ -27,7 +27,7 @@ struct Message: Identifiable, Codable {
     var id: String
     var senderId: String
     var text: String
-    @ServerTimestamp var timestamp: Date?
+    let timestamp: Date
 }
 
 

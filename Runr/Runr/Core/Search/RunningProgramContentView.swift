@@ -54,46 +54,39 @@ struct RunningProgramContentView: View {
                 
                 // MARK: - Hero Image (60% screen height)
                 AsyncImage(url: URL(string: program.imageUrl)) { phase in
-                    switch phase {
-                    case .empty:
-                        ProgressView()
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .background(Color.gray)
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFill() // Fill while keeping aspect ratio
-                    case .failure:
-                        Color.red
-                            .overlay(
-                                Text("Image failed to load")
-                                    .foregroundColor(.white)
-                            )
-                    @unknown default:
-                        EmptyView()
-                    }
+                        Image("DefaultPlaceholder")
+                                    .resizable()
+                                    .scaledToFill()
                 }
                 .frame(width: UIScreen.main.bounds.width,
                        height: UIScreen.main.bounds.height * 0.6)
                 .clipped()
                 
                 // MARK: - Title & Subtitle
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 12) {
                     Text(program.title)
                         .fontWeight(.semibold)
                         .font(.system(size: 20))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal)
+                        .padding(.bottom, -10)
                     
                     Text(program.subtitle)
                         .font(.subheadline)
                         .foregroundColor(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal)
+                        .padding(.bottom, 20)
                 }
-                .padding()
+                .padding(.top)
                 
                 // MARK: - Plan Overview
                 Text("Plan Overview")
                     .fontWeight(.semibold)
                     .font(.system(size: 20))
-                    .padding(.horizontal, 10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal)
+
                 
                 Spacer()
                 
@@ -107,7 +100,9 @@ struct RunningProgramContentView: View {
                 Text("Experience Level")
                     .fontWeight(.semibold)
                     .font(.system(size: 20))
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal)
+                    .padding(.top, 20)
                 
                 Spacer()
                 
@@ -116,6 +111,14 @@ struct RunningProgramContentView: View {
                     .padding(.horizontal)
                 
                 // MARK: - Weekly Plans
+                Text("Weekly Plan")
+                    .fontWeight(.semibold)
+                    .font(.system(size: 20))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal)
+                    .padding(.top, 20)
+                
+                
                 ForEach(program.weeklyPlans) { weeklyPlan in
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Week \(weeklyPlan.weekNumber): \(weeklyPlan.title)")
@@ -125,7 +128,7 @@ struct RunningProgramContentView: View {
                             .font(.body)
                     }
                     .padding(.horizontal)
-                    .padding(.top, 8)
+                    .padding(.top, 20)
                     
                     // Divider between weeks
                     Divider()

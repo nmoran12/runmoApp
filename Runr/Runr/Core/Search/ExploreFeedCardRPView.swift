@@ -51,6 +51,8 @@ struct ExploreFeedCardRPView: View {
         title: "How I went from couch to marathon in 6 months",
         content: "This is a story of how I went from couch to marathon in 6 months, working hard and sticking to a plan.",
         category: "Blog",
-        imageUrl: "https://via.placeholder.com/200"
+        imageUrl: "https://via.placeholder.com/200",
+        authorId: "sampleUserID",
+        authorUsername: "SampleUser"
     ))
 }

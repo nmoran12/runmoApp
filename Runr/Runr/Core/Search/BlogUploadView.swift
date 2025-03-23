@@ -94,18 +94,31 @@ struct BlogUploadView: View {
 
             // Update the counter document with the new ID
             transaction.updateData(["lastBlogId": newId], forDocument: counterRef)
+            
+            // Grab current user ID and username from your auth/user service
+                    guard let currentUserId = AuthService.shared.userSession?.uid else {
+                        print("No current user ID found.")
+                        return nil
+                    }
+                    let currentUsername = AuthService.shared.currentUser?.username ?? "Unknown User"
 
             // Generate new blog data
-            let blogData: [String: Any] = [
-                "title": title,
-                "content": content,
-                "category": "Blog",
-                "imageUrl": "https://via.placeholder.com/200",
-                "timestamp": Timestamp()
-            ]
+                    let blogData: [String: Any] = [
+                        "title": title,
+                        "content": content,
+                        "category": "Blog",
+                        "imageUrl": "https://via.placeholder.com/200",
+                        "timestamp": Timestamp(),
+                        "authorId": currentUserId,
+                        "authorUsername": currentUsername
+                    ]
 
             // Set the blog document with the custom ID format
-            let blogRef = db.collection("exploreFeedItems").document("blogPost\(newId)")
+            let blogRef = db.collection("exploreFeedItems")
+                .document("blogs")
+                .collection("individualBlogs")
+                .document("blogPost\(newId)")
+            
             transaction.setData(blogData, forDocument: blogRef)
 
             return nil

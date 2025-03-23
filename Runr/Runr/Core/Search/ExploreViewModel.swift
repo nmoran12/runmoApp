@@ -18,6 +18,7 @@ class ExploreViewModel: ObservableObject {
         Task {
             await fetchRunningPrograms()
             await fetchUsers()
+            await fetchBlogs()
         }
     }
 
@@ -48,31 +49,64 @@ class ExploreViewModel: ObservableObject {
             print("Error: \(error)")
         }
     }
+    
+    // Fetch blog programs to display in its explore tab
+    // In ExploreViewModel.swift, add this new method:
+    func fetchBlogs() async {
+        do {
+            let db = Firestore.firestore()
+            let blogSnapshot = try await db
+                .collection("exploreFeedItems")
+                .document("blogs")
+                .collection("individualBlogs")
+                .getDocuments()
+            
+            var blogItems: [ExploreFeedItem] = []
+            for doc in blogSnapshot.documents {
+                if let parsed = parseDocument(doc) {
+                    blogItems.append(parsed)
+                }
+            }
+            
+            DispatchQueue.main.async {
+                // Merge blogs with your existing items
+                self.exploreFeedItems.append(contentsOf: blogItems)
+            }
+            
+        } catch {
+            print("Error fetching blogs: \(error)")
+        }
+    }
+
 
 
     private func parseDocument(_ doc: QueryDocumentSnapshot) -> ExploreFeedItem? {
         let data = doc.data()
         
-        // We know your items have at least a title, category, and imageUrl.
         guard let title = data["title"] as? String,
               let category = data["category"] as? String,
               let imageUrl = data["imageUrl"] as? String
         else { return nil }
         
-        // Some items might have "content", others "planOverview".
-        // We can combine them into a single `content` field for ExploreFeedItem.
         let content = data["content"] as? String
             ?? data["planOverview"] as? String
             ?? ""
         
+        // Optional author fields
+        let authorId = data["authorId"] as? String
+        let authorUsername = data["authorUsername"] as? String
+
         return ExploreFeedItem(
             exploreFeedId: doc.documentID,
             title: title,
             content: content,
             category: category,
-            imageUrl: imageUrl
+            imageUrl: imageUrl,
+            authorId: authorId,
+            authorUsername: authorUsername
         )
     }
+
 
 
 

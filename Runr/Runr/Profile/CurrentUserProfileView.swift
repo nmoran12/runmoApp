@@ -21,6 +21,8 @@ struct CurrentUserProfileView: View {
     @State private var showBioAlert = false
     @State private var isFirst = false
     @StateObject private var rankChecker = UserRankChecker()
+    @State private var showPrivacyPolicy = false
+
 
     var body: some View {
         NavigationStack {
@@ -75,6 +77,9 @@ struct CurrentUserProfileView: View {
                 }
             }
             .confirmationDialog("Menu", isPresented: $showMenu, titleVisibility: .visible) {
+                Button("Privacy Policy") {
+                        showPrivacyPolicy.toggle()
+                    }
                 Button("Update Bio"){
                     showBioUpdateAlert()
                 }
@@ -83,6 +88,11 @@ struct CurrentUserProfileView: View {
                 }
                 Button("Cancel", role: .cancel) { }
             }
+            .sheet(isPresented: $showPrivacyPolicy) {
+                            NavigationStack {
+                                PrivacyPolicyView()
+                            }
+                        }
             .alert("Update Bio", isPresented: $showBioAlert) {
                     TextField("Enter new bio", text: $newBio)
                     Button("Save", action: updateBio)

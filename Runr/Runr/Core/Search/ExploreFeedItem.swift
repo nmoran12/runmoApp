@@ -8,14 +8,17 @@
 import Foundation
 
 struct ExploreFeedItem: Identifiable {
-    let exploreFeedId: String // 🔹 Renamed from `id`
+    let exploreFeedId: String
     let title: String
     let content: String
     let category: String
     let imageUrl: String
-    
-    var id: String { exploreFeedId } // 🔹 Keeps Identifiable conformance
+    let authorId: String?
+    let authorUsername: String?
+
+    var id: String { exploreFeedId }
 }
+
 
 // Helper function to convert ExploreFeedItem to RunningProgram
 func convertToRunningProgram(from item: ExploreFeedItem) -> RunningProgram {

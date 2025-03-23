@@ -16,16 +16,21 @@ struct BlogsFeed: View {
     }
 
     var body: some View {
-        ScrollView {
-            LazyVStack(spacing: 16) {
-                ForEach(blogs) { item in
-                    ExploreFeedCardView(exploreFeedItem: item)
+            ScrollView {
+                LazyVStack(spacing: 16) {
+                    ForEach(blogs) { item in
+                        NavigationLink(destination: BlogContentView(blog: item)) {
+                            ExploreFeedCardView(exploreFeedItem: item)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    }
+
                 }
+                .padding(.top)
             }
-            .padding(.top)
-        }
     }
 }
+
 
 #Preview {
     BlogsFeed(viewModel: ExploreViewModel())

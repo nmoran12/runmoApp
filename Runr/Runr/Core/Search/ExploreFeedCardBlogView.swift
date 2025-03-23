@@ -50,7 +50,9 @@ struct ExploreFeedCardView: View {
         title: "5K Beginner Plan",
         content: "A structured 5K training plan to get started with running.",
         category: "Running Program",
-        imageUrl: "https://via.placeholder.com/200"
+        imageUrl: "https://via.placeholder.com/200",
+        authorId: "sampleUserID",
+        authorUsername: "SampleUser"
     ))
 }
 

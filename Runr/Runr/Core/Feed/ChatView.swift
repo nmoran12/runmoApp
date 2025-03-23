@@ -14,55 +14,34 @@ struct ChatView: View {
     @StateObject private var viewModel = ChatViewModel()
     
     var body: some View {
-        VStack {
-            ScrollViewReader { scrollViewProxy in // Define scrollViewProxy
+        VStack(spacing: 0) {
+            // 1) Scrollable messages
+            ScrollViewReader { scrollViewProxy in
                 ScrollView {
                     VStack {
                         ForEach(viewModel.messages) { message in
-                            HStack {
-                                if message.senderId == viewModel.currentUserId {
-                                    Spacer()
-                                    Text(message.text)
-                                        .padding()
-                                        .background(Color.blue)
-                                        .foregroundColor(.white)
-                                        .cornerRadius(20)
-                                        .id(message.id) // Assign ID for scrolling
-                                } else {
-                                    Text(message.text)
-                                        .padding()
-                                        .background(Color.gray.opacity(0.2))
-                                        .cornerRadius(20)
-                                        .id(message.id) // Assign ID for scrolling
-                                    Spacer()
-                                }
-                            }
-                            .padding(.horizontal)
+                            ChatBubbleView(message: message, currentUserId: viewModel.currentUserId)
+                                .id(message.id)
                         }
                     }
-                }
-                .onChange(of: viewModel.messages.count) { _ in
-                    if let lastMessage = viewModel.messages.last {
-                        withAnimation {
-                            scrollViewProxy.scrollTo(lastMessage.id, anchor: .bottom) // Auto-scroll to bottom
-                        }
+                    .onChange(of: viewModel.messages.count) { _ in
+                        scrollToLastMessage(scrollViewProxy)
                     }
-                }
-                .onAppear {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        if let lastMessage = viewModel.messages.last {
-                            withAnimation {
-                                scrollViewProxy.scrollTo(lastMessage.id, anchor: .bottom) // Scroll on view appear
-                            }
+                    .onAppear {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            scrollToLastMessage(scrollViewProxy)
                         }
                     }
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // The scroll view expands to fill available space
             
+            // 2) The input bar, pinned at bottom
             HStack {
                 TextField("Type a message...", text: $messageText)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
-
+                
                 Button(action: sendMessage) {
                     Image(systemName: "paperplane.fill")
                         .foregroundColor(.blue)
@@ -75,6 +54,16 @@ struct ChatView: View {
             viewModel.loadMessages(conversationId: conversationId)
             viewModel.loadUserProfile(userId: userId)
         }
+        // 3) Allow the keyboard to cover the bottom safe area if needed
+        .ignoresSafeArea(.keyboard, edges: .bottom)
+    }
+
+    func scrollToLastMessage(_ scrollViewProxy: ScrollViewProxy) {
+        if let lastMessage = viewModel.messages.last {
+            withAnimation {
+                scrollViewProxy.scrollTo(lastMessage.id, anchor: .bottom)
+            }
+        }
     }
 
     func sendMessage() {
@@ -82,6 +71,7 @@ struct ChatView: View {
         messageText = ""
     }
 }
+
 
 
 

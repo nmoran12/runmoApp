@@ -58,7 +58,8 @@ struct RunInfoDisplayView: View {
                     routeCoordinates: routeCoordinates,
                     distance: runTracker.distanceTraveled / 1000,
                     elapsedTime: runTracker.elapsedTime,
-                    pace: runTracker.paceString
+                    pace: runTracker.paceString,
+                    footwear: selectedFootwear
                 )) {
 
                     Text("Finish")

@@ -177,6 +177,7 @@ struct FeedCell: View {
                             .frame(height: 400)
                             .clipShape(RoundedRectangle(cornerRadius: 10))
                             .padding(.top, 6)
+                            .allowsHitTesting(false)  // Disable interaction on the map
                     }
                 }
             }

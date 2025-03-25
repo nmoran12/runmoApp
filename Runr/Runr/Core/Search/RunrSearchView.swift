@@ -47,8 +47,14 @@ struct RunrSearchView: View {
                     ExploreUploadView()
                 }
             }
-            .navigationTitle("Explore")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Text("Explore")
+                        .fontWeight(.semibold)
+                        .font(.system(size: 20))
+                }
+            }
         }
     }
 }

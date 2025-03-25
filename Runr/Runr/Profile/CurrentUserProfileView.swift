@@ -7,6 +7,7 @@
 
 import SwiftUI
 import FirebaseFirestore
+import FirebaseAuth
 
 struct CurrentUserProfileView: View {
     @State private var user: User?
@@ -55,7 +56,11 @@ struct CurrentUserProfileView: View {
                             .foregroundColor(.gray)
                     } else {
                         ForEach(runs) { run in
-                            RunCell(run: run, userId: user.id)
+                            RunCell(
+                                run: run,
+                                userId: user.id,
+                                isCurrentUser: Auth.auth().currentUser?.uid == user.id
+                            )
                         }
 
                     }

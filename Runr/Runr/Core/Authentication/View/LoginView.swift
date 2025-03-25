@@ -51,7 +51,23 @@ struct LoginView: View {
                 .frame(maxWidth: .infinity, alignment: .trailing)
                 
                 Button {
-                    Task { try await viewModel.signIn() }
+                    Task {
+                        do {
+                            try await viewModel.signIn()
+                            
+                            // AUTHORISATION REQUESTS FOR THE USER UPON LOGIN
+                            // If signIn is successful, then ask for HealthKit authorization
+                            HealthKitManager.shared.requestAuthorization { success, error in
+                                if success {
+                                    print("HealthKit authorization granted.")
+                                } else {
+                                    print("HealthKit authorization failed: \(error?.localizedDescription ?? "")")
+                                }
+                            }
+                        } catch {
+                            print("Login failed: \(error)")
+                        }
+                    }
                 } label: {
                     Text("Login")
                         .font(.subheadline)
@@ -62,6 +78,8 @@ struct LoginView: View {
                         .cornerRadius(8)
                 }
                 .padding(.vertical)
+                
+                
 
                 HStack{
                     Rectangle()

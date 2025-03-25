@@ -8,12 +8,24 @@
 import Foundation
 import CoreLocation
 
+extension RunData {
+    var startDate: Date {
+        return date
+    }
+    
+    var endDate: Date {
+        return date.addingTimeInterval(elapsedTime)
+    }
+}
+
+
 struct RunData: Identifiable, Codable {
     var id = UUID().uuidString
     let date: Date
     let distance: Double
     let elapsedTime: Double
     let routeCoordinates: [CLLocationCoordinate2D]
+    
     
     init(date: Date, distance: Double, elapsedTime: Double, routeCoordinates: [CLLocationCoordinate2D]) {
          self.date = date

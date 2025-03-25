@@ -26,6 +26,55 @@ class AuthService: ObservableObject {
         self.userSession = Auth.auth().currentUser
     }
     
+    // This is a function to be able to follow a user
+    func followUser(userId: String) async throws {
+        guard let currentUserId = Auth.auth().currentUser?.uid else { return }
+        
+        let targetUserRef = Firestore.firestore().collection("users").document(userId)
+        let currentUserRef = Firestore.firestore().collection("users").document(currentUserId)
+        
+        // Update the followed user's document: increment followerCount and add currentUserId to followers array.
+        try await targetUserRef.updateData([
+            "followerCount": FieldValue.increment(Int64(1)),
+            "followers": FieldValue.arrayUnion([currentUserId])
+        ])
+        
+        // Optionally, update the current user's following list.
+        try await currentUserRef.updateData([
+            "following": FieldValue.arrayUnion([userId])
+        ])
+    }
+    
+    func unfollowUser(userId: String) async throws {
+        guard let currentUserId = Auth.auth().currentUser?.uid else { return }
+        
+        let targetUserRef = Firestore.firestore().collection("users").document(userId)
+        let currentUserRef = Firestore.firestore().collection("users").document(currentUserId)
+        
+        // Decrement follower count on the target user
+        try await targetUserRef.updateData([
+            "followerCount": FieldValue.increment(Int64(-1)),
+            "followers": FieldValue.arrayRemove([currentUserId])
+        ])
+        
+        // Remove from the current user's "following" array
+        try await currentUserRef.updateData([
+            "following": FieldValue.arrayRemove([userId])
+        ])
+    }
+
+    func isCurrentUserFollowingUser(_ userId: String) async throws -> Bool {
+        guard let currentUserId = Auth.auth().currentUser?.uid else { return false }
+        
+        let currentUserRef = Firestore.firestore().collection("users").document(currentUserId)
+        let snapshot = try await currentUserRef.getDocument()
+        if let data = snapshot.data(), let followingArray = data["following"] as? [String] {
+            return followingArray.contains(userId)
+        }
+        return false
+    }
+
+    
     // Uploads a profile image to Firebase Storage and updates Firestore with the image URL
     func uploadProfileImage(_ image: UIImage) async throws -> String {
         guard let userId = Auth.auth().currentUser?.uid else {
@@ -63,7 +112,7 @@ class AuthService: ObservableObject {
                 self.currentUser?.profileImageUrl = downloadURL.absoluteString
             }
 
-            return downloadURL.absoluteString  // ✅ Ensure we return the image URL
+            return downloadURL.absoluteString
         } catch {
             print("DEBUG: Failed to retrieve download URL: \(error.localizedDescription)")
             throw error

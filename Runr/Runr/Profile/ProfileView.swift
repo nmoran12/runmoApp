@@ -6,6 +6,7 @@
 
 import SwiftUI
 import FirebaseFirestore
+import FirebaseAuth
 
 struct ProfileView: View {
     @Binding var user: User
@@ -38,7 +39,7 @@ struct ProfileView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 16) {
+                VStack() {
                     ProfileHeaderView(
                         user: user,
                         totalDistance: totalDistance,
@@ -68,12 +69,15 @@ struct ProfileView: View {
                             .foregroundColor(.gray)
                     } else {
                         ForEach(runs) { run in
-                            RunCell(run: run, userId: user.id)
+                            RunCell(
+                                run: run,
+                                userId: user.id,
+                                isCurrentUser: Auth.auth().currentUser?.uid == user.id
+                            )
                         }
 
                     }
                 }
-                .padding()
                 .onAppear {
                     Task {
                         await fetchUserRuns()
@@ -81,9 +85,13 @@ struct ProfileView: View {
                     }
                 }
             }
-            .navigationTitle("Profile")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Text("Profile")
+                        .fontWeight(.semibold)
+                        .font(.system(size: 20))
+                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: {
                         showMenu.toggle()

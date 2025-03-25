@@ -24,7 +24,7 @@ struct RunrTabView: View {
                     Image(systemName: "house")
                 }.tag(0)
             
-            RunrSearchView()
+            ExploreView()
                 .onAppear{
                     print("Search clicked")
                     selectedIndex = 1
@@ -35,7 +35,7 @@ struct RunrTabView: View {
             
             
             // Start run button on tab bar
-            RunView()
+            RunningView()
                 .onAppear{
                     print("Run view appeared")
                     selectedIndex = 2

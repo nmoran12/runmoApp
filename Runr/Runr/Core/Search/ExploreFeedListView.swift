@@ -16,12 +16,18 @@ struct ExploreFeedListView: View {
     @ObservedObject var viewModel: ExploreViewModel
     @State private var selectedFeed: FeedType = .runningPrograms
     @State private var searchText = ""
-
+    
     var body: some View {
-        ScrollView {
+        NavigationView {
             VStack {
-
-                // Buttons for toggling feed sections
+                // Search Bar
+                TextField("Search", text: $searchText)
+                    .padding(10)
+                    .background(Color(.systemGray6))
+                    .cornerRadius(8)
+                    .padding(.horizontal)
+                
+                // Feed Toggle Buttons
                 HStack(spacing: 0) {
                     ForEach(FeedType.allCases, id: \.self) { feed in
                         Button(action: {
@@ -33,22 +39,30 @@ struct ExploreFeedListView: View {
                                 .font(.headline)
                                 .foregroundColor(selectedFeed == feed ? .black : .gray)
                                 .frame(maxWidth: .infinity)
-                                .padding(.vertical, 8)
+                                .padding(.vertical, 10)
                         }
                     }
                 }
-                .background(Color(.systemGray6))
-                .cornerRadius(10)
+                .padding(.horizontal, 4)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.white)
+                        .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
+                )
                 .padding(.horizontal)
                 .padding(.top, 8)
-
-                // Show the selected feed
+                
+                // Display Selected Feed
                 if selectedFeed == .runningPrograms {
                     RunningProgramsFeed(viewModel: viewModel)
                 } else {
                     BlogsFeed(viewModel: viewModel)
                 }
+                
+                Spacer()
             }
+            .navigationTitle("Explore")
+            .navigationBarTitleDisplayMode(.inline)
         }
     }
 }
@@ -56,5 +70,6 @@ struct ExploreFeedListView: View {
 #Preview {
     ExploreFeedListView(viewModel: ExploreViewModel())
 }
+
 
 

@@ -12,6 +12,7 @@ import FirebaseFirestore
 struct RunCell: View {
     var run: RunData
     var userId: String // To track which user's run this is
+    var isCurrentUser: Bool
     
     @State private var showDetailView = false
     @State private var showMenu = false
@@ -43,8 +44,11 @@ struct RunCell: View {
                         .foregroundColor(.gray)
                 }
                 .confirmationDialog("Run Options", isPresented: $showMenu, titleVisibility: .visible) {
-                    Button("Delete Run", role: .destructive) {
-                        deleteRun()
+                    // Show "Delete Run" only if this is the current user's run.
+                    if isCurrentUser {
+                        Button("Delete Run", role: .destructive) {
+                            deleteRun()
+                        }
                     }
                     Button("Cancel", role: .cancel) { }
                 }
@@ -133,7 +137,8 @@ struct RunCell: View {
             elapsedTime: 1800,
             routeCoordinates: []
         ),
-        userId: "testUser"
+        userId: "testUser",
+        isCurrentUser: true
     )
 }
 

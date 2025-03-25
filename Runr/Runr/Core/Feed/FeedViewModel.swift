@@ -14,38 +14,66 @@ import FirebaseAuth
 
 @MainActor
 class FeedViewModel: ObservableObject {
-    
     @Published var posts: [Post] = []
-    
-    func fetchPosts() async {
-        print("DEBUG: Fetching posts...")
+    private var lastDocument: DocumentSnapshot?
+    @Published var isFetching = false
+    @Published var noMorePosts = false
+
+    // Fetch initial posts or next batch if not initial
+    func fetchPosts(initial: Bool = false) async {
+        // Prevent duplicate fetches if one is already in progress.
+        guard !isFetching else { return }
+        isFetching = true
+        
+        // If this is an initial load or a "refresh," reset everything
+                if initial {
+                    noMorePosts = false
+                    lastDocument = nil
+                    posts = []
+                }
+        
+        var query: Query = Firestore.firestore().collection("posts")
+            .order(by: "timestamp", descending: true)
+            .limit(to: 10) // Load 10 posts at a time
+        
+        // If not the initial load, start after the last document of previous batch
+        if !initial, let lastDoc = lastDocument {
+            query = query.start(afterDocument: lastDoc)
+        }
         
         do {
-            let postsSnapshot = try await Firestore.firestore().collection("posts")
-                .order(by: "timestamp", descending: true)
-                .getDocuments()
+            let postsSnapshot = try await query.getDocuments()
+            
+            // If no more documents are available, set noMorePosts = true
+                        if postsSnapshot.documents.isEmpty {
+                            noMorePosts = true
+                            isFetching = false
+                            return
+                        }
+            
+            // Update the last document reference for pagination.
+            lastDocument = postsSnapshot.documents.last
             
             var fetchedPosts: [Post] = []
             
             for postDoc in postsSnapshot.documents {
                 let postData = postDoc.data()
-                
+                // Unpack post fields – adjust as needed for your data
                 guard
                     let postId = postData["id"] as? String,
                     let userId = postData["ownerUid"] as? String,
                     let username = postData["username"] as? String,
-                    let runId = postData["runId"] as? String, // Get run reference
+                    let runId = postData["runId"] as? String,
                     let likes = postData["likes"] as? Int,
                     let timestamp = (postData["timestamp"] as? Timestamp)?.dateValue()
                 else {
-                    print("DEBUG: Skipping post due to missing fields -> \(postData)") // Print the post data
+                    print("DEBUG: Skipping post due to missing fields -> \(postData)")
                     continue
                 }
-
                 
+                // Optionally, fetch run data as before – if possible, denormalize to avoid extra round trips.
                 let userRef = Firestore.firestore().collection("users").document(userId)
-                let runRef = userRef.collection("runs").document(runId) // Fetch run data
-                
+                let runRef = userRef.collection("runs").document(runId)
                 let runSnapshot = try? await runRef.getDocument()
                 guard let runData = runSnapshot?.data(),
                       let distance = runData["distance"] as? Double,
@@ -70,20 +98,33 @@ class FeedViewModel: ObservableObject {
                     likes: likes,
                     imageUrl: "",
                     timestamp: timestamp,
-                    user: User(id: userId, username: username, email: ""), // You may fetch email if required
+                    user: User(id: userId, username: username, email: ""),
                     runData: run
                 )
                 
                 fetchedPosts.append(post)
             }
             
+            // Append new posts to the existing list
             DispatchQueue.main.async {
-                self.posts = fetchedPosts
-                print("DEBUG: Total posts loaded: \(self.posts.count)")
+                if initial {
+                    self.posts = fetchedPosts
+                } else {
+                    self.posts.append(contentsOf: fetchedPosts)
+                }
             }
             
         } catch {
             print("DEBUG: Failed to fetch posts with error \(error.localizedDescription)")
         }
+        
+        isFetching = false
+    }
+    
+    // Optionally, a method to refresh the feed
+    func refreshFeed() async {
+        lastDocument = nil
+        await fetchPosts(initial: true)
     }
 }
+

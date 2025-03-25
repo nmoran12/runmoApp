@@ -13,10 +13,12 @@ import FirebaseAuth
 struct ProfileHeaderView: View {
     @EnvironmentObject var authService: AuthService
     @State private var runCount: Int = 0
-    
-    // New state variables for the new navigation API
+    @State private var followerCount: Int = 0
+    @State private var followerListener: ListenerRegistration? = nil
     @State private var showChat = false
     @State private var generatedConversationId = ""
+    @State private var isFollowing = false
+    @State private var followingCount: Int = 0
     
     let user: User
     let totalDistance: Double?
@@ -91,6 +93,40 @@ struct ProfileHeaderView: View {
             }
         }
     }
+    
+    // Listen for changes in the user's follower/following data
+        private func listenForUserUpdates() {
+            let userRef = Firestore.firestore().collection("users").document(user.id)
+            followerListener = userRef.addSnapshotListener { snapshot, error in
+                if let error = error {
+                    print("DEBUG: Error listening for user updates: \(error.localizedDescription)")
+                    return
+                }
+                if let snapshot = snapshot, snapshot.exists, let data = snapshot.data() {
+                    
+                    // If you store followerCount as an integer
+                    if let count = data["followerCount"] as? Int {
+                        DispatchQueue.main.async {
+                            self.followerCount = count
+                        }
+                    }
+                    
+                    // If you store a 'following' array on the user doc
+                    if let followingArray = data["following"] as? [String] {
+                        DispatchQueue.main.async {
+                            self.followingCount = followingArray.count
+                        }
+                    }
+                    
+                    // Alternatively, if you store followingCount as an integer:
+                    // if let followingNum = data["followingCount"] as? Int {
+                    //     DispatchQueue.main.async {
+                    //         self.followingCount = followingNum
+                    //     }
+                    // }
+                }
+            }
+        }
 
     
     var body: some View {
@@ -171,28 +207,51 @@ struct ProfileHeaderView: View {
                 .foregroundColor(.gray)
             
             HStack(spacing: 8){
-              //  Text("Followers: 0   Following: 0   Runs: \(runCount)")
-              //      .font(.footnote)
-              //      .foregroundColor(.gray)
                 
                 Text("Followers: ")
                     .fontWeight(.semibold)
                 
-                Text("0")
+                Text("\(followerCount)")
+                    .font(.footnote)
+                
+                Text("Following: ")
+                    .fontWeight(.semibold)
+                
+                Text("\(followingCount)")
+                    .font(.footnote)
+                
+                Text("Runs: ")
+                    .fontWeight(.semibold)
+                
+                Text("\(runCount)")
                     .font(.footnote)
             }
             
             // Follow & Message buttons
             HStack {
                 Button {
-                    // TODO: Implement follow logic
+                    Task {
+                        do {
+                            if isFollowing {
+                            // Already following -> Unfollow
+                            try await AuthService.shared.unfollowUser(userId: user.id)
+                            isFollowing = false
+                        } else {
+                            // Not following -> Follow
+                            try await AuthService.shared.followUser(userId: user.id)
+                            isFollowing = true
+                        }
+                    } catch {
+                        print("DEBUG: Error toggling follow: \(error.localizedDescription)")
+                    }
+                }
                 } label: {
-                    Text("Follow")
+                    Text(isFollowing ? "Unfollow" : "Follow")
                         .font(.subheadline)
                         .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
-                        .background(Color.blue)
+                        .background(isFollowing ? Color.gray : Color.blue)
                         .foregroundColor(.white)
                         .cornerRadius(4)
                 }
@@ -216,15 +275,26 @@ struct ProfileHeaderView: View {
             .frame(height: 36)
         }
         .padding(.horizontal)
+        .onAppear {
+                    // Start listening for follower count updates when the view appears.
+                    listenForUserUpdates()
+                }
+                .onDisappear {
+                    // Remove the listener to prevent memory leaks.
+                    followerListener?.remove()
+                }
         .task {
             do {
                 let runs = try await AuthService.shared.fetchUserRuns()
                 runCount = runs.count
+                
+                // Check if current user is following this user
+                let followingStatus = try await AuthService.shared.isCurrentUserFollowingUser(user.id)
+                isFollowing = followingStatus
             } catch {
                 print("Error fetching run count: \(error.localizedDescription)")
             }
         }
-        // NEW: Use the new navigationDestination API.
         .navigationDestination(isPresented: $showChat) {
             ChatView(conversationId: generatedConversationId, userId: user.id)
         }

@@ -24,6 +24,8 @@ struct RunningProgramUploadView: View {
     @State private var planOverview: String = ""
     @State private var experienceLevel: String = ""
     @Environment(\.dismiss) private var dismiss // this is used to get rid of the upload screen when i click upload
+    
+    var onProgramCreated: (() -> Void)?
 
     
     @State private var numberOfWeeks: Int = 6 {
@@ -256,20 +258,23 @@ struct RunningProgramUploadView: View {
         ]
         
         let db = Firestore.firestore()
-        db.collection("exploreFeedItems")
-            .document("runningPrograms")
-            .collection("programs")
-            .addDocument(data: data) { error in
-                if let error = error {
-                    print("Error uploading running program: \(error.localizedDescription)")
-                } else {
-                    print("Running program successfully uploaded!")
-                    // Dismiss current screen when you click upload
-                    dismiss()
-                }
+                db.collection("exploreFeedItems")
+                    .document("runningPrograms")
+                    .collection("programs")
+                    .addDocument(data: data) { error in
+                        if let error = error {
+                            print("Error uploading running program: \(error.localizedDescription)")
+                        } else {
+                            print("Running program successfully uploaded!")
+                            
+                            // INSTEAD OF calling `dismiss()` here, just call the callback:
+                            DispatchQueue.main.async {
+                                onProgramCreated?()  // Tell the parent "we're done"
+                            }
+                        }
+                    }
             }
-    }
-}
+        }
 
 #Preview {
     RunningProgramUploadView()

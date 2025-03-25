@@ -9,8 +9,9 @@ import SwiftUI
 
 struct ExploreUploadView: View {
     @Environment(\.dismiss) var dismiss
-    @State private var selectedTab = 0 // 🔹 Track selected tab
-
+    @State private var selectedTab = 0
+    
+    
     var body: some View {
         NavigationView {
             VStack {
@@ -22,19 +23,24 @@ struct ExploreUploadView: View {
                 .padding()
 
                 TabView(selection: $selectedTab) {
-                    BlogUploadView() // 🔹 Blog Upload Screen
+                    BlogUploadView()
                         .tag(0)
-
-                    RunningProgramUploadView() // 🔹 Running Program Upload Screen
-                        .tag(1)
+                    
+                    // Pass the callback to RunningProgramUploadView:
+                    RunningProgramUploadView(onProgramCreated: {
+                        // This runs AFTER the user successfully uploads a program
+                        // and calls onProgramCreated?() from inside RunningProgramUploadView.
+                        dismiss() // <--- Dismiss the entire sheet
+                    })
+                    .tag(1)
                 }
-                .tabViewStyle(DefaultTabViewStyle()) // Standard tab behavior
+                .tabViewStyle(DefaultTabViewStyle())
 
-                
                 Spacer()
-                
+
                 Button("Close") {
-                    dismiss() // 🔹 Dismiss modal
+                    // If user taps "Close" manually
+                    dismiss()
                 }
                 .padding()
             }
@@ -43,6 +49,7 @@ struct ExploreUploadView: View {
         }
     }
 }
+
 
 
 

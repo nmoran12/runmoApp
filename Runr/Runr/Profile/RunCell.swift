@@ -11,7 +11,8 @@ import FirebaseFirestore
 
 struct RunCell: View {
     var run: RunData
-    var userId: String // To track which user's run this is
+    let user: User            // Now we have the full user object
+    let isFirst: Bool         // So we can show the crown
     var isCurrentUser: Bool
     
     @State private var showDetailView = false
@@ -20,13 +21,14 @@ struct RunCell: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Image(systemName: "figure.run.circle")
-                    .resizable()
-                    .frame(width: 40, height: 40)
-                    .clipShape(Circle())
+                CrownedProfileImage(
+                    profileImageUrl: user.profileImageUrl,
+                    size: 40,
+                    isFirst: isFirst
+                )
                 
                 VStack(alignment: .leading) {
-                    Text("Run")
+                    Text(user.username)
                         .font(.headline)
                     Text(run.date, formatter: dateFormatter)
                         .font(.caption)
@@ -56,10 +58,11 @@ struct RunCell: View {
             .padding(.horizontal)
 
             // Navigation to RunDetailView
-            NavigationLink(destination: RunDetailView(run: run, userId: userId), isActive: $showDetailView) {
+            NavigationLink(destination: RunDetailView(run: run, userId: user.id), isActive: $showDetailView) {
                 EmptyView()
             }
             .hidden()
+
 
             // Running Stats
             HStack {
@@ -110,7 +113,7 @@ struct RunCell: View {
     // Function to delete the run
     private func deleteRun() {
         let db = Firestore.firestore()
-        let runRef = db.collection("users").document(userId).collection("runs").document(run.id)
+        let runRef = db.collection("users").document(user.id).collection("runs").document(run.id)
         
         runRef.delete { error in
             if let error = error {
@@ -130,14 +133,11 @@ struct RunCell: View {
 }
 
 #Preview {
+    // For preview purposes, using a mock user from your MOCK_USERS array.
     RunCell(
-        run: RunData(
-            date: Date(),
-            distance: 5000,
-            elapsedTime: 1800,
-            routeCoordinates: []
-        ),
-        userId: "testUser",
+        run: RunData(date: Date(), distance: 5000, elapsedTime: 1800, routeCoordinates: []),
+        user: User.MOCK_USERS[0],
+        isFirst: true,
         isCurrentUser: true
     )
 }

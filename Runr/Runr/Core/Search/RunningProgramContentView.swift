@@ -47,16 +47,36 @@ extension RunningProgram {
 
 struct RunningProgramContentView: View {
     let program: RunningProgram
-
+    @State private var fetchedImageURL: String? = nil // this gets url from firebase storage
+    
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
                 
                 // MARK: - Hero Image (60% screen height)
-                AsyncImage(url: URL(string: program.imageUrl)) { phase in
-                        Image("DefaultPlaceholder")
+                Group {
+                    if let fetchedUrl = fetchedImageURL,
+                       let url = URL(string: fetchedUrl) {
+                        AsyncImage(url: url) { phase in
+                            switch phase {
+                            case .empty:
+                                ProgressView()
+                            case .success(let image):
+                                image
                                     .resizable()
                                     .scaledToFill()
+                            case .failure:
+                                Image("DefaultPlaceholder")
+                                    .resizable()
+                                    .scaledToFill()
+                            @unknown default:
+                                EmptyView()
+                            }
+                        }
+                    } else {
+                        // Show a loading indicator while fetching the URL
+                        ProgressView("Loading image...")
+                    }
                 }
                 .frame(width: UIScreen.main.bounds.width,
                        height: UIScreen.main.bounds.height * 0.6)
@@ -86,7 +106,7 @@ struct RunningProgramContentView: View {
                     .font(.system(size: 20))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal)
-
+                
                 
                 Spacer()
                 
@@ -137,12 +157,28 @@ struct RunningProgramContentView: View {
                 
                 Spacer(minLength: 32)
             }
-            // No .padding(.top) here
         }
         // Make the image go under the navigation bar (ignore top safe area)
         .ignoresSafeArea(edges: .top)
         .navigationTitle(program.title)
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            Task {
+                // If program.imageUrl already starts with "http", assume it's a full URL.
+                if program.imageUrl.hasPrefix("http") {
+                    fetchedImageURL = program.imageUrl
+                } else {
+                    do {
+                        // Fetch the download URL from Firebase Storage using AuthService.
+                        // This assumes your AuthService has the fetchDownloadURL function.
+                        let downloadURL = try await AuthService.shared.fetchDownloadURL(for: program.imageUrl)
+                        fetchedImageURL = downloadURL
+                    } catch {
+                        print("DEBUG: Error fetching image URL: \(error.localizedDescription)")
+                    }
+                }
+            }
+        }
     }
 }
 

@@ -23,6 +23,7 @@ struct PostRunDetailsView: View {
     @State private var showPostAlert: Bool = false
     @State private var postAlertMessage: String = ""
     @State private var userRank: Int? = nil
+    @State private var showDeleteConfirmation = false
     
     // Add this to track if we're showing loading state
     @State private var isLoadingRank: Bool = true
@@ -183,6 +184,36 @@ struct PostRunDetailsView: View {
                                         .font(.system(size: 16, weight: .bold))
                                         .foregroundColor(.white)
                                 )
+                        }
+                        
+                        // Replace your delete button with the following:
+                        Button(action: {
+                            // Trigger the confirmation dialog.
+                            showDeleteConfirmation = true
+                        }) {
+                            Circle()
+                                .fill(Color.red)
+                                .frame(width: 60, height: 60)
+                                .overlay(
+                                    Image(systemName: "trash")
+                                        .font(.system(size: 20))
+                                        .foregroundColor(.white)
+                                )
+                        }
+                        // Attach a confirmation dialog modifier to your view (e.g., on the parent VStack)
+                        .confirmationDialog("Are you sure you want to delete this run?", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
+                            Button("Delete", role: .destructive) {
+                                // Delete action:
+                                runTracker.stopRun()
+                                runTracker.distanceTraveled = 0
+                                runTracker.elapsedTime = 0
+                                runTracker.isRunning = false
+                                runTracker.paceString = "0:00"
+                                presentationMode.wrappedValue.dismiss()
+                            }
+                            Button("Cancel", role: .cancel) {
+                                // Optional: additional cancel logic if needed.
+                            }
                         }
                         
                         // Timer button

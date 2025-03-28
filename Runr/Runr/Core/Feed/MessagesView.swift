@@ -11,7 +11,8 @@ struct MessagesView: View {
     @StateObject private var viewModel = MessagesViewModel()
     @State private var searchText = ""
     @State private var isShowingNewMessageView = false
-    
+    @Environment(\.dismiss) private var dismiss  // For dismissing the view
+
     var filteredConversations: [Conversation] {
         let sortedConversations = viewModel.conversations.sorted {
             ($0.lastMessage?.timestamp ?? Date.distantPast) >
@@ -28,7 +29,7 @@ struct MessagesView: View {
     }
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 0) {
                 // Search Bar
                 TextField("Search", text: $searchText)
@@ -55,12 +56,22 @@ struct MessagesView: View {
                 }
                 .listStyle(PlainListStyle())
             }
-            // Navigation Title (inline style)
-            .navigationTitle("Messages")
+            // Custom toolbar for a back button style nav bar
             .navigationBarTitleDisplayMode(.inline)
-            // Trailing button for new message
+            .navigationBarBackButtonHidden(true)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button(action: {
+                        dismiss()
+                    }) {
+                        HStack {
+                            Image(systemName: "chevron.left")
+                            Text("Messages")
+                        }
+                        .font(.system(size: 20, weight: .semibold))
+                    }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         isShowingNewMessageView.toggle()
                     } label: {
@@ -78,17 +89,39 @@ struct MessagesView: View {
         }
     }
     
-    // MARK: - Conversation Row (optional layout)
+    // MARK: - Conversation Row
     @ViewBuilder
     private func conversationRow(_ conversation: Conversation) -> some View {
         HStack(spacing: 12) {
-            // Placeholder profile image
-            Image(systemName: "person.circle.fill")
-                .resizable()
-                .scaledToFill()
+            // Profile Image
+            if let urlString = conversation.otherUserProfileUrl,
+               let url = URL(string: urlString) {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .empty:
+                        ProgressView()
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    case .failure(_):
+                        Image(systemName: "person.circle.fill")
+                            .resizable()
+                    @unknown default:
+                        EmptyView()
+                    }
+                }
                 .frame(width: 48, height: 48)
                 .clipShape(Circle())
+            } else {
+                Image(systemName: "person.circle.fill")
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 48, height: 48)
+                    .clipShape(Circle())
+            }
             
+            // Conversation info
             VStack(alignment: .leading, spacing: 4) {
                 Text(conversation.otherUserName ?? "Unknown User")
                     .font(.system(size: 15, weight: .semibold))
@@ -102,13 +135,15 @@ struct MessagesView: View {
             Spacer()
             
             if let timestamp = conversation.lastMessage?.timestamp {
-                Text(timeAgoString(from: timestamp)) // e.g. "10m", "2h", etc.
+                Text(timeAgoString(from: timestamp))
                     .font(.system(size: 13))
                     .foregroundColor(.gray)
             }
         }
     }
 }
+
+
 
 // Example time-ago function (optional)
 fileprivate func timeAgoString(from date: Date) -> String {

@@ -12,6 +12,8 @@ import ActivityKit
 
 
 
+
+
 // All this below is the map and location logic for the running
 class RunTracker: NSObject, ObservableObject {
     @Published var region = MKCoordinateRegion(center: .init(latitude: 40.7128, longitude: -74.0060), span: .init(latitudeDelta: 0.01, longitudeDelta: 0.01))
@@ -22,6 +24,8 @@ class RunTracker: NSObject, ObservableObject {
     @Published var speed: Double = 0 // speed in metres per second
     @Published var routeCoordinates: [CLLocationCoordinate2D] = []
     @Published var paceString: String = "0:00 / km"
+    @Published var timedLocations: [TimedLocation] = []
+
 
 
 
@@ -46,21 +50,30 @@ class RunTracker: NSObject, ObservableObject {
     }
     
     // Function to start running
-    func startRun(){
+    func startRun() {
         isRunning = true
+        
+        // Reset everything to zero or nil
         startLocation = nil
+        lastLocation = nil
         distanceTraveled = 0
         elapsedTime = 0
+        routeCoordinates.removeAll()
+        timedLocations.removeAll()
+        paceString = "0:00 / km" // or whatever default you want
         
         locationManager?.startUpdatingLocation()
+        
         timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
             DispatchQueue.main.async {
                 self.elapsedTime += 1
                 self.updatePace()
             }
         }
-
     }
+    
+    
+
     
     // Function to stop a run
     func stopRun() {
@@ -111,19 +124,26 @@ class RunTracker: NSObject, ObservableObject {
             }
 
             // Generate a custom run ID using the timestamp
-            let timestamp = Date().formatted(date: .numeric, time: .standard)
+            let timestampString = Date().formatted(date: .numeric, time: .standard)
                 .replacingOccurrences(of: "/", with: "-")
                 .replacingOccurrences(of: ":", with: "-")
                 .replacingOccurrences(of: " ", with: "_")
-            let runId = "\(username)_\(timestamp)"
+            let runId = "\(username)_\(timestampString)"
             let runRef = userRef.collection("runs").document(runId)
 
-            // Include the footwear field in the run data
+            // Use timedLocations instead of routeCoordinates.
+            // Each timed location now includes latitude, longitude and timestamp.
             let runData: [String: Any] = [
                 "date": Timestamp(date: Date()),
                 "distance": self.distanceTraveled,
                 "elapsedTime": self.elapsedTime,
-                "routeCoordinates": self.routeCoordinates.map { ["latitude": $0.latitude, "longitude": $0.longitude] },
+                "routeCoordinates": self.timedLocations.map { timedLoc in
+                    [
+                        "latitude": timedLoc.coordinate.latitude,
+                        "longitude": timedLoc.coordinate.longitude,
+                        "timestamp": Timestamp(date: timedLoc.timestamp)
+                    ]
+                },
                 "caption": caption,
                 "footwear": footwear
             ]
@@ -132,7 +152,7 @@ class RunTracker: NSObject, ObservableObject {
             try await runRef.setData(runData)
             print("DEBUG: Run data uploaded with custom ID: \(runId)")
 
-            // Update total stats and footwearStats in Firestore using a transaction
+            // (The rest of your code for updating stats and posting remains unchanged.)
             try await db.runTransaction({ (transaction, errorPointer) -> Any? in
                 do {
                     let userSnapshot = try transaction.getDocument(userRef)
@@ -140,11 +160,10 @@ class RunTracker: NSObject, ObservableObject {
                     var currentTotalDistance = userSnapshot.data()?["totalDistance"] as? Double ?? 0
                     var currentTotalTime = userSnapshot.data()?["totalTime"] as? Double ?? 0
 
-                    let newTotalDistance = currentTotalDistance + (self.distanceTraveled / 1000) // Convert meters to km
+                    let newTotalDistance = currentTotalDistance + (self.distanceTraveled / 1000)
                     let newTotalTime = currentTotalTime + self.elapsedTime
                     let newAveragePace = newTotalDistance > 0 ? (newTotalTime) / newTotalDistance : 0.0
 
-                    // Update footwearStats dictionary
                     var currentFootwearStats = userSnapshot.data()?["footwearStats"] as? [String: Double] ?? [:]
                     let currentFootwearMileage = currentFootwearStats[footwear] ?? 0.0
                     currentFootwearStats[footwear] = currentFootwearMileage + (self.distanceTraveled / 1000)
@@ -165,7 +184,6 @@ class RunTracker: NSObject, ObservableObject {
                 }
             })
 
-            // Save a reference to the run in the "posts" collection
             let postRef = db.collection("posts").document(runId)
             let postData: [String: Any] = [
                 "id": runId,
@@ -183,6 +201,7 @@ class RunTracker: NSObject, ObservableObject {
             print("DEBUG: Failed to upload run data with error \(error.localizedDescription)")
         }
     }
+
 
 
 
@@ -228,7 +247,6 @@ class RunTracker: NSObject, ObservableObject {
         }
     }
 
-
     
     
     // Update the speed
@@ -250,6 +268,8 @@ class RunTracker: NSObject, ObservableObject {
     }
 
 
+
+    
 
     
     
@@ -278,7 +298,8 @@ extension RunTracker: CLLocationManagerDelegate {
                     distanceTraveled += distance
                 }
                 
-                routeCoordinates.append(location.coordinate)
+                
+                timedLocations.append(TimedLocation(coordinate: location.coordinate, timestamp: location.timestamp))
                 lastLocation = location
             } else {
                 // If paused, reset lastLocation to the most recent location so

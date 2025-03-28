@@ -9,29 +9,29 @@ import SwiftUI
 
 struct RunrSearchView: View {
     @StateObject var viewModel = ExploreViewModel()
-    @State private var isShowingUploadView = false // 🔹 Control modal visibility
+    @State private var isShowingUploadView = false //  Control modal visibility
 
     var body: some View {
         NavigationStack {
-            ZStack(alignment: .bottomTrailing) { // 🔹 Ensure button stays in the same place
+            ZStack(alignment: .bottomTrailing) { //  Ensure button stays in the same place
                 VStack {
-                    // 🔹 Search Bar
+                    //  Search Bar
                     TextField("Search...", text: $viewModel.searchText)
                         .padding()
                         .background(Color(.systemGray6))
                         .cornerRadius(8)
                         .padding(.horizontal)
                     
-                    // 🔹 Show Users
+                    //  Show Users
                     UserSearchListView(viewModel: viewModel)
 
-                    // 🔹 Show ExploreFeedItems
+                    //  Show ExploreFeedItems
                     ExploreFeedListView(viewModel: viewModel)
                 }
                 
-                // 🔹 Floating Add Button
+                //  Floating Add Button
                 Button(action: {
-                    isShowingUploadView.toggle() // 🔹 Open upload screen
+                    isShowingUploadView.toggle() //  Open upload screen
                 }) {
                     Image(systemName: "plus")
                         .resizable()
@@ -42,8 +42,8 @@ struct RunrSearchView: View {
                         .clipShape(Circle())
                         .shadow(radius: 5)
                 }
-                .padding(20) // 🔹 Keep button in bottom-right corner
-                .sheet(isPresented: $isShowingUploadView) { // 🔹 Show upload view
+                .padding(20) //  Keep button in bottom-right corner
+                .sheet(isPresented: $isShowingUploadView) { // Show upload view
                     ExploreUploadView()
                 }
             }

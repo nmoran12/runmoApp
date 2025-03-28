@@ -5,19 +5,20 @@
 //  Created by Noah Moran on 6/1/2025.
 //
 
-//
-//  FeedCell.swift
-//  Runr
-//
-//  Created by Noah Moran on 6/1/2025.
-//
-
 import SwiftUI
 import MapKit
 import UIKit
 import FirebaseFirestore
+import Kingfisher
+import Firebase
 
 struct FeedCell: View {
+    
+    @State private var postUser: User?
+        
+    // States for rank checking
+    @StateObject private var rankChecker = UserRankChecker()
+    @State private var isFirst: Bool = false
     
     @State private var showComments = false // Default to not showing comments
     @State private var isLiked = false
@@ -30,6 +31,25 @@ struct FeedCell: View {
         self.post = post
         self._likeCount = State(initialValue: post.likes) // Initialize like count
     }
+    
+    // Fetch the user doc & check if they're first
+        private func fetchUserIfNeeded() async {
+            guard postUser == nil else { return }
+            
+            do {
+                // 1) Fetch the user from Firestore
+                let fetchedUser = try await AuthService.shared.fetchUser(for: post.ownerUid)
+                postUser = fetchedUser
+                
+                // 2) Check if this user is #1
+                // (Assumes you have a `checkIfUserIsFirst(userId:)` method in rankChecker)
+                await rankChecker.checkIfUserIsFirst(userId: fetchedUser.id)
+                isFirst = rankChecker.isFirst
+                
+            } catch {
+                print("DEBUG: Failed to fetch user for uid \(post.ownerUid) - \(error.localizedDescription)")
+            }
+        }
     
     // Function for sharing posts
     func sharePost() {
@@ -99,17 +119,18 @@ struct FeedCell: View {
         formatter.unitsStyle = .short
         return formatter.localizedString(for: date, relativeTo: Date())
     }
-
+    
     
     var body: some View {
         VStack(alignment: .leading) {
             NavigationLink(destination: RunDetailView(post: post)) {
                 VStack(alignment: .leading) {
                     HStack {
-                        Image(systemName: "person.circle.fill")
-                            .resizable()
-                            .frame(width: 40, height: 40)
-                            .clipShape(Circle())
+                            CrownedProfileImage(
+                                profileImageUrl: postUser?.profileImageUrl ?? post.user.profileImageUrl,
+                                size: 40,
+                                isFirst: isFirst
+                            )
                         
                         VStack(alignment: .leading) {
                             Text(post.user.username)
@@ -135,7 +156,7 @@ struct FeedCell: View {
                                     .font(.system(size: 14, weight: .bold))
                                     .padding(.bottom, 4)
                             }
-
+                            
                             
                             HStack {
                                 VStack(alignment: .leading, spacing: 2) {
@@ -182,10 +203,10 @@ struct FeedCell: View {
                 }
             }
             // For caption on the post on feed
-
-
+            
+            
             // MARK: - Action Buttons (Like, Comment, Share)
-            HStack {
+            HStack(spacing: 15) {
                 Button(action: {
                     toggleLike()
                 }) {
@@ -220,9 +241,12 @@ struct FeedCell: View {
             .padding(.horizontal, 12)
             .padding(.top, 6)
             
-            Divider()
+            //Divider()
         }
         .padding(.vertical, 8)
+        .task {
+            await fetchUserIfNeeded()
+        }
     }
 }
 

@@ -108,8 +108,6 @@ class ExploreViewModel: ObservableObject {
     }
 
 
-
-
     // Fetch users from Firestore for the search function
     func fetchUsers() async {
         do {
@@ -157,6 +155,7 @@ class ExploreViewModel: ObservableObject {
             .prefix(5) // Limit to 5 users
             .map { $0 } // Convert ArraySlice<User> back to [User]
     }
+    
 
 
 }

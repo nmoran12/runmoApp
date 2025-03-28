@@ -9,7 +9,7 @@ import Foundation
 import SwiftUI
 import PhotosUI
 
-struct ImagePicker: UIViewControllerRepresentable{
+struct OldImagePicker: UIViewControllerRepresentable{
     @Binding var image: UIImage?
     
     func makeCoordinator() -> Coordinator{
@@ -28,9 +28,9 @@ struct ImagePicker: UIViewControllerRepresentable{
     func updateUIViewController(_ uiViewController: PHPickerViewController, context: Context) {}
     
     class Coordinator: NSObject, PHPickerViewControllerDelegate {
-        var parent: ImagePicker
+        var parent: OldImagePicker
         
-        init(parent: ImagePicker) {
+        init(parent: OldImagePicker) {
             self.parent = parent
         }
         

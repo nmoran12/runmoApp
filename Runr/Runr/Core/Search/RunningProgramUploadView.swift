@@ -7,6 +7,7 @@
 
 import SwiftUI
 import FirebaseFirestore
+import FirebaseStorage
 
 struct WeeklyPlanInput: Identifiable {
     let id = UUID()
@@ -25,8 +26,13 @@ struct RunningProgramUploadView: View {
     @State private var experienceLevel: String = ""
     @Environment(\.dismiss) private var dismiss // this is used to get rid of the upload screen when i click upload
     
+    // Image Picker
+    @State private var selectedImage: UIImage?
+    @State private var showImagePicker = false
+    @State private var isUploadingImage = false
+    
     var onProgramCreated: (() -> Void)?
-
+    
     
     @State private var numberOfWeeks: Int = 6 {
         didSet {
@@ -42,8 +48,17 @@ struct RunningProgramUploadView: View {
                     
                     // MARK: - Hero Image
                     ZStack {
-                        if let url = URL(string: imageUrl), !imageUrl.isEmpty {
-                            // Show the image if the URL is valid
+                        // 1) If user selected an image from the camera roll:
+                        if let selectedImage = selectedImage {
+                            Image(uiImage: selectedImage)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(height: 240)
+                                .clipped()
+                            
+                            // 2) Else if a manual imageUrl is set:
+                        } else if let url = URL(string: imageUrl),
+                                  !imageUrl.isEmpty {
                             AsyncImage(url: url) { phase in
                                 switch phase {
                                 case .empty:
@@ -66,8 +81,8 @@ struct RunningProgramUploadView: View {
                                     EmptyView()
                                 }
                             }
+                            // 3) Otherwise show placeholder
                         } else {
-                            // Placeholder image area
                             Color.gray.opacity(0.2)
                                 .frame(height: 240)
                                 .overlay(
@@ -84,7 +99,8 @@ struct RunningProgramUploadView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .onTapGesture {
-                        // Let user paste a URL, open an image picker, etc.
+                        // Open the camera roll (photo library)
+                        showImagePicker.toggle()
                     }
                     
                     // MARK: - Program Title & Subtitle
@@ -230,51 +246,95 @@ struct RunningProgramUploadView: View {
             // Initialize weekly plan inputs
             weeklyPlanInputs = Array(repeating: WeeklyPlanInput(), count: numberOfWeeks)
         }
+        // Present the system image picker for camera roll
+        .sheet(isPresented: $showImagePicker) {
+            ImagePicker(image: $selectedImage)
+        }
     }
+}
     
     // MARK: - Firebase Upload
-    func uploadRunningProgram() {
-        var weeklyPlans: [[String: Any]] = []
-        for (index, input) in weeklyPlanInputs.enumerated() {
-            let weekDict: [String: Any] = [
-                "weekNumber": index + 1,
-                "title": input.title,
-                "shortDescription": input.shortDescription,
-                "planDetails": input.planDetails,
-                "extraNotes": input.extraNotes
-            ]
-            weeklyPlans.append(weekDict)
-        }
-        
-        let data: [String: Any] = [
-            "title": programTitle,
-            "subtitle": programSubtitle,
-            "imageUrl": imageUrl,
-            "planOverview": planOverview,
-            "experienceLevel": experienceLevel,
-            "weeklyPlans": weeklyPlans,
-            "category": "runningProgram",
-            "createdAt": Timestamp(date: Date())
-        ]
-        
-        let db = Firestore.firestore()
-                db.collection("exploreFeedItems")
-                    .document("runningPrograms")
-                    .collection("programs")
-                    .addDocument(data: data) { error in
-                        if let error = error {
-                            print("Error uploading running program: \(error.localizedDescription)")
-                        } else {
-                            print("Running program successfully uploaded!")
-                            
-                            // INSTEAD OF calling `dismiss()` here, just call the callback:
-                            DispatchQueue.main.async {
-                                onProgramCreated?()  // Tell the parent "we're done"
-                            }
-                        }
+    extension RunningProgramUploadView {
+        func uploadRunningProgram() {
+            // If user has picked an image from camera roll:
+            if let selectedImage = selectedImage,
+               let imageData = selectedImage.jpegData(compressionQuality: 0.8) {
+                
+                isUploadingImage = true
+                let filename = UUID().uuidString
+                let storageRef = Storage.storage().reference().child("runningProgramImages/\(filename).jpg")
+                
+                storageRef.putData(imageData, metadata: nil) { metadata, error in
+                    self.isUploadingImage = false
+                    if let error = error {
+                        print("Error uploading image: \(error.localizedDescription)")
+                        return
                     }
+                    storageRef.downloadURL { url, error in
+                        if let error = error {
+                            print("Error getting download URL: \(error.localizedDescription)")
+                            return
+                        }
+                        guard let finalUrl = url?.absoluteString else {
+                            print("No valid download URL.")
+                            return
+                        }
+                        // Once the image is uploaded, create the program doc
+                        self.createProgramDoc(with: finalUrl)
+                    }
+                }
+                
+                // Else if user manually typed an image URL
+            } else if !imageUrl.isEmpty {
+                createProgramDoc(with: imageUrl)
+                
+                // Otherwise, use a placeholder image
+            } else {
+                createProgramDoc(with: "https://via.placeholder.com/400x200")
             }
         }
+        
+        func createProgramDoc(with finalImageUrl: String) {
+            var weeklyPlans: [[String: Any]] = []
+            for (index, input) in weeklyPlanInputs.enumerated() {
+                let weekDict: [String: Any] = [
+                    "weekNumber": index + 1,
+                    "title": input.title,
+                    "shortDescription": input.shortDescription,
+                    "planDetails": input.planDetails,
+                    "extraNotes": input.extraNotes
+                ]
+                weeklyPlans.append(weekDict)
+            }
+            
+            let data: [String: Any] = [
+                "title": programTitle,
+                "subtitle": programSubtitle,
+                "imageUrl": finalImageUrl,
+                "planOverview": planOverview,
+                "experienceLevel": experienceLevel,
+                "weeklyPlans": weeklyPlans,
+                "category": "runningProgram",
+                "createdAt": Timestamp(date: Date())
+            ]
+            
+            let db = Firestore.firestore()
+            db.collection("exploreFeedItems")
+                .document("runningPrograms")
+                .collection("programs")
+                .addDocument(data: data) { error in
+                    if let error = error {
+                        print("Error uploading running program: \(error.localizedDescription)")
+                    } else {
+                        print("Running program successfully uploaded!")
+                        // Notify the parent that we’ve created a program
+                        DispatchQueue.main.async {
+                            onProgramCreated?()
+                        }
+                    }
+                }
+        }
+    }
 
 #Preview {
     RunningProgramUploadView()

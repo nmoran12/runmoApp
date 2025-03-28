@@ -58,52 +58,70 @@ class FeedViewModel: ObservableObject {
             
             for postDoc in postsSnapshot.documents {
                 let postData = postDoc.data()
-                // Unpack post fields – adjust as needed for your data
+                // Unpack post fields
                 guard
                     let postId = postData["id"] as? String,
                     let userId = postData["ownerUid"] as? String,
                     let username = postData["username"] as? String,
                     let runId = postData["runId"] as? String,
                     let likes = postData["likes"] as? Int,
-                    let timestamp = (postData["timestamp"] as? Timestamp)?.dateValue()
+                    let postTimestamp = (postData["timestamp"] as? Timestamp)?.dateValue()
                 else {
                     print("DEBUG: Skipping post due to missing fields -> \(postData)")
                     continue
                 }
                 
-                // Optionally, fetch run data as before – if possible, denormalize to avoid extra round trips.
+                // Fetch run data
                 let userRef = Firestore.firestore().collection("users").document(userId)
                 let runRef = userRef.collection("runs").document(runId)
                 let runSnapshot = try? await runRef.getDocument()
-                guard let runData = runSnapshot?.data(),
-                      let distance = runData["distance"] as? Double,
-                      let elapsedTime = runData["elapsedTime"] as? Double,
-                      let routeCoordinatesArray = runData["routeCoordinates"] as? [[String: Double]]
+                guard
+                    let runData = runSnapshot?.data(),
+                    let distance = runData["distance"] as? Double,
+                    let elapsedTime = runData["elapsedTime"] as? Double,
+                    
+                    // Here is the key part: routeCoordinates must be [[String: Any]], not [[String: Double]]
+                    let routeCoordinatesArray = runData["routeCoordinates"] as? [[String: Any]]
                 else {
-                    print("DEBUG: Skipping run due to missing fields")
+                    print("DEBUG: Skipping run due to missing fields (routeCoordinates)")
                     continue
                 }
                 
-                let routeCoordinates = routeCoordinatesArray.compactMap { coord -> CLLocationCoordinate2D? in
-                    guard let lat = coord["latitude"], let lon = coord["longitude"] else { return nil }
+                // Convert each dictionary into a CLLocationCoordinate2D (ignoring timestamp)
+                let routeCoordinates = routeCoordinatesArray.compactMap { dict -> CLLocationCoordinate2D? in
+                    guard
+                        let lat = dict["latitude"] as? Double,
+                        let lon = dict["longitude"] as? Double
+                    else {
+                        // If latitude/longitude aren’t present or not Double, skip this coordinate
+                        return nil
+                    }
                     return CLLocationCoordinate2D(latitude: lat, longitude: lon)
                 }
                 
-                let run = RunData(date: timestamp, distance: distance, elapsedTime: elapsedTime, routeCoordinates: routeCoordinates)
+                // Create the RunData
+                let run = RunData(
+                    date: postTimestamp,
+                    distance: distance,
+                    elapsedTime: elapsedTime,
+                    routeCoordinates: routeCoordinates
+                )
                 
+                // Create the Post
                 let post = Post(
                     id: postId,
                     ownerUid: userId,
                     caption: postData["caption"] as? String ?? "",
                     likes: likes,
                     imageUrl: "",
-                    timestamp: timestamp,
+                    timestamp: postTimestamp,
                     user: User(id: userId, username: username, email: ""),
                     runData: run
                 )
                 
                 fetchedPosts.append(post)
             }
+
             
             // Append new posts to the existing list
             DispatchQueue.main.async {

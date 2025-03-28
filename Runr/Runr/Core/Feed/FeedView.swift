@@ -51,7 +51,7 @@ struct FeedView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Text("Runr")
+                    Text("Runmo")
                         .fontWeight(.semibold)
                         .font(.system(size: 20))
                 }
@@ -75,7 +75,7 @@ struct PostListView: View {
     let fetchMoreAction: () -> Void
     
     var body: some View {
-        LazyVStack(spacing: 32) {
+        LazyVStack(spacing: 16) {
             ForEach(posts.indices, id: \.self) { index in
                 NavigationLink(destination: RunDetailView(post: posts[index])) {
                     FeedCell(post: posts[index])
@@ -106,6 +106,9 @@ struct PostListView: View {
 #Preview {
     FeedView()
 }
+
+
+
 
 
 

@@ -25,8 +25,8 @@ struct Blog123: Identifiable {
 
 // Sample data
 let sampleRunningPrograms = [
-    RunningProgram123(title: "Morning Run", description: "Kickstart your day with an energizing run.", imageUrl: "https://via.placeholder.com/400x200"),
-    RunningProgram123(title: "Evening Sprint", description: "Boost your speed and endurance.", imageUrl: "https://via.placeholder.com/400x200")
+    RunningProgram123(title: "Morning Run", description: "Kickstart your day with an energizing run.", imageUrl: "https://www.letsdothis.com/blog/article/6-top-5k-training-tips"),
+    RunningProgram123(title: "Evening Sprint", description: "Boost your speed and endurance.", imageUrl: "https://www.letsdothis.com/blog/article/6-top-5k-training-tips")
 ]
 
 let sampleBlogs = [
@@ -39,7 +39,7 @@ let sampleBlogs = [
 /// Card for Running Programs (horizontal carousel).
 struct RunningProgramCard: View {
     let program: RunningProgram123
-    //let item: ExploreFeedItem
+    var onSave: (() async -> Void)? = nil
     
     // Adjust these constants to your preference
     private let cardWidth: CGFloat = 160
@@ -48,25 +48,34 @@ struct RunningProgramCard: View {
     var body: some View {
         ZStack(alignment: .bottomLeading) {
             // Background Image
-            AsyncImage(url: URL(string: program.imageUrl)) { image in
-                image
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: cardWidth, height: cardHeight)
-                    .clipped()
-            } placeholder: {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.gray.opacity(0.3))
-                    .frame(width: cardWidth, height: cardHeight)
-            }
+            AsyncImage(url: URL(string: program.imageUrl)) { phase in
+                            switch phase {
+                            case .empty:
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.gray.opacity(0.3))
+                                    .frame(width: cardWidth, height: cardHeight)
+                            case .success(let image):
+                                image
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: cardWidth, height: cardHeight)
+                                    .clipped()
+                            case .failure:
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.gray.opacity(0.3))
+                                    .frame(width: cardWidth, height: cardHeight)
+                            @unknown default:
+                                EmptyView()
+                            }
+                        }
             
             // Gradient Overlay
             LinearGradient(
                 gradient: Gradient(colors: [
-                    Color.black.opacity(0.0),
-                    Color.black.opacity(0.7)
+                    Color.black.opacity(0.2),  // instead of 0.0
+                    Color.black.opacity(0.8)   // instead of 0.6 or 0.7
                 ]),
-                startPoint: .center,
+                startPoint: .top,
                 endPoint: .bottom
             )
             .frame(width: cardWidth, height: cardHeight)
@@ -87,6 +96,16 @@ struct RunningProgramCard: View {
         .frame(width: cardWidth, height: cardHeight)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .shadow(color: Color.black.opacity(0.2), radius: 4, x: 0, y: 3)
+        // Add a context menu so a long press shows the Save option
+                .contextMenu {
+                    if let onSave = onSave {
+                        Button("Save") {
+                            Task {
+                                await onSave()
+                            }
+                        }
+                    }
+                }
     }
 }
 
@@ -102,6 +121,11 @@ struct ExploreView: View {
     var runningPrograms: [ExploreFeedItem] {
         viewModel.exploreFeedItems.filter { $0.category == "runningProgram" }
     }
+    
+    var blogItems: [ExploreFeedItem] {
+        viewModel.exploreFeedItems.filter { $0.category == "Blog" }
+    }
+
     
     var body: some View {
         NavigationView {
@@ -190,7 +214,14 @@ struct ExploreView: View {
                 HStack(spacing: 16) {
                     ForEach(runningPrograms, id: \.exploreFeedId) { item in
                         NavigationLink(destination: RunningProgramContentView(program: RunningProgram(from: item))) {
-                            RunningProgramCard(program: convertToRunningProgram123(from: item))
+                            RunningProgramCard(program: convertToRunningProgram123(from: item)) {
+                                do {
+                                    try await AuthService.shared.saveItem(item)
+                                    print("Running program saved successfully!")
+                                } catch {
+                                    print("Error saving running program: \(error.localizedDescription)")
+                                }
+                            }
                         }
                         .buttonStyle(PlainButtonStyle())
                     }
@@ -209,14 +240,25 @@ struct ExploreView: View {
             
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 16) {
-                    ForEach(sampleBlogs) { blog in
-                        BlogCard(blog: blog)
+                    ForEach(blogItems, id: \.exploreFeedId) { item in
+                        NavigationLink(destination: BlogContentView(blog: item)) {
+                            BlogCard(blog: convertToBlog123(from: item)) {
+                                do {
+                                    try await AuthService.shared.saveItem(item)
+                                    print("Blog saved successfully!")
+                                } catch {
+                                    print("Error saving blog: \(error.localizedDescription)")
+                                }
+                            }
+                        }
+                        .buttonStyle(PlainButtonStyle())
                     }
                 }
                 .padding(.horizontal)
             }
         }
     }
+
 }
 
 func convertToRunningProgram123(from item: ExploreFeedItem) -> RunningProgram123 {
@@ -226,6 +268,15 @@ func convertToRunningProgram123(from item: ExploreFeedItem) -> RunningProgram123
         imageUrl: item.imageUrl
     )
 }
+
+func convertToBlog123(from item: ExploreFeedItem) -> Blog123 {
+    Blog123(
+        title: item.title,
+        snippet: item.content,
+        imageUrl: item.imageUrl
+    )
+}
+
 
 
 

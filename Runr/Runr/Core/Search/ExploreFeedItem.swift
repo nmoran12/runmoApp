@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct ExploreFeedItem: Identifiable {
+struct ExploreFeedItem: Identifiable, Encodable, Decodable {
     let exploreFeedId: String
     let title: String
     let content: String

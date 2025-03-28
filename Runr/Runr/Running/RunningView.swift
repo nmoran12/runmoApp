@@ -22,6 +22,9 @@ struct RunningView: View {
     @State private var userPostedDistance: Double = 0.0   // The distance from Firestore
     @State private var nextRankDistance: Double? = nil    // The next user's total distance
     @State private var distanceToNextRank: Double = 0.0   // Computed difference
+    @State private var showFinalizeScreen = false
+
+
 
     // For controlling navigation to LeaderboardView
     @State private var showLeaderboard: Bool = false
@@ -304,17 +307,6 @@ struct RunningView: View {
             if !runTracker.isRunning {
                 // Start Run controls
                 HStack(spacing: 40) {
-                    Button {
-                        // Placeholder action for left button
-                    } label: {
-                        Image(systemName: "play.fill")
-                            .font(.system(size: 20))
-                            .foregroundColor(.gray)
-                            .frame(width: 60, height: 60)
-                            .background(Color.white)
-                            .clipShape(Circle())
-                            .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 1)
-                    }
                     
                     Button {
                         runTracker.startRun()
@@ -331,17 +323,6 @@ struct RunningView: View {
                     .scaleEffect(isPressed ? 1.1 : 1.0)
                     .opacity(isPressed ? 0.8 : 1.0)
                     
-                    Button {
-                        // Placeholder action for right button
-                    } label: {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 20))
-                            .foregroundColor(.gray)
-                            .frame(width: 60, height: 60)
-                            .background(Color.white)
-                            .clipShape(Circle())
-                            .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 1)
-                    }
                 }
                 .padding(.vertical, 30)
                 .background(Color.white)
@@ -460,6 +441,7 @@ struct RunningView: View {
                 .padding(.horizontal)
             
             // Post Run Actions
+            // This button resumes the run so you can pick up from where you paused it.
             HStack(spacing: 40) {
                 Button {
                     // Resume action: simply hide the post-run details and resume the same run.
@@ -468,48 +450,21 @@ struct RunningView: View {
                         showPostRunDetails = false
                     }
                 } label: {
-                    Image(systemName: "play.fill")
-                        .font(.system(size: 20))
-                        .foregroundColor(.gray)
-                        .frame(width: 60, height: 60)
+                    Text("Resume")
+                        .bold()
+                        .font(.title3)
+                        .foregroundColor(.black)
+                        .frame(width: 80, height: 80)
                         .background(Color.white)
                         .clipShape(Circle())
-                        .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 1)
+                        .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
                 }
-
                 
+                
+                // "Post" button that takes you to the final posting screen
                 Button {
-                    // Post Action
-                    Task {
-                        print("DEBUG: footwear = selectedFootwear = \(selectedFootwear)")
-                                
-                        
-                        // Ensure we have the current user's ID
-                        guard let userId = AuthService.shared.userSession?.uid else {
-                            print("DEBUG: No user logged in.")
-                            return
-                        }
-                        
-                        // 1. Fetch the current rank before posting the run
-                        let oldRank = await fetchUserRank(userId: userId)
-                        
-                        // 2. Upload the run data
-                        await runTracker.uploadRunData(withCaption: caption, footwear: selectedFootwear)
-                        
-                        // 3. Fetch the new rank after upload
-                        let newRank = await fetchUserRank(userId: userId)
-                        
-                        // 4. Calculate positions gained (if any)
-                        if let oldRank = oldRank, let newRank = newRank, oldRank > newRank {
-                            let positionsGained = oldRank - newRank
-                            postAlertMessage = "Run was posted successfully! You gained \(positionsGained) position\(positionsGained > 1 ? "s" : "") on the leaderboard."
-                        } else {
-                            postAlertMessage = "Run was posted successfully! You did a great run."
-                        }
-                        
-                        // 5. Show the alert
-                        showPostAlert = true
-                    }
+                    // Just show the new finalize screen
+                    showFinalizeScreen = true
                 } label: {
                     Text("Post")
                         .bold()
@@ -521,23 +476,53 @@ struct RunningView: View {
                         .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
                 }
                 
-              //  Button {
-              //      // Additional action
-              //  } label: {
-              //      Image(systemName: "clock.arrow.circlepath")
-              //          .font(.system(size: 20))
-              //          .foregroundColor(.gray)
-              //          .frame(width: 60, height: 60)
-              //          .background(Color.white)
-              //          .clipShape(Circle())
-              //          .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 1)
-              //  }
+                // 3) **Delete** button
+                Button {
+                    // "Delete" or "discard" the run
+                    runTracker.stopRun()
+                    runTracker.distanceTraveled = 0
+                    runTracker.elapsedTime = 0
+                    runTracker.isRunning = false
+                    runTracker.paceString = "0:00"
+                    
+                    // Reset ephemeral leaderboard info
+                    userPostedDistance = 0
+                    nextRankDistance = nil
+                    distanceToNextRank = 0
+                    userRank = nil
+                    
+                    // Hide the post-run UI
+                    showPostRunDetails = false
+                    
+                } label: {
+                    Text("Delete")
+                        .bold()
+                        .font(.title3)
+                        .foregroundColor(.white)
+                        .frame(width: 80, height: 80)
+                        .background(Color.red)
+                        .clipShape(Circle())
+                        .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
+                }
             }
             .padding(.vertical, 20)
         }
         .background(Color.white)
-        // This transition makes it slide up from the bottom
         .transition(.move(edge: .bottom))
+        // Attach a .navigationDestination that listens to showFinalizeScreen
+        .navigationDestination(isPresented: $showFinalizeScreen) {
+            // Present the new view
+            FinalizeRunView(
+                runTracker: runTracker,
+                selectedFootwear: $selectedFootwear,
+                userPostedDistance: $userPostedDistance,
+                nextRankDistance: $nextRankDistance,
+                distanceToNextRank: $distanceToNextRank,
+                userRank: $userRank,
+                showPostRunDetails: $showPostRunDetails
+            )
+
+        }
     }
     
     

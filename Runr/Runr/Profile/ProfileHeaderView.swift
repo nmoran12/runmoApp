@@ -26,6 +26,8 @@ struct ProfileHeaderView: View {
     let averagePace: Double?
     var isFirst: Bool
     
+    var onTapProfileImage: (() -> Void)? = nil
+    
     // Helper to format time nicely
     func formatTime(_ totalTime: Double) -> String {
         let totalSeconds = Int(totalTime)
@@ -34,9 +36,9 @@ struct ProfileHeaderView: View {
         let seconds = totalSeconds % 60
 
         if hours > 0 {
-            return String(format: "%d hrs %d mins", hours, minutes)
+            return String(format: "%dh %dm", hours, minutes)
         } else {
-            return String(format: "%d mins %d secs", minutes, seconds)
+            return String(format: "%dm %ds", minutes, seconds)
         }
     }
     
@@ -49,14 +51,12 @@ struct ProfileHeaderView: View {
     // Updated startConversation() that uses user IDs.
     private func startConversation() {
         guard let currentUserId = Auth.auth().currentUser?.uid else { return }
-        let otherUserId = user.id  // The recipient's user ID
+        let otherUserId = user.id
         
-        // Create a stable conversation ID using user IDs.
         let conversationDocId = makeConversationDocIdUsingIDs(userId1: currentUserId, userId2: otherUserId)
         let db = Firestore.firestore()
         let conversationRef = db.collection("conversations").document(conversationDocId)
         
-        // Check if a conversation already exists.
         conversationRef.getDocument { snapshot, error in
             if let error = error {
                 print("DEBUG: Error checking conversation doc: \(error.localizedDescription)")
@@ -64,13 +64,11 @@ struct ProfileHeaderView: View {
             }
             
             if let snapshot = snapshot, snapshot.exists {
-                print("DEBUG: Conversation already exists with ID: \(conversationDocId)")
                 DispatchQueue.main.async {
                     generatedConversationId = conversationDocId
-                    showChat = true  // Trigger navigation.
+                    showChat = true
                 }
             } else {
-                // Create a new conversation document.
                 let conversationData: [String: Any] = [
                     "id": conversationDocId,
                     "users": [currentUserId, otherUserId]
@@ -79,15 +77,12 @@ struct ProfileHeaderView: View {
                     if let error = error {
                         print("DEBUG: Failed to create conversation: \(error.localizedDescription)")
                     } else {
-                        print("DEBUG: Created NEW conversation with ID: \(conversationDocId)")
                         DispatchQueue.main.async {
                             withAnimation(.easeInOut) {
-                                self.generatedConversationId = conversationRef.documentID
-                                self.showChat = true
+                                generatedConversationId = conversationRef.documentID
+                                showChat = true
                             }
-
                         }
-
                     }
                 }
             }
@@ -95,84 +90,42 @@ struct ProfileHeaderView: View {
     }
     
     // Listen for changes in the user's follower/following data
-        private func listenForUserUpdates() {
-            let userRef = Firestore.firestore().collection("users").document(user.id)
-            followerListener = userRef.addSnapshotListener { snapshot, error in
-                if let error = error {
-                    print("DEBUG: Error listening for user updates: \(error.localizedDescription)")
-                    return
+    private func listenForUserUpdates() {
+        let userRef = Firestore.firestore().collection("users").document(user.id)
+        followerListener = userRef.addSnapshotListener { snapshot, error in
+            if let error = error {
+                print("DEBUG: Error listening for user updates: \(error.localizedDescription)")
+                return
+            }
+            if let snapshot = snapshot, snapshot.exists, let data = snapshot.data() {
+                if let count = data["followerCount"] as? Int {
+                    DispatchQueue.main.async {
+                        self.followerCount = count
+                    }
                 }
-                if let snapshot = snapshot, snapshot.exists, let data = snapshot.data() {
-                    
-                    // If you store followerCount as an integer
-                    if let count = data["followerCount"] as? Int {
-                        DispatchQueue.main.async {
-                            self.followerCount = count
-                        }
+                if let followingArray = data["following"] as? [String] {
+                    DispatchQueue.main.async {
+                        self.followingCount = followingArray.count
                     }
-                    
-                    // If you store a 'following' array on the user doc
-                    if let followingArray = data["following"] as? [String] {
-                        DispatchQueue.main.async {
-                            self.followingCount = followingArray.count
-                        }
-                    }
-                    
-                    // Alternatively, if you store followingCount as an integer:
-                    // if let followingNum = data["followingCount"] as? Int {
-                    //     DispatchQueue.main.async {
-                    //         self.followingCount = followingNum
-                    //     }
-                    // }
                 }
             }
         }
+    }
 
-    
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 12) {
             // Profile Header Content
             HStack(alignment: .center) {
-                // Profile image and crown
-                ZStack {
-                    Circle()
-                        .stroke(isFirst ? Color.yellow : Color.clear, lineWidth: 4)
-                        .frame(width: 80, height: 80)
-                    
-                    if let imageUrl = user.profileImageUrl,
-                       let url = URL(string: imageUrl) {
-                        KFImage(url)
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: 70, height: 70)
-                            .clipShape(Circle())
-                            .overlay(
-                                Circle()
-                                    .stroke(Color.white, lineWidth: 2)
-                            )
-                    } else {
-                        Image(systemName: "person.circle.fill")
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: 70, height: 70)
-                            .clipShape(Circle())
-                            .foregroundColor(.gray)
+                CrownedProfileImage(profileImageUrl: user.profileImageUrl, size: 80, isFirst: isFirst)
+                    .frame(width: 80, height: 80)
+                    .onTapGesture {
+                        onTapProfileImage?()
                     }
-                    
-                    if isFirst {
-                        Image(systemName: "crown.fill")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 24, height: 24)
-                            .foregroundColor(.yellow)
-                            .offset(y: -50)
-                    }
-                }
                 
                 Spacer()
                 
                 // Running stats
-                HStack(spacing: 20) {
+                HStack(alignment: .top, spacing: 24) {
                     VStack {
                         Text("\((totalDistance ?? 0), specifier: "%.2f") km")
                             .font(.system(size: 14, weight: .semibold))
@@ -198,104 +151,105 @@ struct ProfileHeaderView: View {
             }
             .padding(.top, 8)
             
-            // Username, Bio, etc.
+            // Username and Bio with extra spacing
             Text(user.username ?? "Unknown User")
                 .font(.title2)
                 .fontWeight(.semibold)
             Text(user.bio ?? "No bio available")
                 .font(.footnote)
                 .foregroundColor(.gray)
+                .padding(.bottom, 8)
             
-            HStack(spacing: 8){
-                
-                Text("Followers: ")
-                    .fontWeight(.semibold)
-                
-                Text("\(followerCount)")
-                    .font(.footnote)
-                
-                Text("Following: ")
-                    .fontWeight(.semibold)
-                
-                Text("\(followingCount)")
-                    .font(.footnote)
-                
-                Text("Runs: ")
-                    .fontWeight(.semibold)
-                
-                Text("\(runCount)")
-                    .font(.footnote)
+            // Divider to visually separate sections
+            Divider()
+                .padding(.vertical, 4)
+            
+            // Follower / Following / Runs counters re-organized into vertical stacks for better clarity
+            HStack(spacing: 16) {
+                VStack {
+                    Text("\(followerCount)")
+                        .font(.headline)
+                    Text("Followers")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+                VStack {
+                    Text("\(followingCount)")
+                        .font(.headline)
+                    Text("Following")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+                VStack {
+                    Text("\(runCount)")
+                        .font(.headline)
+                    Text("Runs")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
             }
+            .padding(.bottom, 8)
             
-            // Follow & Message buttons
+            // Follow & Message buttons with refined styling
             HStack {
                 Button {
                     Task {
                         do {
                             if isFollowing {
-                            // Already following -> Unfollow
-                            try await AuthService.shared.unfollowUser(userId: user.id)
-                            isFollowing = false
-                        } else {
-                            // Not following -> Follow
-                            try await AuthService.shared.followUser(userId: user.id)
-                            isFollowing = true
+                                try await AuthService.shared.unfollowUser(userId: user.id)
+                                isFollowing = false
+                            } else {
+                                try await AuthService.shared.followUser(userId: user.id)
+                                isFollowing = true
+                            }
+                        } catch {
+                            print("DEBUG: Error toggling follow: \(error.localizedDescription)")
                         }
-                    } catch {
-                        print("DEBUG: Error toggling follow: \(error.localizedDescription)")
                     }
-                }
                 } label: {
                     Text(isFollowing ? "Unfollow" : "Follow")
                         .font(.subheadline)
                         .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
+                        .padding(.vertical, 10)
                         .background(isFollowing ? Color.gray : Color.blue)
                         .foregroundColor(.white)
-                        .cornerRadius(4)
+                        .cornerRadius(8)
                 }
                 
                 Button {
-                    print("DEBUG: About to start conversation")
-                    print("DEBUG: currentUserId = \(Auth.auth().currentUser?.uid ?? "nil")")
-                    print("DEBUG: user.id = \(user.id)")
                     startConversation()
                 } label: {
                     Text("Message")
                         .font(.subheadline)
                         .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
+                        .padding(.vertical, 10)
                         .background(Color.gray.opacity(0.2))
                         .foregroundColor(.black)
-                        .cornerRadius(4)
+                        .cornerRadius(8)
                 }
             }
-            .frame(height: 36)
+            .frame(height: 44)
         }
         .padding(.horizontal)
         .onAppear {
-                    // Start listening for follower count updates when the view appears.
-                    listenForUserUpdates()
-                }
-                .onDisappear {
-                    // Remove the listener to prevent memory leaks.
-                    followerListener?.remove()
-                }
+            listenForUserUpdates()
+        }
+        .onDisappear {
+            followerListener?.remove()
+        }
         .task {
             do {
                 let runs = try await AuthService.shared.fetchUserRuns()
                 runCount = runs.count
-                
-                // Check if current user is following this user
                 let followingStatus = try await AuthService.shared.isCurrentUserFollowingUser(user.id)
                 isFollowing = followingStatus
             } catch {
                 print("Error fetching run count: \(error.localizedDescription)")
             }
         }
-        .navigationDestination(isPresented: $showChat) {
+        .navigationDestination(isPresented: .constant(showChat)) {
             ChatView(conversationId: generatedConversationId, userId: user.id)
         }
     }
@@ -316,4 +270,5 @@ struct ProfileHeaderView: View {
     )
     .environmentObject(AuthService.shared)
 }
+
 

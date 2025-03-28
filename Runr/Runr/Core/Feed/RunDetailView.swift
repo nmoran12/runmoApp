@@ -14,6 +14,9 @@ struct RunDetailView: View {
     var post: Post?
     var run: RunData?
     var userId: String?
+    @State private var timedLocations: [TimedLocation] = []
+    @State private var splits: [Split] = []
+    @State private var paceData: [PaceData] = []
     
     // HealthKit
     let healthManager = HealthKitManager.shared
@@ -165,60 +168,112 @@ struct RunDetailView: View {
                     .background(Color.white) // <— White background for top section
                 }
                 
-                // MARK: Additional Stats (below map) with systemGroupedBackground behind it
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Additional Stats")
-                        .font(.headline)
-                    
-                    HStack {
-                        Text("Steps")
-                            .fontWeight(.semibold)
-                        Spacer()
-                        Text("\(Int(stepCount))")
-                    }
-                    // Add more stats here if needed
-                    HStack {
-                        Text("Calories Burned")
-                            .fontWeight(.semibold)
-                        Spacer()
-                        Text("\(Int(caloriesBurned ?? 0))")
+                // MARK: Additional Stats
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Additional Stats")
+                                    .font(.headline)
+                                
+                                HStack {
+                                    Text("Steps")
+                                        .fontWeight(.semibold)
+                                    Spacer()
+                                    Text("\(Int(stepCount))")
+                                }
+                                HStack {
+                                    Text("Calories Burned")
+                                        .fontWeight(.semibold)
+                                    Spacer()
+                                    Text("\(Int(caloriesBurned ?? 0))")
+                                }
+                            }
+                            .padding()
+                            .background(Color.white)
+                            .cornerRadius(10)
+                            .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
+                            .padding(.horizontal)
+                            .padding(.top, 16)
+                            
 
+                // MARK: Splits Section
+                if !splits.isEmpty {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Splits")
+                            .font(.headline)
+                        
+                        // The bar chart for splits
+                        SplitBarChartView(splits: splits)
+                            .frame(height: 200)
                     }
+                    .padding()
+                    .background(Color.white)
+                    .cornerRadius(10)
+                    .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
+                    .padding(.horizontal)
+                    .padding(.top, 16)
                 }
-                .padding()
-                .background(Color.white)
-                .cornerRadius(10)
-                .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
-                .padding(.horizontal)
-                .padding(.top, 16)
-            }
-        }
-        .background(Color(.systemGroupedBackground).ignoresSafeArea()) // The area outside the white top portion remains system background
-        .onAppear {
-            if let run = run {
-                let startDate = run.date
-                let endDate = run.date.addingTimeInterval(run.elapsedTime)
-                
-                // 1) Fetch Steps
-                fetchSteps(startDate: startDate, endDate: endDate) { fetchedSteps in
-                    DispatchQueue.main.async {
-                        self.stepCount = fetchedSteps
+
+                // MARK: Pace Chart
+                if !paceData.isEmpty {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Pace Over Distance")
+                            .font(.headline)
+                        
+                        // The line/area chart for pace
+                        PaceLineChartView(paceData: paceData)
+                            .frame(height: 200)
                     }
+                    .padding()
+                    .background(Color.white)
+                    .cornerRadius(10)
+                    .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
+                    .padding(.horizontal)
+                    .padding(.top, 16)
                 }
-                
-                // 2) Fetch Calories
-                fetchCaloriesBurned(startDate: startDate, endDate: endDate) { kcal, error in
-                    if let kcal = kcal {
-                        DispatchQueue.main.async {
-                            self.caloriesBurned = kcal
+
+
                         }
                     }
+                    .background(Color(.systemGroupedBackground).ignoresSafeArea())
+                    .onAppear {
+                        if let run = run {
+                            let startDate = run.date
+                            let endDate = run.date.addingTimeInterval(run.elapsedTime)
+                            
+                            // 1) Fetch Steps
+                            fetchSteps(startDate: startDate, endDate: endDate) { fetchedSteps in
+                                DispatchQueue.main.async {
+                                    self.stepCount = fetchedSteps
+                                }
+                            }
+                            
+                            // 2) Fetch Calories
+                            fetchCaloriesBurned(startDate: startDate, endDate: endDate) { kcal, error in
+                                if let kcal = kcal {
+                                    DispatchQueue.main.async {
+                                        self.caloriesBurned = kcal
+                                    }
+                                }
+                            }
+                            
+                            // 3) Compute splits
+                            // If you don't have actual timedLocations, you can create approximations
+                            if timedLocations.isEmpty, !run.routeCoordinates.isEmpty {
+                                let totalPoints = run.routeCoordinates.count
+                                timedLocations = run.routeCoordinates.enumerated().map { index, coordinate in
+                                    let approxTime = run.date.addingTimeInterval((Double(index) / Double(totalPoints - 1)) * run.elapsedTime)
+                                    return TimedLocation(coordinate: coordinate, timestamp: approxTime)
+                                }
+                            }
+                            // Compute splits using your function (make sure you have defined computeKilometerSplits)
+                            splits = computeKilometerSplits(from: timedLocations)
+                            
+                                    
+                            // 2) Pace chart data
+                            paceData = createPaceData(from: timedLocations)
+                        }
+                    }
+                    .navigationBarTitleDisplayMode(.inline)
                 }
-            }
-        }
-
-        .navigationBarTitleDisplayMode(.inline)
-    }
     
     // MARK: - Helper
     func timeAgoSinceDate(_ date: Date) -> String {

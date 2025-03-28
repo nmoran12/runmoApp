@@ -20,7 +20,11 @@ struct Conversation: Identifiable, Codable {
     }
     
     var otherUserName: String?
+    
+    // NEW: store the other user's profile image URL
+    var otherUserProfileUrl: String?
 }
+
 
 
 struct Message: Identifiable, Codable {

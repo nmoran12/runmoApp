@@ -220,3 +220,58 @@ class AuthService: ObservableObject {
         try? await Firestore.firestore().collection("users").document(user.id).setData(encodedUser)
     }
 }
+
+extension AuthService {
+    /// Fetch a user document from Firestore by its UID.
+    func fetchUser(for uid: String) async throws -> User {
+        let doc = try await Firestore.firestore()
+            .collection("users")
+            .document(uid)
+            .getDocument()
+        
+        // Check if the document actually exists
+        guard doc.exists else {
+            throw URLError(.badServerResponse)
+        }
+        
+        // Now decode into User. This call can throw if decoding fails,
+        // so we use `try`.
+        let user = try doc.data(as: User.self)
+        
+        return user
+    }
+
+}
+
+extension AuthService {
+    /// Fetches a download URL for an image stored in Firebase Storage.
+    /// - Parameters:
+    ///   - filename: The name of the file (e.g., "someImage.jpg").
+    ///   - folder: The folder/path in Storage (default: "runningProgramImages").
+    /// - Returns: A string containing the download URL.
+    func fetchDownloadURL(for filename: String, in folder: String = "runningProgramImages") async throws -> String {
+        let storagePath = "\(folder)/\(filename)"
+        let reference = Storage.storage().reference().child(storagePath)
+        
+        do {
+            let url = try await reference.downloadURL()
+            return url.absoluteString
+        } catch {
+            print("DEBUG: Error fetching download URL for \(storagePath): \(error.localizedDescription)")
+            throw error
+        }
+    }
+}
+
+// This lets you save running programs and blogs to ur profile in the menu
+extension AuthService {
+    func saveItem(_ item: ExploreFeedItem) async throws {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        let db = Firestore.firestore()
+        try await db.collection("users")
+            .document(uid)
+            .collection("savedItems")
+            .document(item.exploreFeedId)
+            .setData(from: item)
+    }
+}

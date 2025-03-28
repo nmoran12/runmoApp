@@ -12,14 +12,26 @@ struct BlogContentView: View {
 
     var body: some View {
         ScrollView {
-            AsyncImage(url: URL(string: blog.imageUrl)) { image in
-                Image("DefaultPlaceholder")
-                            .resizable()
-                            .scaledToFill()
+            AsyncImage(url: URL(string: blog.imageUrl)) { phase in
+                switch phase {
+                case .empty:
+                    ProgressView()
+                case .success(let image):
+                    image
+                        .resizable()
+                        .scaledToFill()
+                case .failure:
+                    Image("DefaultPlaceholder")
+                        .resizable()
+                        .scaledToFill()
+                @unknown default:
+                    EmptyView()
+                }
             }
             .frame(width: UIScreen.main.bounds.width,
                    height: UIScreen.main.bounds.height * 0.6)
             .clipped()
+
 
             // Title
             Text(blog.title)

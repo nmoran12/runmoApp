@@ -13,12 +13,11 @@ struct ProfileView: View {
     @State private var runs: [RunData] = []
     @State private var isLoading = true
     @State private var updateTrigger = false
-    @State private var showMenu = false //
+    @State private var showMenu = false
     @State private var selectedImage: UIImage?
     @State private var isImagePickerPresented = false
     @State private var isFirst = false
     @StateObject private var rankChecker = UserRankChecker()
-
 
     private var totalDistance: Double {
         runs.reduce(0) { $0 + $1.distance } / 1000
@@ -32,58 +31,10 @@ struct ProfileView: View {
         totalDistance > 0 ? totalTime / totalDistance : 0.0
     }
 
-
-    
-    
-    
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack() {
-                    ProfileHeaderView(
-                        user: user,
-                        totalDistance: totalDistance,
-                        totalTime: totalTime,
-                        averagePace: averagePace,
-                        isFirst: rankChecker.isFirst
-                    )
-                    .id(updateTrigger)
-                    
-                    if let selectedImage{
-                        Button("Upload Image"){
-                            Task{
-                                do{
-                                    try await AuthService.shared.uploadProfileImage(selectedImage)
-                                } catch {
-                                    print("DEBUG: Failed to upload image \(error.localizedDescription)")
-                                }
-                            }
-                        }
-                    }
-                    
-                    if isLoading {
-                        ProgressView("Loading runs...")
-                    } else if runs.isEmpty {
-                        Text("No runs yet")
-                            .font(.footnote)
-                            .foregroundColor(.gray)
-                    } else {
-                        ForEach(runs) { run in
-                            RunCell(
-                                run: run,
-                                userId: user.id,
-                                isCurrentUser: Auth.auth().currentUser?.uid == user.id
-                            )
-                        }
-
-                    }
-                }
-                .onAppear {
-                    Task {
-                        await fetchUserRuns()
-                        await rankChecker.checkIfUserIsFirst(userId: user.id)
-                    }
-                }
+                mainContent
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -92,7 +43,7 @@ struct ProfileView: View {
                         .fontWeight(.semibold)
                         .font(.system(size: 20))
                 }
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .topBarTrailing) {
                     Button(action: {
                         showMenu.toggle()
                     }) {
@@ -110,13 +61,63 @@ struct ProfileView: View {
             }
         }
     }
+    
+    /// Break the main VStack into a separate subview for easier compilation.
+    @ViewBuilder
+    private var mainContent: some View {
+        VStack {
+            ProfileHeaderView(
+                user: user,
+                totalDistance: totalDistance,
+                totalTime: totalTime,
+                averagePace: averagePace,
+                isFirst: rankChecker.isFirst
+            )
+            .id(updateTrigger)
+            
+            if let selectedImage {
+                Button("Upload Image") {
+                    Task {
+                        do {
+                            try await AuthService.shared.uploadProfileImage(selectedImage)
+                        } catch {
+                            print("DEBUG: Failed to upload image \(error.localizedDescription)")
+                        }
+                    }
+                }
+            }
+            
+            if isLoading {
+                ProgressView("Loading runs...")
+            } else if runs.isEmpty {
+                Text("No runs yet")
+                    .font(.footnote)
+                    .foregroundColor(.gray)
+            } else {
+                ForEach(runs) { run in
+                    RunCell(
+                        run: run,
+                        user: user,
+                        isFirst: rankChecker.isFirst,
+                        isCurrentUser: Auth.auth().currentUser?.uid == user.id
+                    )
+                }
 
-    // Fetch user's runs
+            }
+        }
+        .onAppear {
+            Task {
+                await fetchUserRuns()
+                await rankChecker.checkIfUserIsFirst(userId: user.id)
+            }
+        }
+    }
+
+    // MARK: - Fetch user's runs
     private func fetchUserRuns() async {
         do {
-            // Fetch runs for the searched user's id instead of the current user.
             self.runs = try await AuthService.shared.fetchUserRuns(for: user.id)
-            self.runs.sort { $0.date > $1.date } // Sort runs newest to oldest
+            self.runs.sort { $0.date > $1.date }
             self.isLoading = false
         } catch {
             self.isLoading = false
@@ -124,11 +125,8 @@ struct ProfileView: View {
         }
     }
 
-
-
     private func updateFirestoreWithStats() async {
         let userRef = Firestore.firestore().collection("users").document(user.id)
-
         do {
             try await userRef.updateData([
                 "totalDistance": totalDistance,
@@ -146,5 +144,6 @@ struct ProfileView: View {
 
 #Preview {
     @State var mockUser = User.MOCK_USERS[0]
-    return ProfileView(user: $mockUser) // Pass as a binding
+    return ProfileView(user: $mockUser)
 }
+

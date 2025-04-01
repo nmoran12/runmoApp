@@ -32,7 +32,7 @@ struct FootwearStats: View {
                         .padding()
                 } else if footwearStats.isEmpty {
                     Text("No footwear stats available.")
-                        .foregroundColor(.gray)
+                        .foregroundColor(.secondary)
                         .padding()
                 } else {
                     ScrollView {
@@ -58,7 +58,7 @@ struct FootwearStats: View {
                                     // Color-coded progress bar
                                     ZStack(alignment: .leading) {
                                         RoundedRectangle(cornerRadius: 6)
-                                            .fill(Color.gray.opacity(0.2))
+                                            .fill(Color.secondary.opacity(0.2))
                                             .frame(height: 10)
                                         
                                         RoundedRectangle(cornerRadius: 6)
@@ -70,14 +70,14 @@ struct FootwearStats: View {
                                     if isExpanded {
                                         Text("This helps you keep track of the mileage on your shoes so you’ll know when you might need new ones!")
                                             .font(.subheadline)
-                                            .foregroundColor(.gray)
+                                            .foregroundColor(.secondary)
                                             .padding(.top, 4)
                                     }
                                 }
                                 .padding()
-                                .background(.white)
+                                .background(.primary)
                                 .cornerRadius(12)
-                                .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
+                                .shadow(color: Color.primary.opacity(0.1), radius: 4, x: 0, y: 2)
                                 // Tap gesture toggles expansion
                                 .onTapGesture {
                                     withAnimation {

@@ -19,7 +19,7 @@ struct RunInfoDisplayView: View {
         ZStack {
             // Background gradient for subtle depth
             LinearGradient(
-                gradient: Gradient(colors: [Color.white, Color(.systemGray6)]),
+                gradient: Gradient(colors: [Color.white, Color(UIColor.systemGray6)]),
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -72,7 +72,7 @@ struct RunInfoDisplayView: View {
                                 endPoint: .trailing
                             )
                         )
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                         .clipShape(Capsule())
                         .shadow(radius: 5)
                 }

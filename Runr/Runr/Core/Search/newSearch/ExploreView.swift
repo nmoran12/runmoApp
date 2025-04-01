@@ -40,6 +40,8 @@ let sampleBlogs = [
 struct RunningProgramCard: View {
     let program: RunningProgram123
     var onSave: (() async -> Void)? = nil
+    @Environment(\.colorScheme) var colorScheme
+
     
     // Adjust these constants to your preference
     private let cardWidth: CGFloat = 160
@@ -52,7 +54,7 @@ struct RunningProgramCard: View {
                             switch phase {
                             case .empty:
                                 RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.gray.opacity(0.3))
+                                    .fill(Color.secondary.opacity(0.3))
                                     .frame(width: cardWidth, height: cardHeight)
                             case .success(let image):
                                 image
@@ -62,7 +64,7 @@ struct RunningProgramCard: View {
                                     .clipped()
                             case .failure:
                                 RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.gray.opacity(0.3))
+                                    .fill(Color.secondary.opacity(0.3))
                                     .frame(width: cardWidth, height: cardHeight)
                             @unknown default:
                                 EmptyView()
@@ -71,10 +73,7 @@ struct RunningProgramCard: View {
             
             // Gradient Overlay
             LinearGradient(
-                gradient: Gradient(colors: [
-                    Color.black.opacity(0.2),  // instead of 0.0
-                    Color.black.opacity(0.8)   // instead of 0.6 or 0.7
-                ]),
+                gradient: Gradient(colors: gradientColors),
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -85,17 +84,17 @@ struct RunningProgramCard: View {
                 Text(program.title)
                     .font(.headline)
                     .fontWeight(.semibold)
-                    .foregroundColor(.white)
+                    .foregroundColor(colorScheme == .light ? .white : .primary)
                 Text(program.description)
                     .font(.subheadline)
-                    .foregroundColor(.white.opacity(0.9))
+                    .foregroundColor(colorScheme == .light ? .white : .primary.opacity(0.9))
                     .lineLimit(2)
             }
             .padding()
         }
         .frame(width: cardWidth, height: cardHeight)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .shadow(color: Color.black.opacity(0.2), radius: 4, x: 0, y: 3)
+        .shadow(color: Color.primary.opacity(0.2), radius: 4, x: 0, y: 3)
         // Add a context menu so a long press shows the Save option
                 .contextMenu {
                     if let onSave = onSave {
@@ -107,6 +106,17 @@ struct RunningProgramCard: View {
                     }
                 }
     }
+    // Computed property for gradient colors based on color scheme.
+    private var gradientColors: [Color] {
+        if colorScheme == .dark {
+            return [Color.black.opacity(0.2), Color.black.opacity(0.8)]
+        } else {
+            return [Color.black.opacity(0.4), Color.black.opacity(0.7)]
+        }
+    }
+
+
+
 }
 
 
@@ -117,7 +127,9 @@ struct ExploreView: View {
     @State private var showUploadView = false
     @State private var programs: [RunningProgram] = []
     @State private var showUploadSheet = false
-    
+    @Environment(\.dismiss) var dismiss // Added dismiss environment
+    @Environment(\.colorScheme) var colorScheme
+
     var runningPrograms: [ExploreFeedItem] {
         viewModel.exploreFeedItems.filter { $0.category == "runningProgram" }
     }
@@ -126,7 +138,6 @@ struct ExploreView: View {
         viewModel.exploreFeedItems.filter { $0.category == "Blog" }
     }
 
-    
     var body: some View {
         NavigationView {
             ZStack {
@@ -148,11 +159,25 @@ struct ExploreView: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
-                        Text("Explore")
-                            .fontWeight(.semibold)
-                            .font(.system(size: 20))
+                        if viewModel.searchText.isEmpty {
+                            Text("Explore")
+                                .fontWeight(.semibold)
+                                .font(.system(size: 20))
+                        } else {
+                            Button(action: {
+                                viewModel.searchText = ""
+                            }) {
+                                HStack {
+                                    Image(systemName: "chevron.left")
+                                    Text("Explore")
+                                        .fontWeight(.semibold)
+                                        .font(.system(size: 20))
+                                }
+                            }
+                        }
                     }
                 }
+
                 
                 // Floating Upload Button
                 VStack {
@@ -164,6 +189,7 @@ struct ExploreView: View {
                         }) {
                             Image(systemName: "plus")
                                 .font(.system(size: 24))
+                                //.foregroundColor(.primary)
                                 .foregroundColor(.white)
                                 .padding()
                                 .background(Color.blue)
@@ -183,16 +209,15 @@ struct ExploreView: View {
             }) {
                 ExploreUploadView()
             }
-
+        }
     }
-}
     
     // MARK: - Subviews
     
     private var searchBar: some View {
         HStack {
             Image(systemName: "magnifyingglass")
-                .foregroundColor(.gray)
+                .foregroundColor(.secondary)
             TextField("Search", text: $viewModel.searchText)
                 .textFieldStyle(PlainTextFieldStyle())
         }
@@ -258,7 +283,6 @@ struct ExploreView: View {
             }
         }
     }
-
 }
 
 func convertToRunningProgram123(from item: ExploreFeedItem) -> RunningProgram123 {
@@ -277,15 +301,11 @@ func convertToBlog123(from item: ExploreFeedItem) -> Blog123 {
     )
 }
 
-
-
-
-// MARK: - Preview
-
 struct ExploreView_Previews: PreviewProvider {
     static var previews: some View {
         ExploreView()
     }
 }
+
 
 

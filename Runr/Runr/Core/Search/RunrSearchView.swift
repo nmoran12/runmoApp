@@ -38,7 +38,7 @@ struct RunrSearchView: View {
                         .frame(width: 20, height: 20)
                         .padding()
                         .background(Color.blue)
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                         .clipShape(Circle())
                         .shadow(radius: 5)
                 }

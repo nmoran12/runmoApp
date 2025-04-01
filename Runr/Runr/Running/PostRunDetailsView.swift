@@ -82,12 +82,12 @@ struct PostRunDetailsView: View {
                             
                             Image(systemName: "chevron.right.2")
                                 .font(.system(size: 14))
-                                .foregroundColor(.gray)
+                                .foregroundColor(.secondary)
                         }
                         .padding(.trailing, 10)
                     }
                     .padding(.vertical, 8)
-                    .background(Color(.systemGray6).opacity(0.6))
+                    .background(Color(UIColor.systemGray6).opacity(0.6))
                     .cornerRadius(8)
                     .padding(.horizontal, 10)
                     .padding(.top, 15)
@@ -125,7 +125,7 @@ struct PostRunDetailsView: View {
                     // Caption Field
                     TextField("Write a caption...", text: $caption)
                         .padding()
-                        .background(Color(.systemGray6))
+                        .background(Color(UIColor.systemGray6))
                         .cornerRadius(10)
                         .padding(.horizontal)
                         .padding(.top, 5)
@@ -182,7 +182,7 @@ struct PostRunDetailsView: View {
                                 .overlay(
                                     Text("Post")
                                         .font(.system(size: 16, weight: .bold))
-                                        .foregroundColor(.white)
+                                        .foregroundColor(.primary)
                                 )
                         }
                         
@@ -197,7 +197,7 @@ struct PostRunDetailsView: View {
                                 .overlay(
                                     Image(systemName: "trash")
                                         .font(.system(size: 20))
-                                        .foregroundColor(.white)
+                                        .foregroundColor(.primary)
                                 )
                         }
                         // Attach a confirmation dialog modifier to your view (e.g., on the parent VStack)
@@ -226,22 +226,23 @@ struct PostRunDetailsView: View {
                 }
             }
             .navigationBarBackButtonHidden(true)
-            .navigationBarItems(leading:
-                Button(action: {
-                    presentationMode.wrappedValue.dismiss()
-                }) {
-                    Image(systemName: "chevron.left")
-                        .foregroundColor(.black)
-                        .font(.system(size: 20, weight: .semibold))
-                }
+            .navigationBarItems(
+                leading:
+                    Button(action: {
+                        presentationMode.wrappedValue.dismiss()
+                    }) {
+                        Image(systemName: "chevron.left")
+                            .foregroundColor(.primary)
+                            .font(.system(size: 20, weight: .semibold))
+                    },
+                trailing:
+                    Button(action: {}) {
+                        Image(systemName: "ellipsis")
+                            .foregroundColor(.primary)
+                            .font(.system(size: 20, weight: .semibold))
+                    }
             )
-            .navigationBarItems(trailing:
-                Button(action: {}) {
-                    Image(systemName: "ellipsis")
-                        .foregroundColor(.black)
-                        .font(.system(size: 20, weight: .semibold))
-                }
-            )
+
         }
         .alert("Post Run", isPresented: $showPostAlert) {
             Button("OK", role: .cancel) {
@@ -288,12 +289,12 @@ struct PostRunDetailsView: View {
     private func controlButton(systemName: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Circle()
-                .fill(Color(.systemGray6))
+                .fill(Color(UIColor.systemGray6))
                 .frame(width: 60, height: 60)
                 .overlay(
                     Image(systemName: systemName)
                         .font(.system(size: 20))
-                        .foregroundColor(.gray)
+                        .foregroundColor(.secondary)
                 )
         }
     }

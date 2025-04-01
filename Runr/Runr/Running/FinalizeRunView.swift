@@ -48,14 +48,15 @@ struct FinalizeRunView: View {
                     TextField("Activity Title", text: $runTitle)
                         .font(.headline)
                         .padding()
-                        .background(Color(.systemGray6))
+                        .background(Color(UIColor.systemGray6))
                         .cornerRadius(8)
                     
                     TextField("How'd it go? Share more about your activity...", text: $activityDescription, axis: .vertical)
-                        .padding()
                         .frame(minHeight: 80)
-                        .background(Color(.systemGray6))
+                        .background(Color(UIColor.systemGray6))
                         .cornerRadius(8)
+
+
                     
                     // MARK: - Activity Type
                     HStack {
@@ -89,7 +90,7 @@ struct FinalizeRunView: View {
                     TextField("Jot down private notes here. Only you can see these.", text: $privateNotes, axis: .vertical)
                         .padding()
                         .frame(minHeight: 80)
-                        .background(Color(.systemGray6))
+                        .background(Color(UIColor.systemGray6))
                         .cornerRadius(8)
                     
                     // MARK: - Gear
@@ -131,7 +132,7 @@ struct FinalizeRunView: View {
                     
                     Text("Don’t publish to feeds. This activity will still be visible on your profile.")
                         .font(.caption)
-                        .foregroundColor(.gray)
+                        .foregroundColor(.secondary)
                     
                     // MARK: - Bottom Buttons
                     VStack(spacing: 12) {
@@ -143,7 +144,7 @@ struct FinalizeRunView: View {
                                 .frame(maxWidth: .infinity)
                                 .padding()
                                 .background(Color.red.opacity(0.8))
-                                .foregroundColor(.white)
+                                .foregroundColor(.primary)
                                 .cornerRadius(8)
                         }
                         
@@ -157,7 +158,7 @@ struct FinalizeRunView: View {
                                 .frame(maxWidth: .infinity)
                                 .padding()
                                 .background(Color.orange)
-                                .foregroundColor(.white)
+                                .foregroundColor(.primary)
                                 .cornerRadius(8)
                         }
                     }

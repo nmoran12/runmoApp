@@ -22,9 +22,19 @@ class AuthService: ObservableObject {
     
     private let storageRef = Storage.storage().reference()
     
-    init(){
+    init() {
         self.userSession = Auth.auth().currentUser
+        if let _ = self.userSession {
+            Task {
+                do {
+                    try await loadUserData()
+                } catch {
+                    print("DEBUG: Failed to load user data in init: \(error.localizedDescription)")
+                }
+            }
+        }
     }
+
     
     // This is a function to be able to follow a user
     func followUser(userId: String) async throws {
@@ -214,12 +224,14 @@ class AuthService: ObservableObject {
     }
     
     private func uploadUserData(uid: String, username: String, email: String, realName: String) async {
-        let user = User(id: uid, username: username, email: email, realName: realName)
+        // Initialize with an empty tags array
+        let user = User(id: uid, username: username, email: email, realName: realName, tags: [])
         guard let encodedUser = try? Firestore.Encoder().encode(user) else { return }
-        
         try? await Firestore.firestore().collection("users").document(user.id).setData(encodedUser)
     }
+
 }
+
 
 extension AuthService {
     /// Fetch a user document from Firestore by its UID.

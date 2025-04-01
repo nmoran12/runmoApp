@@ -135,17 +135,18 @@ struct FeedCell: View {
                         VStack(alignment: .leading) {
                             Text(post.user.username)
                                 .font(.system(size: 16, weight: .bold))
+                                .foregroundColor(.primary)
                             
                             Text(timeAgoSinceDate(post.timestamp))
                                 .font(.caption)
-                                .foregroundColor(.gray)
+                                .foregroundColor(.secondary)
                         }
                         
                         Spacer()
                         
                         Image(systemName: "ellipsis")
                             .font(.system(size: 20))
-                            .foregroundColor(.gray)
+                            .foregroundColor(.secondary)
                     }
                     .padding(.horizontal, 12)
                     
@@ -162,30 +163,33 @@ struct FeedCell: View {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("Distance")
                                         .font(.caption)
-                                        .foregroundColor(.gray)
+                                        .foregroundColor(.secondary)
                                     Text("\(String(format: "%.2f km", runData.distance / 1000))")
                                         .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(.primary)
                                 }
                                 Spacer()
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("Time")
                                         .font(.caption)
-                                        .foregroundColor(.gray)
+                                        .foregroundColor(.secondary)
                                     let timeMinutes = Int(runData.elapsedTime) / 60
                                     let timeSeconds = Int(runData.elapsedTime) % 60
                                     Text("\(String(format: "%d min %02d sec", timeMinutes, timeSeconds))")
                                         .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(.primary)
                                 }
                                 Spacer()
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("Pace")
                                         .font(.caption)
-                                        .foregroundColor(.gray)
+                                        .foregroundColor(.secondary)
                                     let paceInSecondsPerKm = runData.elapsedTime / (runData.distance / 1000)
                                     let paceMinutes = Int(paceInSecondsPerKm) / 60
                                     let paceSeconds = Int(paceInSecondsPerKm) % 60
                                     Text("\(String(format: "%d:%02d / km", paceMinutes, paceSeconds))")
                                         .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(.primary)
                                 }
                             }
                         }
@@ -211,19 +215,20 @@ struct FeedCell: View {
                     toggleLike()
                 }) {
                     Image(systemName: isLiked ? "heart.fill" : "heart")
-                        .foregroundColor(isLiked ? .red : .black)
+                        .foregroundColor(isLiked ? .red : .primary)
                         .font(.system(size: 22))
                 }
                 
                 Text("\(likeCount)")
                     .font(.system(size: 14))
-                    .foregroundColor(.gray)
+                    .foregroundColor(.secondary)
                 
                 Button(action: {
                     showComments.toggle()
                 }) {
                     Image(systemName: "bubble.right")
                         .font(.system(size: 22))
+                        .foregroundColor(.primary)
                 }
                 .sheet(isPresented: $showComments) {
                     CommentsView(post: post)
@@ -234,6 +239,7 @@ struct FeedCell: View {
                 }) {
                     Image(systemName: "paperplane")
                         .font(.system(size: 22))
+                        .foregroundColor(.primary)
                 }
                 
                 Spacer()

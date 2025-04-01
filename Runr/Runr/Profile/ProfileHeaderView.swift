@@ -19,14 +19,20 @@ struct ProfileHeaderView: View {
     @State private var generatedConversationId = ""
     @State private var isFollowing = false
     @State private var followingCount: Int = 0
-    
+
     let user: User
     let totalDistance: Double?
     let totalTime: Double?
     let averagePace: Double?
     var isFirst: Bool
+    let runs: [RunData]
     
     var onTapProfileImage: (() -> Void)? = nil
+
+    // Computed property to check if this is the current user
+    var isCurrentUser: Bool {
+        return Auth.auth().currentUser?.uid == user.id
+    }
     
     // Helper to format time nicely
     func formatTime(_ totalTime: Double) -> String {
@@ -42,7 +48,7 @@ struct ProfileHeaderView: View {
         }
     }
     
-    // New helper that creates a conversation document ID using user IDs.
+    // Helper that creates a conversation document ID using user IDs.
     func makeConversationDocIdUsingIDs(userId1: String, userId2: String) -> String {
         let sortedIDs = [userId1, userId2].sorted()
         return sortedIDs.joined(separator: "_") + "_chat"
@@ -131,21 +137,21 @@ struct ProfileHeaderView: View {
                             .font(.system(size: 14, weight: .semibold))
                         Text("Distance")
                             .font(.caption)
-                            .foregroundColor(.gray)
+                            .foregroundColor(.secondary)
                     }
                     VStack {
                         Text(formatTime(totalTime ?? 0))
                             .font(.system(size: 14, weight: .semibold))
                         Text("Time")
                             .font(.caption)
-                            .foregroundColor(.gray)
+                            .foregroundColor(.secondary)
                     }
                     VStack {
                         Text("\(averagePace ?? 0, specifier: "%.1f") min/km")
                             .font(.system(size: 14, weight: .semibold))
                         Text("Avg Pace")
                             .font(.caption)
-                            .foregroundColor(.gray)
+                            .foregroundColor(.secondary)
                     }
                 }
             }
@@ -157,80 +163,100 @@ struct ProfileHeaderView: View {
                 .fontWeight(.semibold)
             Text(user.bio ?? "No bio available")
                 .font(.footnote)
-                .foregroundColor(.gray)
-                .padding(.bottom, 8)
+                .foregroundColor(.secondary)
+                //.padding(.bottom, 2)
+            
+            // Compute tags from runs and display them
+            // Compute dynamic tags using TagsManager
+            let dynamicTags = TagsManager.computeTags(from: runs)
+            let tagsToDisplay = (user.tags?.isEmpty == false ? user.tags! : dynamicTags)
+            if !tagsToDisplay.isEmpty {
+                TagsView(tags: tagsToDisplay)
+                    .padding(.horizontal, 0)
+                    .padding(.bottom, 20)
+            }
+
+
             
             // Divider to visually separate sections
             Divider()
-                .padding(.vertical, 4)
+                //.padding(.vertical, 4)
             
-            // Follower / Following / Runs counters re-organized into vertical stacks for better clarity
-            HStack(spacing: 16) {
-                VStack {
-                    Text("\(followerCount)")
-                        .font(.headline)
-                    Text("Followers")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                }
-                VStack {
-                    Text("\(followingCount)")
-                        .font(.headline)
-                    Text("Following")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                }
-                VStack {
-                    Text("\(runCount)")
-                        .font(.headline)
-                    Text("Runs")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                }
+            // Follower / Following / Runs counters
+            HStack(spacing: 0) {
+                statBlock(count: followerCount, label: "Followers")
+                
+                Divider()
+                    .frame(height: 36)
+                
+                statBlock(count: followingCount, label: "Following")
+                
+                Divider()
+                    .frame(height: 36)
+                
+                statBlock(count: runCount, label: "Runs")
             }
-            .padding(.bottom, 8)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+            .background(Color(.secondarySystemBackground).opacity(0.5))
+            .cornerRadius(12)
+            .padding(.horizontal)
             
-            // Follow & Message buttons with refined styling
-            HStack {
-                Button {
-                    Task {
-                        do {
-                            if isFollowing {
-                                try await AuthService.shared.unfollowUser(userId: user.id)
-                                isFollowing = false
-                            } else {
-                                try await AuthService.shared.followUser(userId: user.id)
-                                isFollowing = true
-                            }
-                        } catch {
-                            print("DEBUG: Error toggling follow: \(error.localizedDescription)")
-                        }
-                    }
-                } label: {
-                    Text(isFollowing ? "Unfollow" : "Follow")
+            // Button Section
+            if isCurrentUser {
+                NavigationLink(destination: ProfileStatsView(user: user)) {
+                    Text("View Stats")
                         .font(.subheadline)
                         .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
-                        .background(isFollowing ? Color.gray : Color.blue)
+                        .background(Color.blue)
                         .foregroundColor(.white)
                         .cornerRadius(8)
                 }
-                
-                Button {
-                    startConversation()
-                } label: {
-                    Text("Message")
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(Color.gray.opacity(0.2))
-                        .foregroundColor(.black)
-                        .cornerRadius(8)
+                .frame(height: 44)
+            } else {
+                HStack {
+                    Button {
+                        Task {
+                            do {
+                                if isFollowing {
+                                    try await authService.unfollowUser(userId: user.id)
+                                    isFollowing = false
+                                } else {
+                                    try await authService.followUser(userId: user.id)
+                                    isFollowing = true
+                                }
+                            } catch {
+                                print("DEBUG: Error toggling follow: \(error.localizedDescription)")
+                            }
+                        }
+                    } label: {
+                        Text(isFollowing ? "Unfollow" : "Follow")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(isFollowing ? Color.secondary : Color.blue)
+                            .foregroundColor(.white)
+                            .cornerRadius(8)
+                    }
+                    
+                    Button {
+                        startConversation()
+                    } label: {
+                        Text("Message")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(Color.secondary.opacity(0.2))
+                            .foregroundColor(.primary)
+                            .cornerRadius(8)
+                    }
                 }
+                .frame(height: 44)
             }
-            .frame(height: 44)
         }
         .padding(.horizontal)
         .onAppear {
@@ -241,34 +267,78 @@ struct ProfileHeaderView: View {
         }
         .task {
             do {
-                let runs = try await AuthService.shared.fetchUserRuns()
+                let runs = try await authService.fetchUserRuns()
                 runCount = runs.count
-                let followingStatus = try await AuthService.shared.isCurrentUserFollowingUser(user.id)
+                let followingStatus = try await authService.isCurrentUserFollowingUser(user.id)
                 isFollowing = followingStatus
-            } catch {
-                print("Error fetching run count: \(error.localizedDescription)")
+                
+                // Update the user's tags in Firestore
+                let dynamicTags = TagsManager.computeTags(from: runs)
+                        try await TagsManager.updateUserTags(dynamicTags)
+                    } catch {
+                        print("Failed to update user tags: \(error.localizedDescription)")
+                    }
             }
-        }
         .navigationDestination(isPresented: .constant(showChat)) {
             ChatView(conversationId: generatedConversationId, userId: user.id)
         }
     }
 }
 
+private func statCard(title: String, value: String) -> some View {
+        VStack(spacing: 4) {
+            Text(value)
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(.primary)
+            
+            Text(title)
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .frame(width: 80)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color.primary)
+                .shadow(color: Color.primary.opacity(0.05), radius: 2, x: 0, y: 1)
+        )
+    }
+
+private func statBlock(count: Int, label: String) -> some View {
+        VStack(spacing: 4) {
+            Text("\(count)")
+                .font(.headline)
+                .fontWeight(.bold)
+            
+            Text(label)
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
 #Preview {
-    ProfileHeaderView(
+    // Create some sample RunData
+    let sampleRuns: [RunData] = [
+        RunData(date: Date(), distance: 5000, elapsedTime: 800, routeCoordinates: []),
+        RunData(date: Date(), distance: 10000, elapsedTime: 2300, routeCoordinates: []),
+        RunData(date: Date(), distance: 42000, elapsedTime: 12000, routeCoordinates: [])
+    ]
+    
+    return ProfileHeaderView(
         user: User(
             id: "123",
             username: "Spiderman",
             email: "spiderman@avengers.com",
             realName: "Peter Parker"
+            // Make sure to include any additional required fields for User.
         ),
         totalDistance: 100.0,
         totalTime: 3600.0,
         averagePace: 6.0,
-        isFirst: true
+        isFirst: true,
+        runs: sampleRuns
     )
     .environmentObject(AuthService.shared)
 }
-
 

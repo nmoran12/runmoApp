@@ -28,10 +28,10 @@ struct CurrentUserProfileView: View {
     @StateObject private var rankChecker = UserRankChecker()
     @State private var showPrivacyPolicy = false
     @State private var showSavedItemsView = false
+    @State private var showCalendarView = false
 
     var body: some View {
         NavigationStack {
-            // 1) Put the main ScrollView content in a separate computed property.
             mainContent
                 .navigationTitle("Profile")
                 .navigationBarTitleDisplayMode(.inline)
@@ -42,11 +42,14 @@ struct CurrentUserProfileView: View {
                         } label: {
                             Image(systemName: "line.3.horizontal")
                                 .font(.title2)
-                                .foregroundColor(.black)
+                                .foregroundColor(.primary)
                         }
                     }
                 }
                 .confirmationDialog("Menu", isPresented: $showMenu, titleVisibility: .visible) {
+                    Button("Calendar") {
+                        showCalendarView = true
+                    }
                     Button("View Saved") {
                         showSavedItemsView = true
                     }
@@ -62,6 +65,10 @@ struct CurrentUserProfileView: View {
                     Button("Cancel", role: .cancel) { }
                 }
                 // Sheets & alerts
+                .sheet(isPresented: $showCalendarView) {
+                    CalendarView(runs: runs)
+                }
+
                 .sheet(isPresented: $showPrivacyPolicy) {
                     NavigationStack {
                         PrivacyPolicyView()
@@ -118,28 +125,16 @@ struct CurrentUserProfileView: View {
                     totalTime: totalTime,
                     averagePace: averagePace,
                     isFirst: rankChecker.isFirst,
+                    runs: runs,  // <-- pass your runs array here
                     onTapProfileImage: {
                         isImagePickerPresented = true
                     }
                 )
-                
-                // Optional "Upload Image" button
-               // if let selectedImage {
-                //    Button("Upload Image") {
-                //        Task {
-                //            await handleProfileImageUpload(selectedImage)
-                //        }
-                //    }
-                //    .padding()
-                //    .background(Color.blue)
-                //    .foregroundColor(.white)
-                //    .cornerRadius(8)
-               // }
-                
+
                 if runs.isEmpty {
                     Text("No runs yet")
                         .font(.footnote)
-                        .foregroundColor(.gray)
+                        .foregroundColor(.secondary)
                 } else {
                     ForEach(runs) { run in
                         RunCell(

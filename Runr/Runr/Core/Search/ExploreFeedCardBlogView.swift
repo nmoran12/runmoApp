@@ -19,7 +19,7 @@ struct ExploreFeedCardView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 10))
             } placeholder: {
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(Color.gray.opacity(0.3))
+                    .fill(Color.secondary.opacity(0.3))
                     .frame(height: 200)
             }
 
@@ -29,14 +29,14 @@ struct ExploreFeedCardView: View {
             Text(exploreFeedItem.content)
                 .font(.subheadline)
                 .lineLimit(3)
-                .foregroundColor(.gray)
+                .foregroundColor(.secondary)
 
             Text(exploreFeedItem.category)
                 .font(.caption)
                 .foregroundColor(.blue)
         }
         .padding()
-        .background(Color.white)
+        .background(Color.primary)
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .shadow(radius: 2)
         .padding(.horizontal)

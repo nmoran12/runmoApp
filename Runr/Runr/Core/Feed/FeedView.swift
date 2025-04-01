@@ -54,11 +54,13 @@ struct FeedView: View {
                     Text("Runmo")
                         .fontWeight(.semibold)
                         .font(.system(size: 20))
+                        .foregroundColor(.primary)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink(destination: MessagesView()) {
                         Image(systemName: "paperplane")
                             .imageScale(.large)
+                            .foregroundColor(.primary)
                     }
                 }
             }
@@ -96,7 +98,7 @@ struct PostListView: View {
             } else if noMorePosts {
                 Text("No More Posts to Display")
                     .font(.footnote)
-                    .foregroundColor(.gray)
+                    .foregroundColor(.secondary)
                     .padding(.vertical, 16)
             }
         }

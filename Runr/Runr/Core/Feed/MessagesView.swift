@@ -87,6 +87,18 @@ struct MessagesView: View {
                 viewModel.fetchConversations()
             }
         }
+    // Add a drag gesture to the entire NavigationStack to dismiss on a right swipe.
+            .gesture(
+                DragGesture(minimumDistance: 20)
+                    .onEnded { value in
+                        // Check if swipe is predominantly rightward (translation.width > 100)
+                        // and vertical movement is minimal.
+                        if value.translation.width > 100 && abs(value.translation.height) < 50 {
+                            dismiss()
+                        }
+                    }
+            )
+        }
     }
     
     // MARK: - Conversation Row
@@ -141,7 +153,6 @@ struct MessagesView: View {
             }
         }
     }
-}
 
 
 

@@ -33,7 +33,7 @@ struct ProfileImagePreviewView: View {
                             onUpload()
                         }
                         .padding()
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                         .background(Color.blue)
                         .cornerRadius(8)
 

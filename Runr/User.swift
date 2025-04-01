@@ -18,6 +18,11 @@ struct User: Identifiable, Hashable, Codable{
     var totalDistance: Double? = 0.0
     var totalTime: Double? = 0.0
     var averagePace: Double? = 0.0
+    var tags: [String]?
+    
+    var city: String?
+    var country: String?
+    var isoCountryCode: String?
     
     
 }
@@ -37,8 +42,9 @@ extension LeaderUser {
         LeaderUser(
             id: user.id,
             name: user.username,
-            totalDistance: Double.random(in: 5000...15000), // Random distance for testing
+            score: Double.random(in: 5000...55000), // Change from totalDistance to score
             imageUrl: user.profileImageUrl ?? "https://example.com/default-profile.jpg"
         )
     }
 }
+

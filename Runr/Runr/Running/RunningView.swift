@@ -32,6 +32,13 @@ struct RunningView: View {
     // Add this to track if we're showing loading state
     @State private var isLoadingRank: Bool = true
     
+    // State to control showing the CalendarView.
+    @State private var showCalendarView: Bool = false
+    @State private var runs: [RunData] = []
+    
+    @State private var showGoalsSettingView: Bool = false
+
+    
     var body: some View {
         NavigationStack {
             ZStack {
@@ -41,10 +48,37 @@ struct RunningView: View {
                 
                 // UI Overlays
                 VStack(alignment: .trailing, spacing: 0) {
-                    
-                    // Footwear button - only shown when not running
-                    if !runTracker.isRunning && !showPostRunDetails {
-                        footwearButton
+                        
+                    VStack {
+                                Spacer()
+                                HStack {
+                                    Spacer()
+                                    FloatingActionButtonsView(
+                                        isRunning: $runTracker.isRunning,
+                                        showPostRunDetails: $showPostRunDetails,
+                                        selectedFootwear: $selectedFootwear,
+                                        calendarAction: {
+                                            showCalendarView = true
+                                        },
+                                        goalsAction: {
+                                            showGoalsSettingView = true
+                                        }
+                                    )
+                                    .padding(16) // Adjust for positioning
+                                }
+                            }
+                    .onAppear {
+                        Task {
+                            // Fetch runs from your backend and assign to the runs state variable.
+                            self.runs = try await AuthService.shared.fetchUserRuns()
+                        }
+                    }
+                    .sheet(isPresented: $showGoalsSettingView) {
+                        GoalsSettingView()
+                    }
+
+                    .sheet(isPresented: $showCalendarView) {
+                        CalendarView(runs: runs)
                     }
                     
                     Spacer()
@@ -65,10 +99,41 @@ struct RunningView: View {
                             postRunExpandedView
                         }
                     }
-                    .background(Color.white)
+                    .background(Color(.systemBackground))
                 }
             }
-            .animation(.spring(), value: showPostRunDetails)
+            // Update navigation bar items to include a calendar button on the leading side.
+            .navigationBarItems(
+                leading: HStack {
+                    Button(action: {
+                        // Existing back action:
+                        runTracker.stopRun()
+                        runTracker.distanceTraveled = 0
+                        runTracker.elapsedTime = 0
+                        runTracker.isRunning = false
+                        
+                        // Reset ephemeral leaderboard info
+                        userPostedDistance = 0
+                        nextRankDistance = nil
+                        distanceToNextRank = 0
+                        userRank = nil
+                        
+                        // Hide the post-run UI if showing
+                        showPostRunDetails = false
+                    }) {
+                        Image(systemName: "chevron.left")
+                            .foregroundColor(.primary)
+                            .padding(8)
+                    }
+                },
+                trailing: Button(action: {
+                    // More options
+                }) {
+                    Image(systemName: "ellipsis")
+                        .foregroundColor(.primary)
+                        .padding(8)
+                }
+            )
         }
         .onAppear {
             Task {
@@ -89,42 +154,6 @@ struct RunningView: View {
             // This fires every time distanceTraveled changes
             computeDistanceToNextRank()
         }
-        
-        // Add this back to your NavigationStack
-        .navigationBarItems(
-            leading: Button(action: {
-                // 1) Stop the run if it's active
-                runTracker.stopRun()
-                
-                // 2) Zero out the runTracker stats
-                runTracker.distanceTraveled = 0
-                runTracker.elapsedTime = 0
-                runTracker.isRunning = false
-                
-                // 3) Reset ephemeral leaderboard info
-                userPostedDistance = 0
-                nextRankDistance = nil
-                distanceToNextRank = 0
-                userRank = nil
-                
-                // 4) Hide the post-run UI if showing
-                showPostRunDetails = false
-                
-            }) {
-                Image(systemName: "chevron.left")
-                    .foregroundColor(.black)
-                    .padding(8)
-            },
-            trailing: Button(action: {
-                // More options
-            }) {
-                Image(systemName: "ellipsis")
-                    .foregroundColor(.black)
-                    .padding(8)
-            }
-        )
-
-        
         // -- Alert for Post Success --
         .alert("Post Run", isPresented: $showPostAlert) {
             Button("OK") {
@@ -150,7 +179,6 @@ struct RunningView: View {
         } message: {
             Text(postAlertMessage)
         }
-
     }
     
     // MARK: - UI Components
@@ -194,12 +222,12 @@ struct RunningView: View {
                                 : "You’ve surpassed the next rank if you post now!"
                             )
                             .font(.system(size: 15))
-                            .foregroundColor(.black)
+                            .foregroundColor(.primary)
                             .padding(.leading, 4)
                         } else {
                             Text("You are #1!")
                                 .font(.system(size: 15))
-                                .foregroundColor(.black)
+                                .foregroundColor(.primary)
                                 .padding(.leading, 4)
                         }
                     } else {
@@ -209,7 +237,7 @@ struct RunningView: View {
                         
                         Text("Unable to load position")
                             .font(.system(size: 15))
-                            .foregroundColor(.black)
+                            .foregroundColor(.primary)
                             .padding(.leading, 4)
                     }
                 }
@@ -219,11 +247,11 @@ struct RunningView: View {
                 // ">" icon
                 Image(systemName: "chevron.right")
                     .font(.system(size: 14))
-                    .foregroundColor(.gray)
+                    .foregroundColor(.secondary)
                     .padding(.trailing, 10)
             }
             .padding(.vertical, 8)
-            .background(Color(.systemGray6).opacity(0.6))
+            .background(Color(UIColor.systemGray6).opacity(0.6))
             .cornerRadius(8)
             .padding(.horizontal, 10)
             .padding(.top, 15)
@@ -245,7 +273,7 @@ struct RunningView: View {
             VStack(alignment: .center, spacing: 2) {
                 Text("AVG Pace")
                     .font(.system(size: 14))
-                    .foregroundColor(.gray)
+                    .foregroundColor(.secondary)
                 
                 HStack(alignment: .bottom, spacing: 1) {
                     Text(runTracker.paceString.replacingOccurrences(of: " / km", with: ""))
@@ -253,7 +281,7 @@ struct RunningView: View {
                     
                     Text("/km")
                         .font(.system(size: 14))
-                        .foregroundColor(.gray)
+                        .foregroundColor(.secondary)
                         .padding(.bottom, 4)
                 }
             }
@@ -262,13 +290,13 @@ struct RunningView: View {
             
             Divider()
                 .frame(width: 1, height: 70)
-                .background(Color.gray.opacity(0.3))
+                .background(Color.secondary.opacity(0.3))
             
             // Distance Column
             VStack(alignment: .center, spacing: 2) {
                 Text("Distance")
                     .font(.system(size: 14))
-                    .foregroundColor(.gray)
+                    .foregroundColor(.secondary)
                 
                 HStack(alignment: .bottom, spacing: 1) {
                     Text(String(format: "%.2f", runTracker.distanceTraveled / 1000))
@@ -276,7 +304,7 @@ struct RunningView: View {
                     
                     Text("km")
                         .font(.system(size: 14))
-                        .foregroundColor(.gray)
+                        .foregroundColor(.secondary)
                         .padding(.bottom, 4)
                 }
             }
@@ -285,13 +313,13 @@ struct RunningView: View {
             
             Divider()
                 .frame(width: 1, height: 70)
-                .background(Color.gray.opacity(0.3))
+                .background(Color.secondary.opacity(0.3))
             
             // Time Column
             VStack(alignment: .center, spacing: 2) {
                 Text("Time")
                     .font(.system(size: 14))
-                    .foregroundColor(.gray)
+                    .foregroundColor(.secondary)
                 
                 Text(formatTime(seconds: Int(runTracker.elapsedTime)))
                     .font(.system(size: 32, weight: .bold))
@@ -299,7 +327,7 @@ struct RunningView: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
         }
-        .background(Color.white)
+        .background(Color(.systemBackground))
     }
     
     private var runningControls: some View {
@@ -318,14 +346,14 @@ struct RunningView: View {
                             .frame(width: 80, height: 80)
                             .background(Color.blue)
                             .clipShape(Circle())
-                            .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
+                            .shadow(color: .primary.opacity(0.2), radius: 4, x: 0, y: 2)
                     }
                     .scaleEffect(isPressed ? 1.1 : 1.0)
                     .opacity(isPressed ? 0.8 : 1.0)
                     
                 }
                 .padding(.vertical, 30)
-                .background(Color.white)
+                .background(Color(.systemBackground))
             } else {
                 // Stop Run button
                 Button {
@@ -339,17 +367,17 @@ struct RunningView: View {
                     Text("STOP")
                         .bold()
                         .font(.headline)
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                         .frame(width: 80, height: 80)
                         .background(Color.red)
                         .clipShape(Circle())
-                        .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
+                        .shadow(color: .primary.opacity(0.2), radius: 4, x: 0, y: 2)
                 }
                 .scaleEffect(isPressed ? 1.1 : 1.0)
                 .opacity(isPressed ? 0.8 : 1.0)
                 .padding(.vertical, 30)
                 .frame(maxWidth: .infinity)
-                .background(Color.white)
+                .background(Color(.systemBackground))
             }
         }
         .animation(.easeInOut(duration: 0.2), value: isPressed)
@@ -368,7 +396,7 @@ struct RunningView: View {
                 VStack(alignment: .center, spacing: 2) {
                     Text("Calories")
                         .font(.system(size: 14))
-                        .foregroundColor(.gray)
+                        .foregroundColor(.secondary)
                     
                     HStack(alignment: .bottom, spacing: 1) {
                         // Calculated calories based on distance/time
@@ -378,7 +406,7 @@ struct RunningView: View {
                         
                         Text("kcal")
                             .font(.system(size: 14))
-                            .foregroundColor(.gray)
+                            .foregroundColor(.secondary)
                             .padding(.bottom, 4)
                     }
                 }
@@ -387,13 +415,13 @@ struct RunningView: View {
                 
                 Divider()
                     .frame(width: 1, height: 70)
-                    .background(Color.gray.opacity(0.3))
+                    .background(Color.secondary.opacity(0.3))
                 
                 // Elevation
                 VStack(alignment: .center, spacing: 2) {
                     Text("Elevation")
                         .font(.system(size: 14))
-                        .foregroundColor(.gray)
+                        .foregroundColor(.secondary)
                     
                     HStack(alignment: .bottom, spacing: 1) {
                         Text("12")
@@ -401,7 +429,7 @@ struct RunningView: View {
                         
                         Text("m")
                             .font(.system(size: 14))
-                            .foregroundColor(.gray)
+                            .foregroundColor(.secondary)
                             .padding(.bottom, 4)
                     }
                 }
@@ -410,13 +438,13 @@ struct RunningView: View {
                 
                 Divider()
                     .frame(width: 1, height: 70)
-                    .background(Color.gray.opacity(0.3))
+                    .background(Color.secondary.opacity(0.3))
                 
                 // Heart Rate
                 VStack(alignment: .center, spacing: 2) {
                     Text("BPM")
                         .font(.system(size: 14))
-                        .foregroundColor(.gray)
+                        .foregroundColor(.secondary)
                     
                     HStack(alignment: .bottom, spacing: 1) {
                         Text("120")
@@ -424,19 +452,19 @@ struct RunningView: View {
                         
                         Text("bpm")
                             .font(.system(size: 14))
-                            .foregroundColor(.gray)
+                            .foregroundColor(.secondary)
                             .padding(.bottom, 4)
                     }
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
             }
-            .background(Color.white)
+            .background(Color(.systemBackground))
             
             // Caption input
             TextField("Write a caption...", text: $caption)
                 .padding()
-                .background(Color(.systemGray6))
+                .background(Color(UIColor.systemGray6).opacity(0.6))
                 .cornerRadius(8)
                 .padding(.horizontal)
             
@@ -453,11 +481,11 @@ struct RunningView: View {
                     Text("Resume")
                         .bold()
                         .font(.title3)
-                        .foregroundColor(.black)
+                        .foregroundColor(.primary)
                         .frame(width: 80, height: 80)
-                        .background(Color.white)
+                        .background(Color(.systemBackground))
                         .clipShape(Circle())
-                        .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
+                        .shadow(color: .primary.opacity(0.2), radius: 4, x: 0, y: 2)
                 }
                 
                 
@@ -469,11 +497,11 @@ struct RunningView: View {
                     Text("Post")
                         .bold()
                         .font(.title3)
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                         .frame(width: 80, height: 80)
                         .background(Color.blue)
                         .clipShape(Circle())
-                        .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
+                        .shadow(color: .primary.opacity(0.2), radius: 4, x: 0, y: 2)
                 }
                 
                 // 3) **Delete** button
@@ -498,16 +526,16 @@ struct RunningView: View {
                     Text("Delete")
                         .bold()
                         .font(.title3)
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                         .frame(width: 80, height: 80)
                         .background(Color.red)
                         .clipShape(Circle())
-                        .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
+                        .shadow(color: .primary.opacity(0.2), radius: 4, x: 0, y: 2)
                 }
             }
             .padding(.vertical, 20)
         }
-        .background(Color.white)
+        .background(Color(.systemBackground))
         .transition(.move(edge: .bottom))
         // Attach a .navigationDestination that listens to showFinalizeScreen
         .navigationDestination(isPresented: $showFinalizeScreen) {
@@ -594,4 +622,6 @@ struct RunningView: View {
 
 #Preview {
     RunningView()
+        .preferredColorScheme(.dark)
 }
+

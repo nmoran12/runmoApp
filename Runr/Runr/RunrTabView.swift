@@ -22,7 +22,9 @@ struct RunrTabView: View {
                 }
                 .tabItem{
                     Image(systemName: "house")
+                        .foregroundColor(.primary)
                 }.tag(0)
+            
             
             ExploreView()
                 .onAppear{
@@ -31,6 +33,7 @@ struct RunrTabView: View {
                 }
                 .tabItem{
                     Image(systemName: "magnifyingglass")
+                        .foregroundColor(.primary)
                 }.tag(1)
             
             
@@ -42,6 +45,7 @@ struct RunrTabView: View {
                 }
                 .tabItem{
                     Image(systemName: "figure.run")
+                        .foregroundColor(.primary)
                 }.tag(2)
             
             
@@ -52,7 +56,9 @@ struct RunrTabView: View {
                 }
                 .tabItem{
                     Image(systemName: "flag.2.crossed.fill")
+                        .foregroundColor(.primary)
                 }.tag(3)
+                .environmentObject(authService)
             
             CurrentUserProfileView()
                 .onAppear{
@@ -61,9 +67,10 @@ struct RunrTabView: View {
                 .environmentObject(authService)
                 .tabItem{
                     Image(systemName: "person")
+                        .foregroundColor(.primary)
                 }.tag(4)
         }
-        .accentColor(.black)
+        .accentColor(.primary)
     }
 }
 

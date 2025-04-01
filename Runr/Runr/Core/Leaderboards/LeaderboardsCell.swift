@@ -10,13 +10,16 @@ import SwiftUI
 struct LeaderboardsCell: View {
     let user: LeaderUser
     let rank: Int
+    let leaderboardType: LeaderboardType
+    @Environment(\.colorScheme) var colorScheme
+
     
     private func rankColor() -> Color {
         switch rank {
         case 1: return Color.yellow.opacity(0.2) // Subtle gold
         case 2: return Color.gray.opacity(0.2) // Silver
         case 3: return Color.orange.opacity(0.2) // Bronze
-        default: return Color(.systemGray6)
+        default: return Color(UIColor.systemGray6)
         }
     }
 
@@ -40,7 +43,7 @@ struct LeaderboardsCell: View {
                         .scaledToFill()
                         .frame(width: 45, height: 45)
                         .clipShape(Circle())
-                        .foregroundColor(.gray)
+                        .foregroundColor(.secondary)
                 }
             }
 
@@ -51,15 +54,19 @@ struct LeaderboardsCell: View {
 
             Spacer()
 
-            Text("\(user.totalDistance, specifier: "%.2f") km")
+            Text(user.displayValue(for: leaderboardType))
+
                 .font(.system(size: 16))
                 .foregroundColor(.secondary)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
-        .background(rankColor().opacity(0.3))
+        //.background(rankColor().opacity(0.3))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .padding(.horizontal)
+        .shadow(color: colorScheme == .dark ? Color.black.opacity(0.3) : Color.primary.opacity(0.05),
+                radius: 2, x: 0, y: 1)
+        .background(.white)
     }
 }
 
@@ -67,6 +74,8 @@ struct LeaderboardsCell: View {
 #Preview {
     LeaderboardsCell(
         user: LeaderUser.MOCK_LEADER_USERS[0],
-        rank: 1
+        rank: 1,
+        leaderboardType: .fastest5k
     )
 }
+

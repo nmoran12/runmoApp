@@ -22,7 +22,7 @@ struct StatisticView: View {
                 .frame(maxWidth: .infinity) // Makes sure it occupies available space equally
             Text(label)
                 .font(.caption)
-                .foregroundColor(.gray)
+                .foregroundColor(.secondary)
         }
     }
 }

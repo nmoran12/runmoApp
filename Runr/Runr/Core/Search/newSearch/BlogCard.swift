@@ -13,6 +13,7 @@ struct BlogCard: View {
     // Closure to be called when the user taps “Save” from the context menu.
         var onSave: (() async -> Void)? = nil
     
+    @Environment(\.colorScheme) var colorScheme
     // Adjust these constants to your preference
     private let cardWidth: CGFloat = 200
     private let cardHeight: CGFloat = 260
@@ -25,7 +26,7 @@ struct BlogCard: View {
                 case .empty:
                     // While loading, show a placeholder or ProgressView
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(Color.gray.opacity(0.3))
+                        .fill(Color.secondary.opacity(0.3))
                         .frame(width: cardWidth, height: cardHeight)
                     
                 case .success(let downloadedImage):
@@ -39,11 +40,11 @@ struct BlogCard: View {
                 case .failure(_):
                     // If there’s an error, show a fallback
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(Color.gray.opacity(0.3))
+                        .fill(Color.secondary.opacity(0.3))
                         .frame(width: cardWidth, height: cardHeight)
                         .overlay(
                             Image(systemName: "exclamationmark.triangle")
-                                .foregroundColor(.white)
+                                .foregroundColor(.primary)
                         )
                 @unknown default:
                     EmptyView()
@@ -57,10 +58,7 @@ struct BlogCard: View {
             
             // Dark gradient overlay
             LinearGradient(
-                gradient: Gradient(colors: [
-                    Color.black.opacity(0.2),  // instead of 0.0
-                    Color.black.opacity(0.8)   // instead of 0.6 or 0.7
-                ]),
+                gradient: Gradient(colors: gradientColors),
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -75,17 +73,17 @@ struct BlogCard: View {
                     .lineLimit(2)
                     .truncationMode(.tail)
                     .font(.subheadline)
-                    .foregroundColor(.white)
+                    .foregroundColor(colorScheme == .light ? .white : .primary)
                 Text(blog.title)
                     .font(.headline)
                     .fontWeight(.semibold)
-                    .foregroundColor(.white)
+                    .foregroundColor(colorScheme == .light ? .white : .primary.opacity(0.9))
             }
             .padding()
         }
         .frame(width: cardWidth, height: cardHeight)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .shadow(color: Color.black.opacity(0.2), radius: 4, x: 0, y: 3)
+        .shadow(color: Color.primary.opacity(0.2), radius: 4, x: 0, y: 3)
         .contextMenu {
         if let onSave = onSave {
             Button("Save") {
@@ -96,6 +94,14 @@ struct BlogCard: View {
         }
     }
     }
+    private var gradientColors: [Color] {
+        if colorScheme == .dark {
+            return [Color.black.opacity(0.2), Color.black.opacity(0.8)]
+        } else {
+            return [Color.black.opacity(0.4), Color.black.opacity(0.7)]
+        }
+    }
+
 }
 
 struct BlogCard_Previews: PreviewProvider {

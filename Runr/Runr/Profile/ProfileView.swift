@@ -18,7 +18,13 @@ struct ProfileView: View {
     @State private var isImagePickerPresented = false
     @State private var isFirst = false
     @StateObject private var rankChecker = UserRankChecker()
+    @Environment(\.dismiss) var dismiss
 
+    // Determine if the profile belongs to the current user.
+        private var isCurrentUser: Bool {
+            Auth.auth().currentUser?.uid == user.id
+        }
+    
     private var totalDistance: Double {
         runs.reduce(0) { $0 + $1.distance } / 1000
     }
@@ -32,37 +38,35 @@ struct ProfileView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                mainContent
-            }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Text("Profile")
-                        .fontWeight(.semibold)
-                        .font(.system(size: 20))
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(action: {
-                        showMenu.toggle()
-                    }) {
-                        Image(systemName: "line.3.horizontal")
-                            .font(.title2)
-                            .foregroundColor(.black)
+            VStack(spacing: 0) {
+                if !isCurrentUser {
+                    // Custom header
+                    HStack {
+                        Button { dismiss() } label: {
+                            Image(systemName: "chevron.left")
+                                .foregroundColor(.primary)
+                                .font(.title2)
+                        }
+                        Spacer()
+                        Text(user.username ?? "Profile")
+                            .font(.headline)
+                        Spacer()
+                        Color.clear.frame(width: 44, height: 44)
                     }
+                    .padding(.vertical, 10)
+                    .padding(.horizontal)
+                    .background(Color(.systemBackground))
+                }
+                
+                ScrollView {
+                    mainContent
                 }
             }
-            .confirmationDialog("Menu", isPresented: $showMenu, titleVisibility: .visible) {
-                Button("Sign Out", role: .destructive) {
-                    AuthService.shared.signout()
-                }
-                Button("Cancel", role: .cancel) { }
-            }
+            .navigationBarHidden(true)
+            .navigationBarBackButtonHidden(true)
+            .toolbar(.hidden, for: .navigationBar)
         }
-    }
     
-    /// Break the main VStack into a separate subview for easier compilation.
     @ViewBuilder
     private var mainContent: some View {
         VStack {
@@ -71,7 +75,8 @@ struct ProfileView: View {
                 totalDistance: totalDistance,
                 totalTime: totalTime,
                 averagePace: averagePace,
-                isFirst: rankChecker.isFirst
+                isFirst: rankChecker.isFirst,
+                runs: runs
             )
             .id(updateTrigger)
             
@@ -92,7 +97,7 @@ struct ProfileView: View {
             } else if runs.isEmpty {
                 Text("No runs yet")
                     .font(.footnote)
-                    .foregroundColor(.gray)
+                    .foregroundColor(.secondary)
             } else {
                 ForEach(runs) { run in
                     RunCell(

@@ -31,10 +31,19 @@ enum LeaderboardPeriod {
     }
 }
 
+enum LeaderboardScope: String, CaseIterable, Identifiable {
+    case local = "Local"
+    case national = "National"
+    case global = "Global"
+    
+    var id: String { self.rawValue }
+}
+
+
 struct LeaderUser: Identifiable, Equatable {
     var id: String
     var name: String
-    var totalDistance: Double
+    var score: Double    // Represents total distance (km) or fastest 5K time (seconds)
     var imageUrl: String
 }
 
@@ -42,10 +51,35 @@ extension LeaderUser {
     static let MOCK_USER = LeaderUser(
         id: "1",
         name: "Mock User",
-        totalDistance: 42.5,
+        score: 42.5,  // Changed from totalDistance to score
         imageUrl: "https://example.com/default-profile.jpg"
     )
 }
+
+// if you ever want to add more leaderboards to the leaderboard, you must update this as well
+extension LeaderUser {
+    func displayValue(for type: LeaderboardType) -> String {
+        switch type {
+        case .fastest5k, .fastest10k, .fastestHalfMarathon, .fastestMarathon:
+            // Convert seconds to a time string. This implementation uses mm:ss.
+            // If the time might exceed an hour, you can add hours as needed.
+            let totalSeconds = self.score
+            let hours = Int(totalSeconds) / 3600
+            let minutes = (Int(totalSeconds) % 3600) / 60
+            let seconds = Int(totalSeconds) % 60
+            if hours > 0 {
+                return String(format: "%d:%02d:%02d", hours, minutes, seconds)
+            } else {
+                return String(format: "%d:%02d", minutes, seconds)
+            }
+        case .totalDistance:
+            return String(format: "%.2f km", self.score)
+        }
+    }
+}
+
+
+
 
 class LeaderboardViewModel: ObservableObject {
     @Published var users: [LeaderUser] = []
@@ -80,7 +114,7 @@ class LeaderboardViewModel: ObservableObject {
                             
                             return LeaderUser(id: doc.documentID,
                                               name: username,
-                                              totalDistance: totalDistance,
+                                              score: totalDistance,
                                               imageUrl: profileImageUrl)
                         }
                     }
@@ -89,13 +123,10 @@ class LeaderboardViewModel: ObservableObject {
     }
     
     // This is for a time-based fetch (weekly, monthly, yearly)
-    func fetchLeaderboard(for period: LeaderboardPeriod) {
+    func fetchLeaderboard(for period: LeaderboardPeriod, scope: LeaderboardScope) {
         let db = Firestore.firestore()
-        
-        // 1. Get the startDate for the desired period
         let startDate = period.startDate
-        
-        // 2. Query runs using a collection group query
+
         db.collectionGroup("runs")
             .whereField("date", isGreaterThanOrEqualTo: startDate)
             .getDocuments { snapshot, error in
@@ -109,19 +140,15 @@ class LeaderboardViewModel: ObservableObject {
                     return
                 }
                 
-                // 3. Aggregate distances by userId
                 var userDistanceMap: [String: Double] = [:]
                 
                 for doc in documents {
                     let data = doc.data()
-                    
                     guard let distance = data["distance"] as? Double else { continue }
-                    // Extract userId from the document's parent collection
                     guard let userId = doc.reference.parent.parent?.documentID else { continue }
                     userDistanceMap[userId, default: 0] += distance
                 }
                 
-                // 4. Fetch the user info from the "users" collection using the aggregated userIds
                 let userIds = Array(userDistanceMap.keys)
                 if userIds.isEmpty {
                     DispatchQueue.main.async {
@@ -130,59 +157,72 @@ class LeaderboardViewModel: ObservableObject {
                     return
                 }
                 
-                db.collection("users")
+                // Begin building the user query
+                var userQuery = db.collection("users")
                     .whereField(FieldPath.documentID(), in: userIds)
-                    .getDocuments { userSnapshot, userError in
-                        if let userError = userError {
-                            print("DEBUG: Error fetching users: \(userError.localizedDescription)")
-                            return
-                        }
+                
+                // Add location filtering based on scope:
+                switch scope {
+                case .local:
+                    if let currentCity = AuthService.shared.currentUser?.city {
+                        userQuery = userQuery.whereField("city", isEqualTo: currentCity)
+                    }
+                case .national:
+                    if let currentIso = AuthService.shared.currentUser?.isoCountryCode {
+                        userQuery = userQuery.whereField("isoCountryCode", isEqualTo: currentIso)
+                    }
+                case .global:
+                    break // no additional filter
+                }
+                
+                userQuery.getDocuments { userSnapshot, userError in
+                    if let userError = userError {
+                        print("DEBUG: Error fetching users: \(userError.localizedDescription)")
+                        return
+                    }
+                    
+                    guard let userDocs = userSnapshot?.documents else {
+                        print("DEBUG: No user documents found")
+                        return
+                    }
+                    
+                    var leaderboard: [LeaderUser] = []
+                    for userDoc in userDocs {
+                        let data = userDoc.data()
+                        guard let username = data["username"] as? String else { continue }
+                        let profileImageUrl = data["profileImageUrl"] as? String ?? ""
                         
-                        guard let userDocs = userSnapshot?.documents else {
-                            print("DEBUG: No user documents found")
-                            return
-                        }
+                        let distanceSum = userDistanceMap[userDoc.documentID] ?? 0
+                        let score = distanceSum / 1000  // in kilometers
                         
-                        var leaderboard: [LeaderUser] = []
-                        
-                        for userDoc in userDocs {
-                            let data = userDoc.data()
-                            guard let username = data["username"] as? String else { continue }
-                            
-                            let profileImageUrl = data["profileImageUrl"] as? String ?? ""
-                            let distanceSum = userDistanceMap[userDoc.documentID] ?? 0
-
-                            // Convert meters to kilometers
-                            let distanceInKm = distanceSum / 1000
-
-                            let leaderUser = LeaderUser(
-                                id: userDoc.documentID,
-                                name: username,
-                                totalDistance: distanceInKm,  // Use distanceInKm here
-                                imageUrl: profileImageUrl
-                            )
-                            leaderboard.append(leaderUser)
-                        }
-                        
-                        // 5. Sort descending by totalDistance
-                        leaderboard.sort { $0.totalDistance > $1.totalDistance }
-                        
-                        // 6. Update the published property on the main thread
-                        DispatchQueue.main.async {
-                            withAnimation {
-                                self.users = leaderboard
-                            }
+                        let leaderUser = LeaderUser(
+                            id: userDoc.documentID,
+                            name: username,
+                            score: score,
+                            imageUrl: profileImageUrl
+                        )
+                        leaderboard.append(leaderUser)
+                    }
+                    
+                    // Sort descending by score
+                    leaderboard.sort { $0.score > $1.score }
+                    
+                    DispatchQueue.main.async {
+                        withAnimation {
+                            self.users = leaderboard
                         }
                     }
+                }
             }
     }
+
     
-    // For the leaderboard that displays the fastest 5k's in a time period
-    func fetchFastest5kLeaderboard(for period: LeaderboardPeriod) {
+    // For Fastest 10K (10,000 meters)
+    func fetchFastest10kLeaderboard(for period: LeaderboardPeriod) {
         let db = Firestore.firestore()
         let startDate = period.startDate
+        let targetDistance = 10_000.0
 
-        // 1. Query runs in the selected period.
         db.collectionGroup("runs")
             .whereField("date", isGreaterThanOrEqualTo: startDate)
             .getDocuments { snapshot, error in
@@ -196,31 +236,23 @@ class LeaderboardViewModel: ObservableObject {
                     return
                 }
                 
-                // 2. For each run, filter out those below 5km and compute the 5k equivalent time.
                 var userBestTimeMap: [String: Double] = [:]
                 for doc in documents {
                     let data = doc.data()
+                    guard let distance = data["distance"] as? Double, distance >= targetDistance,
+                          let elapsedTime = data["elapsedTime"] as? Double else { continue }
                     
-                    // Ensure the run is at least 5km.
-                    guard let distance = data["distance"] as? Double, distance >= 5000 else { continue }
-                    // Assume you have a "duration" field in seconds.
-                    guard let duration = data["duration"] as? Double else { continue }
+                    let equivalentTime = elapsedTime * (targetDistance / distance)
                     
-                    // Calculate the 5k equivalent time.
-                    let fiveKTime = duration * (5000 / distance)
-                    
-                    // Get the userId from the document’s parent reference.
                     guard let userId = doc.reference.parent.parent?.documentID else { continue }
                     
-                    // Update the best time if this run is faster.
                     if let currentBest = userBestTimeMap[userId] {
-                        userBestTimeMap[userId] = min(currentBest, fiveKTime)
+                        userBestTimeMap[userId] = min(currentBest, equivalentTime)
                     } else {
-                        userBestTimeMap[userId] = fiveKTime
+                        userBestTimeMap[userId] = equivalentTime
                     }
                 }
                 
-                // 3. Fetch user info for the aggregated user IDs.
                 let userIds = Array(userBestTimeMap.keys)
                 if userIds.isEmpty {
                     DispatchQueue.main.async {
@@ -247,24 +279,190 @@ class LeaderboardViewModel: ObservableObject {
                             let data = userDoc.data()
                             guard let username = data["username"] as? String else { continue }
                             let profileImageUrl = data["profileImageUrl"] as? String ?? ""
-                            // Use the best (lowest) 5k time for this user.
-                            let bestFiveKTime = userBestTimeMap[userDoc.documentID] ?? 0
                             
-                            // You might consider renaming the property in your model for clarity,
-                            // but here we use totalDistance to store the fastest time (in seconds).
+                            let bestTime = userBestTimeMap[userDoc.documentID] ?? 0
+                            
                             let leaderUser = LeaderUser(
                                 id: userDoc.documentID,
                                 name: username,
-                                totalDistance: bestFiveKTime,  // Represents fastest 5k time in seconds
+                                score: bestTime,  // Fastest 10K time in seconds
                                 imageUrl: profileImageUrl
                             )
                             leaderboard.append(leaderUser)
                         }
                         
-                        // 4. Sort so that the fastest (lowest time) is at the top.
-                        leaderboard.sort { $0.totalDistance < $1.totalDistance }
+                        leaderboard.sort { $0.score < $1.score }
                         
-                        // 5. Update your UI on the main thread.
+                        DispatchQueue.main.async {
+                            withAnimation {
+                                self.users = leaderboard
+                            }
+                        }
+                    }
+            }
+    }
+
+    // For Fastest Half-Marathon (21,097.5 meters)
+    func fetchFastestHalfMarathonLeaderboard(for period: LeaderboardPeriod) {
+        let db = Firestore.firestore()
+        let startDate = period.startDate
+        let targetDistance = 21_097.5
+
+        db.collectionGroup("runs")
+            .whereField("date", isGreaterThanOrEqualTo: startDate)
+            .getDocuments { snapshot, error in
+                if let error = error {
+                    print("DEBUG: Error fetching runs: \(error.localizedDescription)")
+                    return
+                }
+                
+                guard let documents = snapshot?.documents else {
+                    print("DEBUG: No run documents found")
+                    return
+                }
+                
+                var userBestTimeMap: [String: Double] = [:]
+                for doc in documents {
+                    let data = doc.data()
+                    guard let distance = data["distance"] as? Double, distance >= targetDistance,
+                          let elapsedTime = data["elapsedTime"] as? Double else { continue }
+                    
+                    let equivalentTime = elapsedTime * (targetDistance / distance)
+                    
+                    guard let userId = doc.reference.parent.parent?.documentID else { continue }
+                    
+                    if let currentBest = userBestTimeMap[userId] {
+                        userBestTimeMap[userId] = min(currentBest, equivalentTime)
+                    } else {
+                        userBestTimeMap[userId] = equivalentTime
+                    }
+                }
+                
+                let userIds = Array(userBestTimeMap.keys)
+                if userIds.isEmpty {
+                    DispatchQueue.main.async {
+                        self.users = []
+                    }
+                    return
+                }
+                
+                db.collection("users")
+                    .whereField(FieldPath.documentID(), in: userIds)
+                    .getDocuments { userSnapshot, userError in
+                        if let userError = userError {
+                            print("DEBUG: Error fetching users: \(userError.localizedDescription)")
+                            return
+                        }
+                        
+                        guard let userDocs = userSnapshot?.documents else {
+                            print("DEBUG: No user documents found")
+                            return
+                        }
+                        
+                        var leaderboard: [LeaderUser] = []
+                        for userDoc in userDocs {
+                            let data = userDoc.data()
+                            guard let username = data["username"] as? String else { continue }
+                            let profileImageUrl = data["profileImageUrl"] as? String ?? ""
+                            
+                            let bestTime = userBestTimeMap[userDoc.documentID] ?? 0
+                            
+                            let leaderUser = LeaderUser(
+                                id: userDoc.documentID,
+                                name: username,
+                                score: bestTime,  // Fastest Half-Marathon time in seconds
+                                imageUrl: profileImageUrl
+                            )
+                            leaderboard.append(leaderUser)
+                        }
+                        
+                        leaderboard.sort { $0.score < $1.score }
+                        
+                        DispatchQueue.main.async {
+                            withAnimation {
+                                self.users = leaderboard
+                            }
+                        }
+                    }
+            }
+    }
+
+    // For Fastest Marathon (42,195 meters)
+    func fetchFastestMarathonLeaderboard(for period: LeaderboardPeriod) {
+        let db = Firestore.firestore()
+        let startDate = period.startDate
+        let targetDistance = 42_195.0
+
+        db.collectionGroup("runs")
+            .whereField("date", isGreaterThanOrEqualTo: startDate)
+            .getDocuments { snapshot, error in
+                if let error = error {
+                    print("DEBUG: Error fetching runs: \(error.localizedDescription)")
+                    return
+                }
+                
+                guard let documents = snapshot?.documents else {
+                    print("DEBUG: No run documents found")
+                    return
+                }
+                
+                var userBestTimeMap: [String: Double] = [:]
+                for doc in documents {
+                    let data = doc.data()
+                    guard let distance = data["distance"] as? Double, distance >= targetDistance,
+                          let elapsedTime = data["elapsedTime"] as? Double else { continue }
+                    
+                    let equivalentTime = elapsedTime * (targetDistance / distance)
+                    
+                    guard let userId = doc.reference.parent.parent?.documentID else { continue }
+                    
+                    if let currentBest = userBestTimeMap[userId] {
+                        userBestTimeMap[userId] = min(currentBest, equivalentTime)
+                    } else {
+                        userBestTimeMap[userId] = equivalentTime
+                    }
+                }
+                
+                let userIds = Array(userBestTimeMap.keys)
+                if userIds.isEmpty {
+                    DispatchQueue.main.async {
+                        self.users = []
+                    }
+                    return
+                }
+                
+                db.collection("users")
+                    .whereField(FieldPath.documentID(), in: userIds)
+                    .getDocuments { userSnapshot, userError in
+                        if let userError = userError {
+                            print("DEBUG: Error fetching users: \(userError.localizedDescription)")
+                            return
+                        }
+                        
+                        guard let userDocs = userSnapshot?.documents else {
+                            print("DEBUG: No user documents found")
+                            return
+                        }
+                        
+                        var leaderboard: [LeaderUser] = []
+                        for userDoc in userDocs {
+                            let data = userDoc.data()
+                            guard let username = data["username"] as? String else { continue }
+                            let profileImageUrl = data["profileImageUrl"] as? String ?? ""
+                            
+                            let bestTime = userBestTimeMap[userDoc.documentID] ?? 0
+                            
+                            let leaderUser = LeaderUser(
+                                id: userDoc.documentID,
+                                name: username,
+                                score: bestTime,  // Fastest Marathon time in seconds
+                                imageUrl: profileImageUrl
+                            )
+                            leaderboard.append(leaderUser)
+                        }
+                        
+                        leaderboard.sort { $0.score < $1.score }
+                        
                         DispatchQueue.main.async {
                             withAnimation {
                                 self.users = leaderboard
@@ -275,4 +473,191 @@ class LeaderboardViewModel: ObservableObject {
     }
 
     
+    // this is a generic function that works to fetch the fastest time of any distance you parse into it
+    func fetchFastestLeaderboard(for period: LeaderboardPeriod,
+                                 targetDistance: Double,
+                                 scope: LeaderboardScope) {
+        let db = Firestore.firestore()
+        let startDate = period.startDate
+        
+        db.collectionGroup("runs")
+            .whereField("date", isGreaterThanOrEqualTo: startDate)
+            .getDocuments { snapshot, error in
+                if let error = error {
+                    print("DEBUG: Error fetching runs: \(error.localizedDescription)")
+                    return
+                }
+                
+                guard let documents = snapshot?.documents else {
+                    print("DEBUG: No run documents found")
+                    return
+                }
+                
+                var userBestTimeMap: [String: Double] = [:]
+                for doc in documents {
+                    let data = doc.data()
+                    guard let distance = data["distance"] as? Double, distance >= targetDistance,
+                          let elapsedTime = data["elapsedTime"] as? Double else { continue }
+                    
+                    let equivalentTime = elapsedTime * (targetDistance / distance)
+                    guard let userId = doc.reference.parent.parent?.documentID else { continue }
+                    
+                    if let currentBest = userBestTimeMap[userId] {
+                        userBestTimeMap[userId] = min(currentBest, equivalentTime)
+                    } else {
+                        userBestTimeMap[userId] = equivalentTime
+                    }
+                }
+                
+                let userIds = Array(userBestTimeMap.keys)
+                if userIds.isEmpty {
+                    DispatchQueue.main.async {
+                        self.users = []
+                    }
+                    return
+                }
+                
+                // Build the user query
+                var userQuery = db.collection("users")
+                    .whereField(FieldPath.documentID(), in: userIds)
+                
+                // Filter by city or isoCountryCode if scope is local/national
+                switch scope {
+                case .local:
+                    if let currentCity = AuthService.shared.currentUser?.city {
+                        userQuery = userQuery.whereField("city", isEqualTo: currentCity)
+                    }
+                case .national:
+                    if let currentIso = AuthService.shared.currentUser?.isoCountryCode {
+                        userQuery = userQuery.whereField("isoCountryCode", isEqualTo: currentIso)
+                    }
+                case .global:
+                    break
+                }
+                
+                userQuery.getDocuments { userSnapshot, userError in
+                    if let userError = userError {
+                        print("DEBUG: Error fetching users: \(userError.localizedDescription)")
+                        return
+                    }
+                    
+                    guard let userDocs = userSnapshot?.documents else {
+                        print("DEBUG: No user documents found")
+                        return
+                    }
+                    
+                    var leaderboard: [LeaderUser] = []
+                    for userDoc in userDocs {
+                        let data = userDoc.data()
+                        guard let username = data["username"] as? String else { continue }
+                        let profileImageUrl = data["profileImageUrl"] as? String ?? ""
+                        
+                        let bestTime = userBestTimeMap[userDoc.documentID] ?? 0
+                        let leaderUser = LeaderUser(
+                            id: userDoc.documentID,
+                            name: username,
+                            score: bestTime,  // Fastest time in seconds
+                            imageUrl: profileImageUrl
+                        )
+                        leaderboard.append(leaderUser)
+                    }
+                    
+                    // Sort ascending by time (faster = smaller value)
+                    leaderboard.sort { $0.score < $1.score }
+                    
+                    DispatchQueue.main.async {
+                        withAnimation {
+                            self.users = leaderboard
+                        }
+                    }
+                }
+            }
+    }
+
+
+    
+    // For the leaderboard that displays the fastest 5k's in a time period
+    func fetchFastest5kLeaderboard(for period: LeaderboardPeriod) {
+        let db = Firestore.firestore()
+        let startDate = period.startDate
+
+        db.collectionGroup("runs")
+            .whereField("date", isGreaterThanOrEqualTo: startDate)
+            .getDocuments { snapshot, error in
+                if let error = error {
+                    print("DEBUG: Error fetching runs: \(error.localizedDescription)")
+                    return
+                }
+                
+                guard let documents = snapshot?.documents else {
+                    print("DEBUG: No run documents found")
+                    return
+                }
+                
+                var userBestTimeMap: [String: Double] = [:]
+                for doc in documents {
+                    let data = doc.data()
+                    
+                    guard let distance = data["distance"] as? Double, distance >= 5000 else { continue }
+                    guard let duration = data["elapsedTime"] as? Double else { continue }
+                    
+                    let fiveKTime = duration * (5000 / distance)
+                    
+                    guard let userId = doc.reference.parent.parent?.documentID else { continue }
+                    
+                    if let currentBest = userBestTimeMap[userId] {
+                        userBestTimeMap[userId] = min(currentBest, fiveKTime)
+                    } else {
+                        userBestTimeMap[userId] = fiveKTime
+                    }
+                }
+                
+                let userIds = Array(userBestTimeMap.keys)
+                if userIds.isEmpty {
+                    DispatchQueue.main.async {
+                        self.users = []
+                    }
+                    return
+                }
+                
+                db.collection("users")
+                    .whereField(FieldPath.documentID(), in: userIds)
+                    .getDocuments { userSnapshot, userError in
+                        if let userError = userError {
+                            print("DEBUG: Error fetching users: \(userError.localizedDescription)")
+                            return
+                        }
+                        
+                        guard let userDocs = userSnapshot?.documents else {
+                            print("DEBUG: No user documents found")
+                            return
+                        }
+                        
+                        var leaderboard: [LeaderUser] = []
+                        for userDoc in userDocs {
+                            let data = userDoc.data()
+                            guard let username = data["username"] as? String else { continue }
+                            let profileImageUrl = data["profileImageUrl"] as? String ?? ""
+                            
+                            let bestFiveKTime = userBestTimeMap[userDoc.documentID] ?? 0
+                            
+                            let leaderUser = LeaderUser(
+                                id: userDoc.documentID,
+                                name: username,
+                                score: bestFiveKTime,  // Fastest 5K time in seconds
+                                imageUrl: profileImageUrl
+                            )
+                            leaderboard.append(leaderUser)
+                        }
+                        
+                        leaderboard.sort { $0.score < $1.score }
+                        
+                        DispatchQueue.main.async {
+                            withAnimation {
+                                self.users = leaderboard
+                            }
+                        }
+                    }
+            }
+    }
 }

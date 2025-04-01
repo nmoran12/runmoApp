@@ -38,6 +38,11 @@ struct RunrApp: App {
                         .environmentObject(runTracker)
                 }
             }
+            .onAppear {
+                            // Request location permissions and fetch/store the current user location.
+                            LocationService.shared.requestLocationPermissions()
+                            LocationService.shared.fetchAndStoreUserLocation()
+                        }
         }
     }
 }

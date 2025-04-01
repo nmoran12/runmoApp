@@ -29,7 +29,7 @@ struct BlogUploadView: View {
 
             TextEditor(text: $content)
                 .frame(height: 200)
-                .border(Color.gray.opacity(0.5), width: 1)
+                .border(Color.secondary.opacity(0.5), width: 1)
                 .cornerRadius(8)
                 .padding(.bottom)
             
@@ -62,7 +62,7 @@ struct BlogUploadView: View {
                 }
             }
             .background(Color.blue)
-            .foregroundColor(.white)
+            .foregroundColor(.primary)
             .cornerRadius(10)
         }
         .padding()

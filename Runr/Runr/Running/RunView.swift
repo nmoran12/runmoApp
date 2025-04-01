@@ -9,6 +9,7 @@ import SwiftUI
 import MapKit
 import Firebase
 import ActivityKit
+import FirebaseAuth
 
 
 
@@ -27,7 +28,8 @@ class RunTracker: NSObject, ObservableObject {
     @Published var timedLocations: [TimedLocation] = []
 
 
-
+    // New flag to ensure we update the user's location only once (or when desired)
+    @Published var hasUpdatedUserLocation: Bool = false
 
     
     // Location Tracking
@@ -60,7 +62,7 @@ class RunTracker: NSObject, ObservableObject {
         elapsedTime = 0
         routeCoordinates.removeAll()
         timedLocations.removeAll()
-        paceString = "0:00 / km" // or whatever default you want
+        paceString = "0:00 / km"
         
         locationManager?.startUpdatingLocation()
         
@@ -99,7 +101,6 @@ class RunTracker: NSObject, ObservableObject {
             // Restart timer without resetting stats
             timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
                 self?.elapsedTime += 1
-                // update paceString accordingly
             }
             isRunning = true
         }
@@ -131,8 +132,6 @@ class RunTracker: NSObject, ObservableObject {
             let runId = "\(username)_\(timestampString)"
             let runRef = userRef.collection("runs").document(runId)
 
-            // Use timedLocations instead of routeCoordinates.
-            // Each timed location now includes latitude, longitude and timestamp.
             let runData: [String: Any] = [
                 "date": Timestamp(date: Date()),
                 "distance": self.distanceTraveled,
@@ -152,7 +151,6 @@ class RunTracker: NSObject, ObservableObject {
             try await runRef.setData(runData)
             print("DEBUG: Run data uploaded with custom ID: \(runId)")
 
-            // (The rest of your code for updating stats and posting remains unchanged.)
             try await db.runTransaction({ (transaction, errorPointer) -> Any? in
                 do {
                     let userSnapshot = try transaction.getDocument(userRef)
@@ -202,19 +200,6 @@ class RunTracker: NSObject, ObservableObject {
         }
     }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
     // Displaying a history of runs for a user
     func fetchRuns() async -> [RunData] {
         guard let userId = AuthService.shared.userSession?.uid else { return [] }
@@ -247,8 +232,6 @@ class RunTracker: NSObject, ObservableObject {
         }
     }
 
-    
-    
     // Update the speed
     func updatePace() {
         guard distanceTraveled > 0 else {
@@ -266,17 +249,37 @@ class RunTracker: NSObject, ObservableObject {
             self.paceString = String(format: "%d:%02d / km", paceMinutes, paceSeconds)
         }
     }
-
-
-
     
-
-    
-    
-    // Drawing a route and adding pins
-
-
-    
+    // MARK: - New Function to Update User Location in Firestore
+        private func updateUserLocation(with location: CLLocation) {
+            // Reverse geocode the provided location
+            CLGeocoder().reverseGeocodeLocation(location) { placemarks, error in
+                if let error = error {
+                    print("DEBUG: Reverse geocode error: \(error.localizedDescription)")
+                    return
+                }
+                guard let placemark = placemarks?.first else { return }
+                
+                let city = placemark.locality ?? "Unknown City"
+                let country = placemark.country ?? "Unknown Country"
+                let isoCode = placemark.isoCountryCode ?? "Unknown"
+                
+                guard let userId = Auth.auth().currentUser?.uid else { return }
+                let db = Firestore.firestore()
+                
+                db.collection("users").document(userId).updateData([
+                    "city": city,
+                    "country": country,
+                    "isoCountryCode": isoCode
+                ]) { error in
+                    if let error = error {
+                        print("DEBUG: Failed to update user location: \(error.localizedDescription)")
+                    } else {
+                        print("DEBUG: User location updated to: \(city), \(country) (\(isoCode))")
+                    }
+                }
+            }
+        }
 }
 
 // Extension to the class "RunTracker"
@@ -284,42 +287,40 @@ class RunTracker: NSObject, ObservableObject {
 
 extension RunTracker: CLLocationManagerDelegate {
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-            guard let location = locations.last else { return }
+        guard let location = locations.last else { return }
+        
+        if isRunning {
+            if startLocation == nil {
+                startLocation = location
+            }
             
-            // If you don't want to record anything while paused:
-            // Only update 'lastLocation', 'distanceTraveled', and 'routeCoordinates' if isRunning is true
-            if isRunning {
-                if startLocation == nil {
-                    startLocation = location
-                }
-                
-                if let last = lastLocation {
-                    let distance = location.distance(from: last)
-                    distanceTraveled += distance
-                }
-                
-                
-                timedLocations.append(TimedLocation(coordinate: location.coordinate, timestamp: location.timestamp))
-                lastLocation = location
-            } else {
-                // If paused, reset lastLocation to the most recent location so
-                // you don’t get a big jump when resuming.
-                // This ensures that when you resume, the next distance calculation
-                // starts from the current position (not the old paused position).
-                lastLocation = location
+            if let last = lastLocation {
+                let distance = location.distance(from: last)
+                distanceTraveled += distance
             }
-
-            // You can still update the map center to show the user's current position,
-            // even if isRunning is false.
-            DispatchQueue.main.async { [weak self] in
-                self?.region.center = location.coordinate
-            }
+            
+            timedLocations.append(TimedLocation(coordinate: location.coordinate, timestamp: location.timestamp))
+            lastLocation = location
+        } else {
+            lastLocation = location
         }
         
-        func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-            print("locationManager didFailWithError: \(error.localizedDescription)")
+        DispatchQueue.main.async { [weak self] in
+            self?.region.center = location.coordinate
+        }
+        
+        // NEW: Update user's location data once using the current location (if not already updated)
+        if !hasUpdatedUserLocation {
+            updateUserLocation(with: location)
+            hasUpdatedUserLocation = true
         }
     }
+    
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        print("locationManager didFailWithError: \(error.localizedDescription)")
+    }
+}
+
 
 
 

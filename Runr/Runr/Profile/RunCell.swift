@@ -32,7 +32,7 @@ struct RunCell: View {
                         .font(.headline)
                     Text(run.date, formatter: dateFormatter)
                         .font(.caption)
-                        .foregroundColor(.gray)
+                        .foregroundColor(.secondary)
                 }
                 
                 Spacer()
@@ -43,7 +43,7 @@ struct RunCell: View {
                 }) {
                     Image(systemName: "ellipsis")
                         .font(.title2)
-                        .foregroundColor(.gray)
+                        .foregroundColor(.secondary)
                 }
                 .confirmationDialog("Run Options", isPresented: $showMenu, titleVisibility: .visible) {
                     // Show "Delete Run" only if this is the current user's run.
@@ -100,6 +100,7 @@ struct RunCell: View {
                     .frame(height: 250)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
                     .padding(.top, 6)
+                    .allowsHitTesting(false)  // Disable interaction on the map
             }
 
             Divider()

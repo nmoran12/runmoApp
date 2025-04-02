@@ -57,13 +57,19 @@ struct RunningView: View {
                                         isRunning: $runTracker.isRunning,
                                         showPostRunDetails: $showPostRunDetails,
                                         selectedFootwear: $selectedFootwear,
+                                        ghostRunnerManager: GhostRunnerManager(), // or your existing manager
                                         calendarAction: {
                                             showCalendarView = true
                                         },
                                         goalsAction: {
                                             showGoalsSettingView = true
+                                        },
+                                        ghostRunnerAction: {
+                                            // Do something when Ghost Runner is tapped, or leave empty
+                                            print("Ghost Runner tapped")
                                         }
                                     )
+
                                     .padding(16) // Adjust for positioning
                                 }
                             }

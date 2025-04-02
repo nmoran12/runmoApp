@@ -13,7 +13,7 @@ struct FootwearButtonView: View {
     @State private var showFootwearMenu = false // Controls visibility of the pop-down menu
     @State private var footwearOptions: [String] = ["Adidas", "Nike Superfly"] // Initial list of options
     @State private var searchQuery = "" // Stores the search query
-
+    
     var body: some View {
         Button(action: {
             withAnimation {
@@ -28,96 +28,107 @@ struct FootwearButtonView: View {
                 .clipShape(Circle())
                 .shadow(color: Color.primary.opacity(0.3), radius: 4, x: 0, y: 2)
         }
+        .zIndex(1) // Ensure button stays above other content
         .overlay(
             Group {
                 if showFootwearMenu {
-                    VStack(spacing: 12) {
-                        // Search bar
-                        TextField("Search or add new footwear...", text: $searchQuery)
-                            .textFieldStyle(RoundedBorderTextFieldStyle())
-                            .padding(.top, 8)
-                        
-                        // Footwear list (without an extra ScrollView)
-                        List {
-                            ForEach(filteredFootwearOptions(), id: \.self) { option in
-                                HStack {
-                                    Text(option)
-                                        .font(.subheadline)
-                                        .fontWeight(.semibold)
-                                    Spacer()
-                                    Image(systemName: "chevron.right")
-                                        .foregroundColor(.secondary)
-                                }
-                                .contentShape(Rectangle())
-                                .onTapGesture {
-                                    selectedFootwear = option
-                                    showFootwearMenu = false
-                                }
-                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                    Button(role: .destructive) {
-                                        deleteFootwear(option)
-                                    } label: {
-                                        Label("Delete", systemImage: "trash")
-                                    }
-                                }
-                            }
+                    footwearMenuView
+                        .offset(x: -160, y: -150) // Adjust for proper positioning
+                        .transition(.opacity)
+                        .onAppear {
+                            loadFootwearFromFirestore()
                         }
-                        .frame(maxHeight: 200)
-                        .listStyle(.plain)
-                        
-                        // "Add new footwear" button if search query doesn't match.
-                        if !searchQuery.isEmpty && !footwearOptions.contains(searchQuery) {
-                            Button(action: {
-                                footwearOptions.append(searchQuery)
-                                selectedFootwear = searchQuery
-                                searchQuery = ""
-                                showFootwearMenu = false
-                                addFootwearToFirestore(name: selectedFootwear)
-                            }) {
-                                HStack {
-                                    Text("Add '\(searchQuery)' to Footwear")
-                                        .font(.subheadline)
-                                        .fontWeight(.semibold)
-                                    Spacer()
-                                    Image(systemName: "plus")
-                                }
-                                .padding()
-                                .background(Color(UIColor.systemBackground))
-                                .cornerRadius(8)
-                                .shadow(color: Color.primary.opacity(0.1), radius: 2, x: 0, y: 1)
-                            }
-                        }
-                        
-                        // NavigationLink to FootwearStats view
-                        NavigationLink(destination: FootwearStats()) {
-                            HStack {
-                                Text("View Footwear Stats")
-                                    .font(.subheadline)
-                                    .fontWeight(.semibold)
-                                Spacer()
-                                Image(systemName: "chevron.right")
-                                    .foregroundColor(.secondary)
-                            }
-                            .padding()
-                            .background(Color(UIColor.systemBackground))
-                            .cornerRadius(8)
-                            .shadow(color: Color.primary.opacity(0.1), radius: 2, x: 0, y: 1)
-                        }
-                        .padding(.bottom, 8)
-                    }
-                    .padding(.horizontal, 12)
-                    .background(Color(.systemGroupedBackground))
-                    .cornerRadius(10)
-                    .shadow(color: Color.primary.opacity(0.2), radius: 5, x: 0, y: 2)
-                    .offset(y: 50) // Positions the menu 50 points below the button
-                    .transition(.move(edge: .top))
-                    .onAppear {
-                        loadFootwearFromFirestore()
-                    }
                 }
             },
-            alignment: .top
+            alignment: .center // Center alignment gives more predictable positioning
         )
+    }
+    
+    // Extracted menu view for better organization
+    private var footwearMenuView: some View {
+        VStack(spacing: 12) {
+            // Search bar
+            TextField("Search or add new footwear...", text: $searchQuery)
+                .textFieldStyle(RoundedBorderTextFieldStyle())
+                .padding(.top, 8)
+            
+            // Footwear list with scrollable content
+            ScrollView {
+                LazyVStack(spacing: 4) {
+                    ForEach(filteredFootwearOptions(), id: \.self) { option in
+                        HStack {
+                            Text(option)
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 12)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            selectedFootwear = option
+                            showFootwearMenu = false
+                        }
+                        .contextMenu {
+                            Button(role: .destructive) {
+                                deleteFootwear(option)
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
+                        Divider()
+                    }
+                }
+            }
+            .frame(height: 200)
+            
+            // "Add new footwear" button if search query doesn't match.
+            if !searchQuery.isEmpty && !footwearOptions.contains(searchQuery) {
+                Button(action: {
+                    footwearOptions.append(searchQuery)
+                    selectedFootwear = searchQuery
+                    searchQuery = ""
+                    showFootwearMenu = false
+                    addFootwearToFirestore(name: selectedFootwear)
+                }) {
+                    HStack {
+                        Text("Add '\(searchQuery)' to Footwear")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                        Spacer()
+                        Image(systemName: "plus")
+                    }
+                    .padding()
+                    .background(Color(UIColor.systemBackground))
+                    .cornerRadius(8)
+                    .shadow(color: Color.primary.opacity(0.1), radius: 2, x: 0, y: 1)
+                }
+            }
+            
+            // NavigationLink to FootwearStats view
+            NavigationLink(destination: FootwearStats()) {
+                HStack {
+                    Text("View Footwear Stats")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .foregroundColor(.secondary)
+                }
+                .padding()
+                .background(Color(UIColor.systemBackground))
+                .cornerRadius(8)
+                .shadow(color: Color.primary.opacity(0.1), radius: 2, x: 0, y: 1)
+            }
+            .padding(.bottom, 8)
+        }
+        .padding(.horizontal, 12)
+        .frame(width: 300) // Fixed width to ensure proper display
+        .background(Color(.systemGroupedBackground))
+        .cornerRadius(10)
+        .shadow(color: Color.black.opacity(0.2), radius: 10, x: 0, y: 5)
     }
     
     // Filter options based on search query.
@@ -195,6 +206,7 @@ struct FootwearButtonView: View {
 
 #Preview {
     @State var previewFootwear = "Select Footwear"
-    FootwearButtonView(selectedFootwear: $previewFootwear)
+    NavigationView {
+        FootwearButtonView(selectedFootwear: $previewFootwear)
+    }
 }
-

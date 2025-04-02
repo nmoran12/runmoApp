@@ -13,6 +13,10 @@ struct FloatingActionButtonsView: View {
     @Binding var selectedFootwear: String
     @ObservedObject var ghostRunnerManager: GhostRunnerManager
     
+    @State private var runs: [RunData] = []
+    @State private var showCalendarView = false
+    @State private var showGoalsView = false
+    
     /// Action to perform when the calendar button is tapped.
     var calendarAction: () -> Void
     /// Action to perform when the goal setting button is tapped.
@@ -24,12 +28,25 @@ struct FloatingActionButtonsView: View {
         VStack(spacing: 16) {
             // Calendar button always shown.
             CalendarButtonView {
-                calendarAction()
-            }
+                            Task {
+                                await refreshRuns()  // fetch updated runs
+                                showCalendarView = true
+                            }
+                        }
+                    .sheet(isPresented: $showCalendarView) {
+                        CalendarView(runs: runs)
+                    }
+                    .task {
+                        await refreshRuns() // load initial runs data if needed
+                    }
+            
             
             // Goals button always shown.
             GoalsButtonView {
-                goalsAction()
+                // Set the state to show GoalsView when the button is tapped.
+                showGoalsView = true
+                // Optionally, if you want to also perform additional actions:
+                //goalsAction()
             }
             
             // Ghost Runner button always shown.
@@ -43,8 +60,25 @@ struct FloatingActionButtonsView: View {
                 FootwearButtonView(selectedFootwear: $selectedFootwear)
             }
         }
+        .sheet(isPresented: $showGoalsView) {
+            GoalsView()
+        }
     }
+    
+    // this helps get the runs for my calendar view
+    private func refreshRuns() async {
+            do {
+                // Replace with your method to fetch runs, similar to your profile view
+                let fetchedRuns = try await AuthService.shared.fetchUserRuns()
+                // Sort the runs if necessary
+                runs = fetchedRuns.sorted { $0.date > $1.date }
+            } catch {
+                print("DEBUG: Failed to fetch runs: \(error.localizedDescription)")
+            }
+        }
 }
+
+
 
 // A simple Goals button styled similarly to your Calendar button.
 struct GoalsButtonView: View {

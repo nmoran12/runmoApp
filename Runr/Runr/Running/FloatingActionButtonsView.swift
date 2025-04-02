@@ -11,11 +11,14 @@ struct FloatingActionButtonsView: View {
     @Binding var isRunning: Bool
     @Binding var showPostRunDetails: Bool
     @Binding var selectedFootwear: String
+    @ObservedObject var ghostRunnerManager: GhostRunnerManager
     
     /// Action to perform when the calendar button is tapped.
     var calendarAction: () -> Void
     /// Action to perform when the goal setting button is tapped.
     var goalsAction: () -> Void
+    /// Action to perform when the ghost runner button is tapped.
+    var ghostRunnerAction: () -> Void
 
     var body: some View {
         VStack(spacing: 16) {
@@ -28,6 +31,12 @@ struct FloatingActionButtonsView: View {
             GoalsButtonView {
                 goalsAction()
             }
+            
+            // Ghost Runner button always shown.
+            GhostRunButtonView(
+                action: ghostRunnerAction,
+                hasActiveGhostRunners: .constant(!ghostRunnerManager.selectedGhostRunners.isEmpty)
+            )
             
             // Footwear button only shown if not running and not showing post-run details.
             if !isRunning && !showPostRunDetails {
@@ -60,16 +69,23 @@ struct GoalsButtonView: View {
     @State var previewIsRunning = false
     @State var previewShowPostRunDetails = false
     @State var previewFootwear = "Select Footwear"
+    @StateObject var ghostRunnerManager = GhostRunnerManager()
     
     return FloatingActionButtonsView(
         isRunning: $previewIsRunning,
         showPostRunDetails: $previewShowPostRunDetails,
-        selectedFootwear: $previewFootwear
-    ) {
-        print("Calendar tapped!")
-    } goalsAction: {
-        print("Goals tapped!")
-    }
+        selectedFootwear: $previewFootwear,
+        ghostRunnerManager: ghostRunnerManager,
+        calendarAction: {
+            print("Calendar tapped!")
+        },
+        goalsAction: {
+            print("Goals tapped!")
+        },
+        ghostRunnerAction: {
+            print("Ghost Runner tapped!")
+        }
+    )
 }
 
 

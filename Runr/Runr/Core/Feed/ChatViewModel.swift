@@ -9,6 +9,7 @@ import SwiftUI
 import FirebaseFirestore
 import FirebaseAuth
 
+
 struct UserProfile: Identifiable, Codable {
     let id: String
     let realName: String
@@ -19,19 +20,22 @@ struct UserProfile: Identifiable, Codable {
     let totalDistance: Double
 }
 
-
 class ChatViewModel: ObservableObject {
     @Published var messages: [Message] = []
     @Published var userProfile: UserProfile?
 
     let currentUserId = Auth.auth().currentUser?.uid ?? ""
     private let db = Firestore.firestore()
+    
+    // New: store conversationId
+    var conversationId: String = ""
 
     func loadMessages(conversationId: String) {
         guard !conversationId.isEmpty else {
             print("DEBUG: conversationId is empty! Cannot load messages.")
             return
         }
+        self.conversationId = conversationId  // store it for later use
         db.collection("conversations").document(conversationId).collection("messages")
             .order(by: "timestamp", descending: false)
             .addSnapshotListener { snapshot, error in
@@ -42,18 +46,21 @@ class ChatViewModel: ObservableObject {
             }
     }
 
-
-
-
     func sendMessage(conversationId: String, text: String) {
+        let messageId = UUID().uuidString
         let message = Message(
-            id: UUID().uuidString,
+            id: messageId,
             senderId: currentUserId,
             text: text,
-            timestamp: Date()
+            timestamp: Date(),
+            reactions: [:]
         )
 
-        let ref = db.collection("conversations").document(conversationId).collection("messages").document()
+        // Use the same messageId as the document ID
+        let ref = db.collection("conversations")
+                    .document(conversationId)
+                    .collection("messages")
+                    .document(messageId)
         
         do {
             try ref.setData(from: message)
@@ -61,6 +68,8 @@ class ChatViewModel: ObservableObject {
             print("Error sending message: \(error)")
         }
     }
+
+
 
     func loadUserProfile(userId: String) {
         db.collection("users").document(userId).getDocument { snapshot, error in
@@ -90,11 +99,30 @@ class ChatViewModel: ObservableObject {
             }
         }
     }
+    
+    // New: Add reaction to a message
+    func addReaction(to message: Message, reaction: String) {
+        let messageRef = db.collection("conversations")
+            .document(conversationId)
+            .collection("messages")
+            .document(message.id)
+        
+        // Update the current user's reaction without overwriting others.
+        messageRef.updateData(["reactions.\(currentUserId)" : reaction]) { error in
+            if let error = error {
+                print("Error updating reaction: \(error)")
+            } else {
+                if let index = self.messages.firstIndex(where: { $0.id == message.id }) {
+                    var updatedReactions = self.messages[index].reactions ?? [:]
+                    updatedReactions[self.currentUserId] = reaction
+                    self.messages[index].reactions = updatedReactions
+                }
+            }
+        }
+    }
+
 
 }
-
-
-
 
 #Preview {
     Text("Chat View Model Preview")

@@ -14,6 +14,7 @@ struct RunningView: View {
     @State private var showPostRunDetails = false // Instead of navigation link
     @State private var selectedFootwear: String = "Select Footwear"
     @Environment(\.presentationMode) var presentationMode
+    @StateObject var ghostRunnerManager = GhostRunnerManager() // Shared manager
     
     @State private var caption: String = ""
     @State private var showPostAlert: Bool = false
@@ -57,7 +58,7 @@ struct RunningView: View {
                                         isRunning: $runTracker.isRunning,
                                         showPostRunDetails: $showPostRunDetails,
                                         selectedFootwear: $selectedFootwear,
-                                        ghostRunnerManager: GhostRunnerManager(), // or your existing manager
+                                        ghostRunnerManager: ghostRunnerManager, // or your existing manager
                                         calendarAction: {
                                             showCalendarView = true
                                         },
@@ -91,8 +92,16 @@ struct RunningView: View {
                     
                     // Main stats display and controls
                     VStack(spacing: 0) {
-                        // Leaderboard status bar
-                        leaderboardBar
+                        // Instead of always showing the leaderboard bar,
+                        // conditionally display GhostRunnerStatusView when ghost runners are selected.
+                        if !ghostRunnerManager.selectedGhostRunners.isEmpty {
+                            GhostRunnerStatusView(
+                                ghostRunners: ghostRunnerManager.selectedGhostRunners,
+                                userDistance: runTracker.distanceTraveled
+                            )
+                        } else {
+                            leaderboardBar
+                        }
                         
                         // Main stats row
                         statsRow
@@ -142,20 +151,27 @@ struct RunningView: View {
             )
         }
         .onAppear {
+            // Start a timer to update ghost runner positions every second.
+            Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { timer in
+                // If the run is no longer active, stop the timer.
+                if !runTracker.isRunning {
+                    timer.invalidate()
+                } else {
+                    ghostRunnerManager.updateSelectedGhostRunnerPositions(elapsedTime: runTracker.elapsedTime)
+                }
+            }
+            
+            // Your existing onAppear code for fetching leaderboard info etc.
             Task {
-                // 1) Make sure user is logged in
                 guard let userId = AuthService.shared.userSession?.uid else { return }
-                
-                // 2) Fetch the user's rank, posted distance, and next-rank distance
                 let (rank, postedDist, nextDist) = await fetchLeaderboardInfo(for: userId)
                 self.userRank = rank
                 self.userPostedDistance = postedDist ?? 0
                 self.nextRankDistance = nextDist
-                
-                // 3) Compute the distance to next rank right away
                 computeDistanceToNextRank()
             }
         }
+
         .onReceive(runTracker.$distanceTraveled) { _ in
             // This fires every time distanceTraveled changes
             computeDistanceToNextRank()
@@ -487,9 +503,9 @@ struct RunningView: View {
                     Text("Resume")
                         .bold()
                         .font(.title3)
-                        .foregroundColor(.primary)
+                        .foregroundColor(.white)
                         .frame(width: 80, height: 80)
-                        .background(Color(.systemBackground))
+                        .background(Color(.systemGreen))
                         .clipShape(Circle())
                         .shadow(color: .primary.opacity(0.2), radius: 4, x: 0, y: 2)
                 }
@@ -503,7 +519,7 @@ struct RunningView: View {
                     Text("Post")
                         .bold()
                         .font(.title3)
-                        .foregroundColor(.primary)
+                        .foregroundColor(.white)
                         .frame(width: 80, height: 80)
                         .background(Color.blue)
                         .clipShape(Circle())
@@ -532,7 +548,7 @@ struct RunningView: View {
                     Text("Delete")
                         .bold()
                         .font(.title3)
-                        .foregroundColor(.primary)
+                        .foregroundColor(.white)
                         .frame(width: 80, height: 80)
                         .background(Color.red)
                         .clipShape(Circle())

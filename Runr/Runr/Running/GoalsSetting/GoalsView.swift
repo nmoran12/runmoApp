@@ -25,6 +25,9 @@ struct GoalsView: View {
     // New state for the focus goal (if one is long-pressed).
     @State private var focusGoalTuple: (goal: Goal, type: GoalType)? = nil
     
+    // Animation tracking state
+    @State private var animatingGoalID: UUID? = nil
+    
     var body: some View {
         NavigationView {
             ScrollView {
@@ -39,8 +42,14 @@ struct GoalsView: View {
                     }
                     .padding(.bottom, 10)
                     
-                    // Goals progress box remains unchanged
-                    GoalsProgressBox(progress: 0.48)
+                    // Updated to pass the focused goal title if one exists
+                    GoalsProgressBox(
+                        progress: 0.48,
+                        focusedGoalTitle: focusGoalTuple?.goal.title
+                    )
+                    .id(focusGoalTuple?.goal.id) // To trigger animation when focus changes
+                    .transition(.opacity)
+                    .animation(.easeInOut(duration: 0.4), value: focusGoalTuple?.goal.title)
                     
                     // Use GoalTypeSelectorView here
                     GoalTypeSelectorView(selectedGoalType: $selectedGoalType)
@@ -48,22 +57,30 @@ struct GoalsView: View {
                     // Use GoalsListView here, passing the focus goal if it matches the selected type.
                     GoalsListView(
                         selectedGoalType: selectedGoalType,
-                        addedDistanceGoals: addedDistanceGoals,
-                        addedPerformanceGoals: addedPerformanceGoals,
-                        addedPersonalGoals: addedPersonalGoals,
+                        addedDistanceGoals: $addedDistanceGoals,
+                        addedPerformanceGoals: $addedPerformanceGoals,
+                        addedPersonalGoals: $addedPersonalGoals,
                         focusGoal: (focusGoalTuple?.type == selectedGoalType) ? focusGoalTuple?.goal : nil,
                         onLongPress: { goal, type in
-                            withAnimation {
-                                if let current = focusGoalTuple, current.goal.id == goal.id {
-                                    // If already focused, remove focus
-                                    focusGoalTuple = nil
-                                } else {
-                                    // Otherwise, set as focus
-                                    focusGoalTuple = (goal, type)
-                                }
+                            withAnimation(.easeInOut(duration: 0.4)) {
+                            // Set the animating goal ID
+                            self.animatingGoalID = goal.id
+                            
+                            if let current = focusGoalTuple, current.goal.id == goal.id {
+                                // If already focused, remove focus
+                                focusGoalTuple = nil
+                            } else {
+                                // Otherwise, set as focus
+                                focusGoalTuple = (goal, type)
+                            }
+                            
+                            // Reset animation flag after animation completes
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                                self.animatingGoalID = nil
                             }
                         }
-                    )
+                    }
+                )
 
 
                     
@@ -90,15 +107,30 @@ struct GoalsView: View {
                 GoalsSettingView(onGoalSet: { goal, category in
                     switch category {
                     case .distance:
-                        addedDistanceGoals.append(goal)
+                        if addedDistanceGoals.count < 3 {
+                            addedDistanceGoals.append(goal)
+                        }
                     case .performance:
-                        addedPerformanceGoals.append(goal)
+                        if addedPerformanceGoals.count < 3 {
+                            addedPerformanceGoals.append(goal)
+                        }
                     case .personal:
-                        addedPersonalGoals.append(goal)
+                        if addedPersonalGoals.count < 3 {
+                            addedPersonalGoals.append(goal)
+                        }
                     }
                 })
             }
             .navigationBarHidden(true)
+            .onAppear {
+                Task {
+                    let fetchedGoals = await fetchUserGoals()
+                    // Filter goals based on their category matching the GoalType raw values.
+                    addedDistanceGoals = fetchedGoals.filter { $0.category == GoalType.distance.rawValue }
+                    addedPerformanceGoals = fetchedGoals.filter { $0.category == GoalType.performance.rawValue }
+                    addedPersonalGoals = fetchedGoals.filter { $0.category == GoalType.personal.rawValue }
+                }
+            }
         }
     }
 }

@@ -28,11 +28,14 @@ struct Conversation: Identifiable, Codable {
 
 
 struct Message: Identifiable, Codable {
-    var id: String
-    var senderId: String
-    var text: String
+    let id: String
+    let senderId: String
+    let text: String
     let timestamp: Date
+    var reactions: [String: String]? = [:] // userId -> reaction emoji
 }
+
+
 
 
 class MessagesViewModel: ObservableObject {

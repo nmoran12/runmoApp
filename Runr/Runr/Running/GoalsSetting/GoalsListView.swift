@@ -7,15 +7,36 @@
 
 import SwiftUI
 
+// Animation extension
+extension Animation {
+    static var goalFocus: Animation {
+        .easeInOut(duration: 0.4) // Changed to a smoother ease-in-out animation
+    }
+}
+
+extension View {
+    func swipeToDelete(removeAction: @escaping () -> Void) -> some View {
+        self.swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            Button(role: .destructive, action: removeAction) {
+                Label("Delete", systemImage: "trash")
+            }
+        }
+    }
+}
+
+
 struct GoalsListView: View {
     let selectedGoalType: GoalsView.GoalType
-    let addedDistanceGoals: [Goal]
-    let addedPerformanceGoals: [Goal]
-    let addedPersonalGoals: [Goal]
+    @Binding var addedDistanceGoals: [Goal]
+    @Binding var addedPerformanceGoals: [Goal]
+    @Binding var addedPersonalGoals: [Goal]
     // Optional focus goal for the selected category.
     let focusGoal: Goal?
     // Closure to handle long press on a goal.
     let onLongPress: ((Goal, GoalsView.GoalType) -> Void)?
+    
+    // State to track animation
+    @State private var animatingGoalID: UUID? = nil
     
     var body: some View {
         VStack(spacing: 16) {
@@ -48,7 +69,29 @@ struct GoalsListView: View {
                             RoundedRectangle(cornerRadius: 12).stroke(Color.green, lineWidth: 3)
                         : nil
                     )
-                    .onLongPressGesture(minimumDuration: 1.0) {
+                    .swipeToDelete {
+                            removeGoal(goal)
+                        }
+                    // New animation effect - fade up
+                    .opacity((focusGoal?.id == goal.id) && (animatingGoalID == goal.id) ? 0.7 : 1.0)
+                    .offset(y: (focusGoal?.id == goal.id) && (animatingGoalID == goal.id) ? 10 : 0)
+                    .zIndex((focusGoal?.id == goal.id) ? 1 : 0)
+                    .transition((focusGoal?.id == goal.id) ?
+                        .asymmetric(
+                            insertion: .opacity.combined(with: .move(edge: .bottom)),
+                            removal: .opacity
+                        ) : .identity
+                    )
+                    .id("\(goal.id)-\(focusGoal?.id == goal.id)") // Helps trigger animations
+                    .onLongPressGesture(minimumDuration: 0.8) { // Reduced duration for better UX
+                        // Set the animating goal ID before calling onLongPress
+                        self.animatingGoalID = goal.id
+                        
+                        // Reset animation flag after animation completes
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                            self.animatingGoalID = nil
+                        }
+                        
                         onLongPress?(goal, .distance)
                     }
                 }
@@ -80,10 +123,32 @@ struct GoalsListView: View {
                             RoundedRectangle(cornerRadius: 12).stroke(Color.green, lineWidth: 3)
                         : nil
                     )
-                    .onLongPressGesture(minimumDuration: 1.0) {
-                        onLongPress?(goal, .performance)
-                    }
-                }
+                    .swipeToDelete {
+                            removeGoal(goal)
+                        }
+                    // New animation effect - fade up
+                                        .opacity((focusGoal?.id == goal.id) && (animatingGoalID == goal.id) ? 0.7 : 1.0)
+                                        .offset(y: (focusGoal?.id == goal.id) && (animatingGoalID == goal.id) ? 10 : 0)
+                                        .zIndex((focusGoal?.id == goal.id) ? 1 : 0)
+                                        .transition((focusGoal?.id == goal.id) ?
+                                            .asymmetric(
+                                                insertion: .opacity.combined(with: .move(edge: .bottom)),
+                                                removal: .opacity
+                                            ) : .identity
+                                        )
+                                        .id("\(goal.id)-\(focusGoal?.id == goal.id)") // Helps trigger animations
+                                        .onLongPressGesture(minimumDuration: 0.8) { // Reduced duration for better UX
+                                            // Set the animating goal ID before calling onLongPress
+                                            self.animatingGoalID = goal.id
+                                            
+                                            // Reset animation flag after animation completes
+                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                                                self.animatingGoalID = nil
+                                            }
+                                            
+                                            onLongPress?(goal, .distance)
+                                        }
+                                    }
                 
             case .personal:
                 // Static example(s) for Personal
@@ -112,11 +177,44 @@ struct GoalsListView: View {
                             RoundedRectangle(cornerRadius: 12).stroke(Color.green, lineWidth: 3)
                         : nil
                     )
-                    .onLongPressGesture(minimumDuration: 1.0) {
+                    .swipeToDelete {
+                            removeGoal(goal)
+                        }
+                    // New animation effect - fade up
+                    .opacity((focusGoal?.id == goal.id) && (animatingGoalID == goal.id) ? 0.7 : 1.0)
+                    .offset(y: (focusGoal?.id == goal.id) && (animatingGoalID == goal.id) ? 10 : 0)
+                    .zIndex((focusGoal?.id == goal.id) ? 1 : 0)
+                    .transition((focusGoal?.id == goal.id) ?
+                        .asymmetric(
+                            insertion: .opacity.combined(with: .move(edge: .bottom)),
+                            removal: .opacity
+                        ) : .identity
+                    )
+                    .id("\(goal.id)-\(focusGoal?.id == goal.id)") // Helps trigger animations
+                    .onLongPressGesture(minimumDuration: 0.8) {
+                        // Set the animating goal ID before calling onLongPress
+                        self.animatingGoalID = goal.id
+                        
+                        // Reset animation flag after animation completes
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                            self.animatingGoalID = nil
+                        }
+                        
                         onLongPress?(goal, .personal)
                     }
                 }
             }
+        }
+        .animation(.goalFocus, value: focusGoal?.id) // Animates the list when focus changes
+    }
+    private func removeGoal(_ goal: Goal) {
+        switch selectedGoalType {
+        case .distance:
+            addedDistanceGoals.removeAll { $0.id == goal.id }
+        case .performance:
+            addedPerformanceGoals.removeAll { $0.id == goal.id }
+        case .personal:
+            addedPersonalGoals.removeAll { $0.id == goal.id }
         }
     }
 }
@@ -125,11 +223,15 @@ struct GoalsListView_Previews: PreviewProvider {
     static var previews: some View {
         GoalsListView(
             selectedGoalType: .distance,
-            addedDistanceGoals: [Goal(title: "Test Goal", target: "20")],
-            addedPerformanceGoals: [],
-            addedPersonalGoals: [],
+            // Use .constant(...) to create a non-mutable binding for previews
+            addedDistanceGoals: .constant([
+                Goal(title: "Test Goal", target: "20", category: "Distance")
+            ]),
+            addedPerformanceGoals: .constant([]),
+            addedPersonalGoals: .constant([]),
             focusGoal: nil,
             onLongPress: nil
         )
     }
 }
+

@@ -12,4 +12,5 @@ struct Goal: Identifiable, Equatable {
     let id = UUID()
     var title: String
     var target: String = ""
+    var category: String
 }

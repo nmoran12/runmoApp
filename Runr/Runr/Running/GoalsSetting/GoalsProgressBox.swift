@@ -9,39 +9,42 @@ import SwiftUI
 
 struct GoalsProgressBox: View {
     var progress: Double = 0.48
-    
+    var focusedGoalTitle: String? = nil
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack {
+            HStack(alignment: .lastTextBaseline) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("\(Int(progress * 100))%")
+                    Text("0 / 11km")
                         .font(.system(size: 32, weight: .bold))
                         .foregroundColor(.white)
                     
-                    Text("Goal Progress")
+                    Text(focusedGoalTitle ?? "Goal Progress")
                         .font(.system(size: 18))
                         .foregroundColor(.white.opacity(0.9))
                 }
-                
                 Spacer()
+                Text("\(Int(progress * 100))%")
+                    .font(.system(size: 32, weight: .bold))
+                    .foregroundColor(.white)
             }
             
             // Custom progress bar to match the design
             GeometryReader { geometry in
-                         let availableWidth = geometry.size.width
-                         ZStack(alignment: .leading) {
-                             RoundedRectangle(cornerRadius: 4)
-                                 .fill(Color.white.opacity(0.3))
-                                 .frame(height: 6)
-                             
-                             RoundedRectangle(cornerRadius: 4)
-                                 .fill(Color.white)
-                                 .frame(width: availableWidth * CGFloat(progress), height: 6)
-                         }
-                     }
-                     .frame(height: 6)
-                     .padding(.top, 8)
-                 }
+                let availableWidth = geometry.size.width
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.white.opacity(0.3))
+                        .frame(height: 6)
+                    
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.white)
+                        .frame(width: availableWidth * CGFloat(progress), height: 6)
+                }
+            }
+            .frame(height: 6)
+            .padding(.top, 8)
+        }
         .padding(20)
         .frame(width: 343, height: 140)
         .background(
@@ -59,3 +62,4 @@ struct GoalsProgressBox: View {
 #Preview {
     GoalsProgressBox()
 }
+

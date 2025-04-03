@@ -246,8 +246,6 @@ extension AuthService {
             throw URLError(.badServerResponse)
         }
         
-        // Now decode into User. This call can throw if decoding fails,
-        // so we use `try`.
         let user = try doc.data(as: User.self)
         
         return user

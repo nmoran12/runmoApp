@@ -5,23 +5,31 @@
 //  Created by Noah Moran on 11/2/2025.
 //
 
+//  This file displays a chat conversation using data from ChatViewModel.
+//  It loads messages and the chat partner's profile, and provides an input
+//  field to send messages. Custom navigation items display the partner's info.
+
 import SwiftUI
 
 struct ChatView: View {
     let conversationId: String
-    let userId: String
+    let userId: String    // This is the chat partner's user ID
     @State private var messageText: String = ""
     @StateObject private var viewModel = ChatViewModel()
+    @Environment(\.presentationMode) var presentationMode
     
     var body: some View {
         VStack(spacing: 0) {
-            // 1) Scrollable messages
+            // Scrollable messages
             ScrollViewReader { scrollViewProxy in
                 ScrollView {
-                    VStack {
+                    VStack(spacing: 10) {
                         ForEach(viewModel.messages) { message in
-                            ChatBubbleView(message: message, currentUserId: viewModel.currentUserId)
-                                .id(message.id)
+                            ChatBubbleView(
+                                message: message,
+                                currentUserId: viewModel.currentUserId,
+                                viewModel: viewModel
+                            )
                         }
                     }
                     .onChange(of: viewModel.messages.count) { _ in
@@ -35,9 +43,8 @@ struct ChatView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            // The scroll view expands to fill available space
             
-            // 2) The input bar, pinned at bottom
+            // Input bar
             HStack {
                 TextField("Type a message...", text: $messageText)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
@@ -49,15 +56,52 @@ struct ChatView: View {
             }
             .padding()
         }
-        .navigationTitle("Chat")
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                HStack(spacing: 8) {
+                    // Custom Back Button with left padding
+                    Button(action: {
+                        presentationMode.wrappedValue.dismiss()
+                    }) {
+                        Image(systemName: "chevron.left")
+                            .font(.headline)
+                            .padding(.leading, 8)
+                    }
+                    
+                    if let partner = viewModel.userProfile {
+                        // Display chat partner's profile picture and info
+                        HStack(spacing: 8) {
+                            Circle()
+                                .fill(Color.gray.opacity(0.3))
+                                .frame(width: 36, height: 36)
+                                .overlay(
+                                    Image(systemName: "person.fill")
+                                        .foregroundColor(.white)
+                                )
+                            
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(partner.username)
+                                    .font(.headline)
+                                Text(partner.realName)
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                            }
+                        }
+                    }
+                }
+                .padding(.vertical, 8)
+            }
+        }
         .onAppear {
             viewModel.loadMessages(conversationId: conversationId)
             viewModel.loadUserProfile(userId: userId)
         }
-        // 3) Allow the keyboard to cover the bottom safe area if needed
         .ignoresSafeArea(.keyboard, edges: .bottom)
     }
-
+    
+    // Scrolls to the last message in the chat
     func scrollToLastMessage(_ scrollViewProxy: ScrollViewProxy) {
         if let lastMessage = viewModel.messages.last {
             withAnimation {
@@ -65,18 +109,17 @@ struct ChatView: View {
             }
         }
     }
-
+    
+    // Sends a new message and resets the input field
     func sendMessage() {
         viewModel.sendMessage(conversationId: conversationId, text: messageText)
         messageText = ""
     }
 }
 
-
-
-
 #Preview {
-    ChatView(conversationId: "testConversationId", userId: "testUserId")
+    ChatView(conversationId: "testConversationId", userId: "partnerUserId")
 }
+
 
 

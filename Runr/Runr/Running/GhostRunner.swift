@@ -81,6 +81,25 @@ class GhostRunnerManager: ObservableObject {
         await loadPersonalBests()   // new
         loadFamousRuns()
     }
+    
+    /// Call this function periodically with the current elapsed time.
+    func updateSelectedGhostRunnerPositions(elapsedTime: TimeInterval) {
+        for index in selectedGhostRunners.indices {
+            var ghost = selectedGhostRunners[index]
+            let totalPoints = ghost.runData.routeCoordinates.count
+            // Calculate progress percentage (clamped to 1.0)
+            let progressPercentage = min(elapsedTime / ghost.runData.elapsedTime, 1.0)
+            // Compute new index
+            let targetIndex = Int(Double(totalPoints - 1) * progressPercentage)
+            ghost.currentIndex = min(targetIndex, totalPoints - 1)
+            // Mark as finished if needed
+            if targetIndex >= totalPoints - 1 {
+                ghost.isActive = false
+            }
+            // Reassign updated ghost back into the array so the @Published property is updated.
+            selectedGhostRunners[index] = ghost
+        }
+    }
 
     
     func loadPersonalBests() async {
@@ -723,64 +742,73 @@ struct GhostRunnerMarker: View {
 struct GhostRunnerStatusView: View {
     var ghostRunners: [GhostRunner]
     var userDistance: Double
-    
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("Ghost Runners")
-                .font(.headline)
-                .padding(.horizontal)
+        // Use the first ghost runner for the status card
+        if let ghost = ghostRunners.first, ghost.runData.routeCoordinates.count > 1 {
+            let totalPoints = ghost.runData.routeCoordinates.count
+            let ghostDistance = ghost.runData.distance * (Double(ghost.currentIndex) / Double(totalPoints - 1))
+            let difference = ghostDistance - userDistance
+            let tolerance = 0.1  // km tolerance
             
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    ForEach(ghostRunners) { runner in
-                        VStack(spacing: 4) {
-                            // Runner icon
-                            Circle()
-                                .fill(runner.color)
-                                .frame(width: 40, height: 40)
-                                .overlay(
-                                    Image(systemName: "figure.run")
-                                        .foregroundColor(.white)
-                                )
-                            
-                            // Runner name
-                            Text(runner.name)
-                                .font(.caption)
-                                .lineLimit(1)
-                                .frame(width: 80)
-                            
-                            // Distance difference
-                            let ghostDistance = getGhostDistance(runner)
-                            let difference = ghostDistance - userDistance
-                            let ahead = difference > 0
-                            
-                            HStack(spacing: 2) {
-                                Image(systemName: ahead ? "arrow.up" : "arrow.down")
-                                    .foregroundColor(ahead ? .red : .green)
-                                
-                                Text(String(format: "%.0fm", abs(difference)))
-                                    .foregroundColor(ahead ? .red : .green)
-                                    .font(.system(size: 10, weight: .bold))
-                            }
-                        }
-                    }
-                }
-                .padding(.horizontal)
+            let paceStatus: String
+            if abs(difference) < tolerance {
+                paceStatus = "On pace"
+            } else if difference > 0 {
+                paceStatus = String(format: "Off pace by %.2f km", difference)
+            } else {
+                paceStatus = String(format: "Ahead by %.2f km", abs(difference))
             }
-            .frame(height: 100)
-            .background(Color(UIColor.secondarySystemBackground))
-            .cornerRadius(10)
-            .padding(.horizontal)
+            
+            return AnyView(
+                HStack {
+                    // Left icon matching leaderboard card style
+                    Circle()
+                        .fill(ghost.color.opacity(0.2))
+                        .frame(width: 40, height: 40)
+                        .overlay(
+                            Image(systemName: "figure.run")
+                                .font(.system(size: 18, weight: .bold))
+                                .foregroundColor(ghost.color)
+                        )
+                        .padding(.leading, 5)
+                    
+                    // Main text area
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("\(ghost.name) ghost run")
+                            .font(.system(size: 14, weight: .regular))
+                            .foregroundColor(.secondary)
+                        Text(paceStatus)
+                            .font(.system(size: 15))
+                            .foregroundColor(.primary)
+                            .padding(.leading, 4)
+                    }
+                    
+                    Spacer()
+                    
+                    // Chevron for consistency (optional)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 14))
+                        .foregroundColor(.secondary)
+                        .padding(.trailing, 10)
+                }
+                .padding(.vertical, 8)
+                .background(Color(UIColor.systemGray6).opacity(0.6))
+                .cornerRadius(8)
+                .padding(.horizontal, 10)
+                .padding(.top, 15)
+            )
+        } else {
+            return AnyView(EmptyView())
         }
     }
     
     // Get the current distance traveled by a ghost runner
     private func getGhostDistance(_ runner: GhostRunner) -> Double {
         guard runner.isActive else { return runner.runData.distance }
-        
-        // Calculate based on percentage of total points
         let totalPoints = runner.runData.routeCoordinates.count
         let percentage = Double(runner.currentIndex) / Double(totalPoints - 1)
         return runner.runData.distance * percentage
     }
 }
+

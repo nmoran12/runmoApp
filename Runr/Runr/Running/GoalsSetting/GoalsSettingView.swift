@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import FirebaseFirestore
 
 struct GoalsSettingView: View {
     // MARK: - Distance-based Goals
@@ -27,21 +28,21 @@ struct GoalsSettingView: View {
     
     // Custom goals for each category
     @State private var distanceGoals: [Goal] = [
-        Goal(title: "Weekly Distance"),
-        Goal(title: "Monthly Distance"),
-        Goal(title: "Longest Single Run"),
-        Goal(title: "Distance Progression")
+        Goal(title: "Weekly Distance", category: "Distance"),
+                Goal(title: "Monthly Distance", category: "Distance"),
+                Goal(title: "Longest Single Run", category: "Distance"),
+                Goal(title: "Distance Progression", category: "Distance")
     ]
     
     @State private var performanceGoals: [Goal] = [
-        Goal(title: "Personal Records"),
-        Goal(title: "Average Pace Improvement")
+        Goal(title: "Personal Records", category: "Performance"),
+        Goal(title: "Average Pace Improvement", category: "Performance")
     ]
     
     @State private var personalGoals: [Goal] = [
-        Goal(title: "Weekly Running Duration"),
-        Goal(title: "Weekly Run Frequency"),
-        Goal(title: "Pace Target")
+        Goal(title: "Weekly Running Duration", category: "Personal"),
+        Goal(title: "Weekly Run Frequency", category: "Personal"),
+        Goal(title: "Pace Target", category: "Personal")
     ]
     
     // New state: dictionary to hold selected goals per category.
@@ -132,17 +133,7 @@ struct GoalsSettingView: View {
                         .font(.headline)
                     
                     Spacer()
-                    
-                    Button("Save") {
-                        // Iterate over all selected goals and call onGoalSet for each.
-                        for (category, goals) in selectedGoals {
-                            for var goal in goals {
-                                goal.target = getTargetValue(for: goal.title)
-                                onGoalSet?(goal, category)
-                            }
-                        }
-                        dismiss()
-                    }
+
                     .foregroundColor(.blue)
                     .fontWeight(.semibold)
                 }
@@ -218,28 +209,33 @@ struct GoalsSettingView: View {
                     }
                     
                     Button(action: {
-                            // Process all selections when the bottom button is tapped.
-                            for (category, goals) in selectedGoals {
-                                for var goal in goals {
-                                    goal.target = getTargetValue(for: goal.title)
-                                    onGoalSet?(goal, category)
-                                }
+                        Task {
+                            var goalsToUpload: [Goal] = []
+                            // Use the computed property to get all selected goals
+                            for goal in allSelectedGoals {
+                                let newTarget = getTargetValue(for: goal.title)
+                                // Create a new Goal with the updated target value.
+                                let updatedGoal = Goal(title: goal.title, target: newTarget, category: goal.category)
+                                goalsToUpload.append(updatedGoal)
                             }
+                            // Upload the updated goals to Firestore.
+                            await uploadUserGoals(goals: goalsToUpload)
                             dismiss()
-                        }) {
-                            HStack {
-                                Image(systemName: "plus")
-                                Text("Set New Goal(s)")
-                            }
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.blue)
-                            .cornerRadius(12)
                         }
-                        .padding(.horizontal)
-                        .padding(.bottom, 16)
+                    }) {
+                        HStack {
+                            Image(systemName: "plus")
+                            Text("Set New Goal(s)")
+                        }
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.blue)
+                        .cornerRadius(12)
+                    }
+                    .padding(.horizontal)
+                    .padding(.bottom, 16)
                     }
                     .background(
                         Color(.systemBackground)

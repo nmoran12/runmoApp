@@ -65,7 +65,7 @@ struct AllTagDetailsView: View {
         "10K Runner": 2,
         "Veteran Runner": 2,
         "Marathon Runner": 3,
-        "5K Speed Demon": 3,
+        "5K Speed Demon": 1,
         "Pace Setter": 3,
         "Consistent Runner": 4,
         "Distance Dominator": 5

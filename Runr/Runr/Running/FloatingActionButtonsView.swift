@@ -16,6 +16,7 @@ struct FloatingActionButtonsView: View {
     @State private var runs: [RunData] = []
     @State private var showCalendarView = false
     @State private var showGoalsView = false
+    @State private var showGhostRunnerSelection = false  // New state variable
     
     /// Action to perform when the calendar button is tapped.
     var calendarAction: () -> Void
@@ -51,7 +52,12 @@ struct FloatingActionButtonsView: View {
             
             // Ghost Runner button always shown.
             GhostRunButtonView(
-                action: ghostRunnerAction,
+                action: {
+                    // Set state to show ghost runner selection view.
+                    showGhostRunnerSelection = true
+                    // Optionally call any additional ghostRunnerAction behavior.
+                    ghostRunnerAction()
+                },
                 hasActiveGhostRunners: .constant(!ghostRunnerManager.selectedGhostRunners.isEmpty)
             )
             
@@ -62,6 +68,10 @@ struct FloatingActionButtonsView: View {
         }
         .sheet(isPresented: $showGoalsView) {
             GoalsView()
+        }
+        // New sheet modifier to present the ghost runner selection view.
+        .sheet(isPresented: $showGhostRunnerSelection) {
+            GhostRunnerSelectionView(ghostRunnerManager: ghostRunnerManager)
         }
     }
     

@@ -16,6 +16,7 @@ struct CurrentUserProfileView: View {
     @State private var totalTime: Double?
     @State private var averagePace: Double?
     @State private var showMenu = false
+    @State private var displayedRunsCount = 5
     
     // Image Selection States
     @State private var selectedImage: UIImage?
@@ -125,7 +126,7 @@ struct CurrentUserProfileView: View {
                     totalTime: totalTime,
                     averagePace: averagePace,
                     isFirst: rankChecker.isFirst,
-                    runs: runs,  // <-- pass your runs array here
+                    runs: runs,
                     onTapProfileImage: {
                         isImagePickerPresented = true
                     }
@@ -136,13 +137,20 @@ struct CurrentUserProfileView: View {
                         .font(.footnote)
                         .foregroundColor(.secondary)
                 } else {
-                    ForEach(runs) { run in
+                    ForEach(runs.prefix(displayedRunsCount)) { run in
                         RunCell(
                             run: run,
                             user: user,
                             isFirst: rankChecker.isFirst,
                             isCurrentUser: Auth.auth().currentUser?.uid == user.id
                         )
+                        // When the last run appears, check if there are more to load and then increase the count.
+                        .onAppear {
+                            if run == runs.prefix(displayedRunsCount).last && displayedRunsCount < runs.count {
+                                // Increase by 5 or any other desired increment
+                                displayedRunsCount += 5
+                            }
+                        }
                     }
                 }
                 

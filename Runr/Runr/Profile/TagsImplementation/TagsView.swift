@@ -88,8 +88,8 @@ struct TagsView: View {
             endColor: Color(#colorLiteral(red: 0.1, green: 0.45, blue: 0.7, alpha: 1))
         ),
         "5K Speed Demon": GradientTagColor(
-            startColor: Color(#colorLiteral(red: 0.13, green: 0.59, blue: 0.95, alpha: 1)),
-            endColor: Color(#colorLiteral(red: 0.1, green: 0.45, blue: 0.7, alpha: 1))
+            startColor: Color(#colorLiteral(red: 1, green: 0.84, blue: 0, alpha: 1)),
+            endColor: Color(#colorLiteral(red: 0.85, green: 0.65, blue: 0.00, alpha: 1))
         ),
         "Pace Setter": GradientTagColor(
             startColor: Color(#colorLiteral(red: 0.13, green: 0.59, blue: 0.95, alpha: 1)),
@@ -123,7 +123,7 @@ struct TagsView: View {
         "10K Runner": 2,
         "Veteran Runner": 2,
         "Marathon Runner": 3,
-        "5K Speed Demon": 3,
+        "5K Speed Demon": 1,
         "Pace Setter": 3,
         "Consistent Runner": 4,
         "Distance Dominator": 5

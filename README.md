@@ -64,21 +64,21 @@ pod install
 ## Screenshots
 Here are some screenshots of my app, as of 1/04/25. 
 
-## Profile View
+# Profile View
 <img src="https://github.com/user-attachments/assets/d60dee3b-2245-48ca-8ea7-73fcd83dfdf6" alt="Screenshot" width="250" />
 <img src="https://github.com/user-attachments/assets/b4ca1834-ae2b-407d-9650-feee8ae33f8c" alt="Screenshot" width="250" />
 
 
-## Feed View
+# Feed View
 <img src="https://github.com/user-attachments/assets/9647f4ed-bfd7-4dc9-bc40-b613d1ae9fd3" alt="Screenshot" width="250" />
 <img src="https://github.com/user-attachments/assets/affd2e90-8b5c-405d-8ff8-5bfeb6cf0325" alt="Screenshot" width="250" />
 
-## Running View
+# Running View
 <img src="https://github.com/user-attachments/assets/5936f9ce-1d9a-4682-90ba-4d2f69ec5490" alt="Screenshot" width="250" />
 <img src="https://github.com/user-attachments/assets/dd1aab2e-d5af-42c8-a18f-1c068e3d00ab" alt="Screenshot" width="250" />
 
 
-## Explore Page View
+# Explore Page View
 <img src="https://github.com/user-attachments/assets/988b6ce1-3c23-4168-a9ea-128715fcb106" alt="Screenshot" width="250" />
 <img src="https://github.com/user-attachments/assets/f516b092-a610-4928-87be-0696913754da" alt="Screenshot" width="250" />
  

@@ -33,6 +33,7 @@ class HealthKitManager {
 
         // Define the data types you want to read
         guard
+            let heartRateType = HKObjectType.quantityType(forIdentifier: .heartRate),
             let stepsType = HKObjectType.quantityType(forIdentifier: .stepCount),
             let activeEnergyType = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)
         else {
@@ -41,11 +42,45 @@ class HealthKitManager {
         }
 
         // If you only need read access, use toShare: []
-        let typesToRead: Set<HKObjectType> = [stepsType, activeEnergyType]
+        let typesToRead: Set<HKObjectType> = [heartRateType, stepsType, activeEnergyType]
 
         healthStore.requestAuthorization(toShare: [], read: typesToRead) { success, error in
             completion(success, error)
         }
     }
-
-}
+    
+    // MARK: - Fetch Heart Rate Samples
+        /// Fetch heart rate samples in the given date range
+        func fetchHeartRateData(startDate: Date,
+                                endDate: Date,
+                                completion: @escaping ([HKQuantitySample]?, Error?) -> Void)
+        {
+            guard let heartRateType = HKObjectType.quantityType(forIdentifier: .heartRate) else {
+                completion(nil, nil)
+                return
+            }
+            
+            let predicate = HKQuery.predicateForSamples(withStart: startDate,
+                                                        end: endDate,
+                                                        options: .strictStartDate)
+            
+            let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
+            
+            let query = HKSampleQuery(sampleType: heartRateType,
+                                      predicate: predicate,
+                                      limit: HKObjectQueryNoLimit,
+                                      sortDescriptors: [sortDescriptor]) { _, samples, error in
+                
+                guard error == nil else {
+                    completion(nil, error)
+                    return
+                }
+                
+                // Cast samples to HKQuantitySample
+                let hrSamples = samples as? [HKQuantitySample]
+                completion(hrSamples, nil)
+            }
+            
+            healthStore.execute(query)
+        }
+    }

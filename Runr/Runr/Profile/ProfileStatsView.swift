@@ -130,6 +130,12 @@ struct ProfileStatsView: View {
                     )
                 }
                 .padding(.horizontal)
+                
+                // Personal Bests section
+                VStack(alignment: .leading, spacing: 8) {
+                    BestEffortsCardView()
+                        .padding(.horizontal)
+                }
             }
             .padding(.vertical)
         }

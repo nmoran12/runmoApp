@@ -299,7 +299,7 @@ extension RunTracker: CLLocationManagerDelegate {
                 distanceTraveled += distance
             }
             
-            timedLocations.append(TimedLocation(coordinate: location.coordinate, timestamp: location.timestamp))
+            timedLocations.append(TimedLocation(coordinate: location.coordinate, timestamp: location.timestamp, altitude: location.altitude))
             lastLocation = location
         } else {
             lastLocation = location

@@ -8,10 +8,13 @@
 import Foundation
 import CoreLocation
 
-struct TimedLocation {
+struct TimedLocation: Identifiable {
+    let id = UUID()
     let coordinate: CLLocationCoordinate2D
     let timestamp: Date
+    let altitude: Double  // New property: altitude in meters
 }
+
 
 struct Split {
     let splitNumber: Int

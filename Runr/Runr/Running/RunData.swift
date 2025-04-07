@@ -19,6 +19,8 @@ extension RunData {
 }
 
 
+
+
 struct CoordinateWrapper: Codable {
     let latitude: Double
     let longitude: Double

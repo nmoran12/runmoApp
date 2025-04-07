@@ -26,11 +26,24 @@ struct RunrTabView: View {
                 }.tag(0)
             
             
-            ExploreView()
-                .onAppear{
-                    print("Search clicked")
-                    selectedIndex = 1
-                }
+            NewRunningProgramContentView(
+                plan: NewRunningProgram(
+                    title: "Sample Running Program",
+                    raceName: "Boston Marathon 2025",
+                    subtitle: "A new running challenge",
+                    finishDate: Date(),
+                    imageUrl: "https://via.placeholder.com/300",
+                    totalDistance: 500,
+                    planOverview: "This is a sample overview of the running program. It details the plan and what you can expect.",
+                    experienceLevel: "Beginner",
+                    weeklyPlan: sampleWeeklyPlans
+                )
+            )
+            .onAppear {
+                print("Running Program clicked!")
+                selectedIndex = 1
+            }
+
                 .tabItem{
                     Image(systemName: "magnifyingglass")
                         .foregroundColor(.primary)

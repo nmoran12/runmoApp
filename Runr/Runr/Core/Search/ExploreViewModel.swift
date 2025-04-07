@@ -10,101 +10,13 @@ import Firebase
 
 @MainActor
 class ExploreViewModel: ObservableObject {
-    @Published var exploreFeedItems: [ExploreFeedItem] = []
-    @Published var users: [User] = [] // 🔹 Add users array
+    @Published var users: [User] = []
     @Published var searchText = ""
 
     init() {
         Task {
-            await fetchRunningPrograms()
             await fetchUsers()
-            await fetchBlogs()
         }
-    }
-
-    // Fetch running programs to display in its explore tab
-    func fetchRunningPrograms() async {
-        do {
-            let db = Firestore.firestore()
-            
-            // If you know the parent doc is "runningPrograms":
-            let subSnapshot = try await db
-                .collection("exploreFeedItems")
-                .document("runningPrograms")
-                .collection("programs")
-                .getDocuments()
-            
-            var programItems: [ExploreFeedItem] = []
-            for doc in subSnapshot.documents {
-                if let parsed = parseDocument(doc) {
-                    programItems.append(parsed)
-                }
-            }
-            
-            DispatchQueue.main.async {
-                self.exploreFeedItems = programItems
-            }
-            
-        } catch {
-            print("Error: \(error)")
-        }
-    }
-    
-    // Fetch blog programs to display in its explore tab
-    // In ExploreViewModel.swift, add this new method:
-    func fetchBlogs() async {
-        do {
-            let db = Firestore.firestore()
-            let blogSnapshot = try await db
-                .collection("exploreFeedItems")
-                .document("blogs")
-                .collection("individualBlogs")
-                .getDocuments()
-            
-            var blogItems: [ExploreFeedItem] = []
-            for doc in blogSnapshot.documents {
-                if let parsed = parseDocument(doc) {
-                    blogItems.append(parsed)
-                }
-            }
-            
-            DispatchQueue.main.async {
-                // Merge blogs with your existing items
-                self.exploreFeedItems.append(contentsOf: blogItems)
-            }
-            
-        } catch {
-            print("Error fetching blogs: \(error)")
-        }
-    }
-
-
-
-    private func parseDocument(_ doc: QueryDocumentSnapshot) -> ExploreFeedItem? {
-        let data = doc.data()
-        
-        guard let title = data["title"] as? String,
-              let category = data["category"] as? String,
-              let imageUrl = data["imageUrl"] as? String
-        else { return nil }
-        
-        let content = data["content"] as? String
-            ?? data["planOverview"] as? String
-            ?? ""
-        
-        // Optional author fields
-        let authorId = data["authorId"] as? String
-        let authorUsername = data["authorUsername"] as? String
-
-        return ExploreFeedItem(
-            exploreFeedId: doc.documentID,
-            title: title,
-            content: content,
-            category: category,
-            imageUrl: imageUrl,
-            authorId: authorId,
-            authorUsername: authorUsername
-        )
     }
 
 

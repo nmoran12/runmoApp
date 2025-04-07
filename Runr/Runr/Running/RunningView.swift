@@ -24,6 +24,10 @@ struct RunningView: View {
     @State private var nextRankDistance: Double? = nil    // The next user's total distance
     @State private var distanceToNextRank: Double = 0.0   // Computed difference
     @State private var showFinalizeScreen = false
+    
+    var targetDistance: Double? = nil
+    
+    var runningProgramTargetDistance: Double?
 
 
 
@@ -92,9 +96,12 @@ struct RunningView: View {
                     
                     // Main stats display and controls
                     VStack(spacing: 0) {
-                        // Instead of always showing the leaderboard bar,
-                        // conditionally display GhostRunnerStatusView when ghost runners are selected.
-                        if !ghostRunnerManager.selectedGhostRunners.isEmpty {
+                        if let programTarget = runningProgramTargetDistance {
+                                                RunningProgramBarView(
+                                                    targetDistance: programTarget,
+                                                    currentDistance: runTracker.distanceTraveled
+                                                )
+                        } else if !ghostRunnerManager.selectedGhostRunners.isEmpty {
                             GhostRunnerStatusView(
                                 ghostRunners: ghostRunnerManager.selectedGhostRunners,
                                 userDistance: runTracker.distanceTraveled
@@ -121,7 +128,6 @@ struct RunningView: View {
             .navigationBarItems(
                 leading: HStack {
                     Button(action: {
-                        // Existing back action:
                         runTracker.stopRun()
                         runTracker.distanceTraveled = 0
                         runTracker.elapsedTime = 0
@@ -353,39 +359,53 @@ struct RunningView: View {
     }
     
     private var runningControls: some View {
-        Group {
-            if !runTracker.isRunning {
-                // Start Run controls
-                HStack(spacing: 40) {
-                    
-                    Button {
+        if !runTracker.isRunning {
+            return AnyView(
+                Button(action: {
+                    withAnimation {
                         runTracker.startRun()
-                    } label: {
-                        Text("Start")
-                            .bold()
-                            .font(.title3)
-                            .foregroundColor(.white)
-                            .frame(width: 80, height: 80)
-                            .background(Color.blue)
-                            .clipShape(Circle())
-                            .shadow(color: .primary.opacity(0.2), radius: 4, x: 0, y: 2)
                     }
-                    .scaleEffect(isPressed ? 1.1 : 1.0)
-                    .opacity(isPressed ? 0.8 : 1.0)
-                    
+                }) {
+                    Text("Start")
+                        .bold()
+                        .font(.title3)
+                        .foregroundColor(.white)
+                        .frame(width: 80, height: 80)
+                        .background(Color.blue)
+                        .clipShape(Circle())
+                        .shadow(color: .primary.opacity(0.2), radius: 4, x: 0, y: 2)
                 }
+                .scaleEffect(isPressed ? 1.1 : 1.0)
+                .opacity(isPressed ? 0.8 : 1.0)
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { _ in withAnimation { isPressed = true } }
+                        .onEnded { _ in withAnimation { isPressed = false } }
+                )
+                .frame(maxWidth: .infinity)
                 .padding(.vertical, 30)
                 .background(Color(.systemBackground))
-            } else {
-                // Stop Run button
-                Button {
+                .animation(.easeInOut(duration: 0.2), value: isPressed)
+            )
+        } else {
+            return AnyView(
+                Button(action: {
                     runTracker.pauseRun()
-                    // Instead of setting showRunInfo to trigger navigation,
-                    // set showPostRunDetails to transition to expanded view
+                    
+                    // this is to make it so completing a run will count towards my running program but it is not
+                    // fully implemented
+                    if let programTarget = runningProgramTargetDistance {
+                        let distanceInKm = runTracker.distanceTraveled / 1000.0
+                        if distanceInKm >= programTarget {
+                            // Example usage
+                            //markDailyRunCompletedHelper()
+
+                        }
+                    }
                     withAnimation {
                         showPostRunDetails = true
                     }
-                } label: {
+                }) {
                     Text("STOP")
                         .bold()
                         .font(.headline)
@@ -397,18 +417,19 @@ struct RunningView: View {
                 }
                 .scaleEffect(isPressed ? 1.1 : 1.0)
                 .opacity(isPressed ? 0.8 : 1.0)
-                .padding(.vertical, 30)
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { _ in withAnimation { isPressed = true } }
+                        .onEnded { _ in withAnimation { isPressed = false } }
+                )
                 .frame(maxWidth: .infinity)
+                .padding(.vertical, 30)
                 .background(Color(.systemBackground))
-            }
+                .animation(.easeInOut(duration: 0.2), value: isPressed)
+            )
         }
-        .animation(.easeInOut(duration: 0.2), value: isPressed)
-        .gesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in isPressed = true }
-                .onEnded { _ in isPressed = false }
-        )
     }
+
     
     private var postRunExpandedView: some View {
         VStack(spacing: 16) {

@@ -362,95 +362,88 @@ struct RunDetailView: View {
                 
                 // In RunDetailView body, after the other sections:
 
-                if !heartRateSamples.isEmpty {
-                    VStack(alignment: .leading, spacing: 16) {
-                        // Heart Rate Title and Stats
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Heart Rate")
-                                .font(.headline)
-                            HStack {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("Avg: \(Int(averageHR)) BPM")
-                                        .font(.subheadline)
-                                    Text("Min: \(Int(minHR))   Max: \(Int(maxHR)) BPM")
-                                        .font(.subheadline)
-                                        .foregroundColor(.gray)
-                                }
-                                Spacer()
-                            }
-                        }
-                        
-                        // Heart Rate Chart remains unchanged
-                        let heartRateDataPoints = heartRateSamples.map { sample in
-                            HeartRateDataPoint(
-                                time: sample.startDate,
-                                bpm: sample.quantity.doubleValue(for: HKUnit.count().unitDivided(by: HKUnit.minute()))
-                            )
-                        }
-
-                        HeartRateChartView(dataPoints: heartRateDataPoints, zoneForBPM: { bpm in
-                            // Iterate over your precomputed heart rate zones to determine the zone name.
-                            for zone in heartRateZones {
-                                if bpm >= zone.lowerBound && bpm < zone.upperBound {
-                                    return zone.name
-                                }
-                            }
-                            return "Zone 1" // Default to Zone 1 if no match found.
-                        })
-
-                        
-                        // New Heart Rate Zones Section
-                        Text("Heart Rate Zones")
+                // Always display Heart Rate section
+                VStack(alignment: .leading, spacing: 16) {
+                    // Heart Rate Title and Stats
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Heart Rate")
                             .font(.headline)
-                        
-                        // Calculate total duration for progress bar scaling
-                        let totalZoneDuration = heartRateZones.reduce(0) { $0 + $1.duration }
-                        
-                        ForEach(heartRateZones, id: \.name) { zone in
-                            VStack(alignment: .leading, spacing: 4) {
-                                HStack {
-                                    // Zone label in a colored pill
-                                    Text(zone.name)
-                                        .font(.subheadline)
-                                        .foregroundColor(.white)
-                                        .padding(.vertical, 4)
-                                        .padding(.horizontal, 8)
-                                        .background(colorForZone(zone))
-                                        .cornerRadius(4)
-                                    
-                                    Spacer()
-                                    
-                                    // BPM Range and Duration text
-                                    Text("\(Int(zone.lowerBound))-\(Int(zone.upperBound)) BPM")
-                                        .font(.caption)
-                                        .foregroundColor(.gray)
-                                    Text(zone.durationString())
-                                        .font(.caption)
-                                        .fontWeight(.semibold)
-                                }
-                                
-                                // Progress bar representing the proportion of time in the zone
-                                GeometryReader { geometry in
-                                    ZStack(alignment: .leading) {
-                                        RoundedRectangle(cornerRadius: 4)
-                                            .fill(Color.gray.opacity(0.2))
-                                            .frame(height: 8)
-                                        RoundedRectangle(cornerRadius: 4)
-                                            .fill(colorForZone(zone))
-                                            .frame(width: geometry.size.width * CGFloat(totalZoneDuration > 0 ? zone.duration / totalZoneDuration : 0), height: 8)
-                                    }
-                                }
-                                .frame(height: 8)
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Avg: \(Int(averageHR)) BPM")
+                                    .font(.subheadline)
+                                Text("Min: \(Int(minHR))   Max: \(Int(maxHR)) BPM")
+                                    .font(.subheadline)
+                                    .foregroundColor(.gray)
                             }
+                            Spacer()
                         }
                     }
-                    .padding()
-                    .background(Color.white)
-                    .cornerRadius(10)
-                    .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
-                    .padding(.horizontal)
-                    .padding(.top, 16)
+                    
+                    // Heart Rate Chart remains unchanged
+                    let heartRateDataPoints = heartRateSamples.map { sample in
+                        HeartRateDataPoint(
+                            time: sample.startDate,
+                            bpm: sample.quantity.doubleValue(for: HKUnit.count().unitDivided(by: HKUnit.minute()))
+                        )
+                    }
+                    HeartRateChartView(dataPoints: heartRateDataPoints, zoneForBPM: { bpm in
+                        // Iterate over your precomputed heart rate zones to determine the zone name.
+                        for zone in heartRateZones {
+                            if bpm >= zone.lowerBound && bpm < zone.upperBound {
+                                return zone.name
+                            }
+                        }
+                        return "Zone 1" // Default to Zone 1 if no match found.
+                    })
+                    
+                    // Heart Rate Zones Section
+                    Text("Heart Rate Zones")
+                        .font(.headline)
+                    
+                    let totalZoneDuration = heartRateZones.reduce(0) { $0 + $1.duration }
+                    ForEach(heartRateZones, id: \.name) { zone in
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Text(zone.name)
+                                    .font(.subheadline)
+                                    .foregroundColor(.white)
+                                    .padding(.vertical, 4)
+                                    .padding(.horizontal, 8)
+                                    .background(colorForZone(zone))
+                                    .cornerRadius(4)
+                                
+                                Spacer()
+                                
+                                Text("\(Int(zone.lowerBound))-\(Int(zone.upperBound)) BPM")
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                                Text(zone.durationString())
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                            }
+                            
+                            GeometryReader { geometry in
+                                ZStack(alignment: .leading) {
+                                    RoundedRectangle(cornerRadius: 4)
+                                        .fill(Color.gray.opacity(0.2))
+                                        .frame(height: 8)
+                                    RoundedRectangle(cornerRadius: 4)
+                                        .fill(colorForZone(zone))
+                                        .frame(width: geometry.size.width * CGFloat(totalZoneDuration > 0 ? zone.duration / totalZoneDuration : 0), height: 8)
+                                }
+                            }
+                            .frame(height: 8)
+                        }
+                    }
                 }
+                .padding()
+                .background(Color.white)
+                .cornerRadius(10)
+                .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
+                .padding(.horizontal)
+                .padding(.top, 16)
+
 
 
                 // MARK: Pace Chart

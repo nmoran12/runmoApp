@@ -272,16 +272,3 @@ extension AuthService {
         }
     }
 }
-
-// This lets you save running programs and blogs to ur profile in the menu
-extension AuthService {
-    func saveItem(_ item: ExploreFeedItem) async throws {
-        guard let uid = Auth.auth().currentUser?.uid else { return }
-        let db = Firestore.firestore()
-        try await db.collection("users")
-            .document(uid)
-            .collection("savedItems")
-            .document(item.exploreFeedId)
-            .setData(from: item)
-    }
-}

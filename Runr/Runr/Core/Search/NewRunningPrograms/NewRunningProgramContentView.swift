@@ -8,11 +8,38 @@
 import SwiftUI
 
 struct NewRunningProgramContentView: View {
+    let plan: NewRunningProgram
+    
     var body: some View {
-        Text(/*@START_MENU_TOKEN@*/"Hello, World!"/*@END_MENU_TOKEN@*/)
-    }
-}
+        NavigationView {
+            ScrollView {
+                
+                // Display the NewRunningProgramCardView (summary card)
+                NewRunningProgramCardView(program: plan)
+                    .padding(.horizontal)
 
-#Preview {
-    NewRunningProgramContentView()
+                
+                // Show each week in the program
+                    ForEach(plan.weeklyPlan) { singleWeek in
+                        WeeklyPlanCardView(plan: singleWeek)
+                            .padding()
+                    }
+                
+                    // TEMPORARY
+                    // Upload button to send data to Firestore
+                    Button(action: {
+                        // This will upload your running program to Firestore
+                        saveRunningProgram(plan)
+                    }) {
+                        Text("Upload Running Program")
+                            .padding()
+                            .background(Color.blue)
+                            .foregroundColor(.white)
+                            .cornerRadius(8)
+                    }
+                    .padding()
+                }
+            .navigationBarTitle("Weekly Plan", displayMode: .inline)
+        }
+    }
 }

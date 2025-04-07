@@ -75,9 +75,6 @@ struct CurrentUserProfileView: View {
                         PrivacyPolicyView()
                     }
                 }
-                .sheet(isPresented: $showSavedItemsView) {
-                    SavedItemsView()
-                }
                 .alert("Update Bio", isPresented: $showBioAlert) {
                     TextField("Enter new bio", text: $newBio)
                     Button("Save", action: updateBio)

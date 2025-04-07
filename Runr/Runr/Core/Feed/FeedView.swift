@@ -57,6 +57,12 @@ struct FeedView: View {
                         .foregroundColor(.primary)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
+                    // Search icon navigating to RunrSearchView.
+                    NavigationLink(destination: RunrSearchView()) {
+                        Image(systemName: "magnifyingglass")
+                            .imageScale(.large)
+                            .foregroundColor(.primary)
+                    }
                     NavigationLink(destination: MessagesView()) {
                         Image(systemName: "paperplane")
                             .imageScale(.large)

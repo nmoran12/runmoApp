@@ -14,21 +14,17 @@ struct FeedView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                // Feed content
                 ScrollView {
-                    // Use the subview for listing posts
                     PostListView(
                         posts: viewModel.posts,
                         isFetching: viewModel.isFetching,
                         noMorePosts: viewModel.noMorePosts
                     ) {
-                        Task {
-                            await viewModel.fetchPosts()
-                        }
+                        Task { await viewModel.fetchPosts() }
                     }
                     .padding(.top, 8)
                 }
-                // Hidden NavigationLink triggered by a swipe gesture.
+                
                 NavigationLink(destination: MessagesView(), isActive: $navigateToMessages) {
                     EmptyView()
                 }
@@ -36,17 +32,13 @@ struct FeedView: View {
             .gesture(
                 DragGesture(minimumDistance: 20)
                     .onEnded { value in
-                        // Check if the swipe is predominantly to the right.
                         if value.translation.width > 100 && abs(value.translation.height) < 50 {
                             navigateToMessages = true
                         }
                     }
             )
             .onAppear {
-                Task {
-                    // Fetch initial batch of posts
-                    await viewModel.fetchPosts(initial: true)
-                }
+                Task { await viewModel.fetchPosts(initial: true) }
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -56,13 +48,16 @@ struct FeedView: View {
                         .font(.system(size: 20))
                         .foregroundColor(.primary)
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    // Search icon navigating to RunrSearchView.
+                
+                // <-- Replace your single ToolbarItem with this group:
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    // Search icon
                     NavigationLink(destination: RunrSearchView()) {
                         Image(systemName: "magnifyingglass")
                             .imageScale(.large)
                             .foregroundColor(.primary)
                     }
+                    // Messages icon
                     NavigationLink(destination: MessagesView()) {
                         Image(systemName: "paperplane")
                             .imageScale(.large)
@@ -73,6 +68,7 @@ struct FeedView: View {
         }
     }
 }
+
 
 // This subview handles displaying the list of posts in a LazyVStack
 // and triggers `fetchMoreAction` when the user scrolls to the last post.

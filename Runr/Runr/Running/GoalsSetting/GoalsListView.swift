@@ -30,184 +30,64 @@ struct GoalsListView: View {
     @Binding var addedDistanceGoals: [Goal]
     @Binding var addedPerformanceGoals: [Goal]
     @Binding var addedPersonalGoals: [Goal]
-    // Optional focus goal for the selected category.
     let focusGoal: Goal?
-    // Closure to handle long press on a goal.
     let onLongPress: ((Goal, GoalsView.GoalType) -> Void)?
-    
-    // State to track animation
-    @State private var animatingGoalID: UUID? = nil
-    
+
+    // Change animatingGoalID to String? to match Goal.id
+    @State private var animatingGoalID: String? = nil
+
+    // Computed property for the currently relevant goals array based on selected type
+    private var currentGoals: [Goal] {
+        switch selectedGoalType {
+        case .distance: return addedDistanceGoals
+        case .performance: return addedPerformanceGoals
+        case .personal: return addedPersonalGoals
+        }
+    }
+
+    // Computed property to reorder goals with focus goal first
+    private var reorderedGoals: [Goal] {
+        // Make sure focusGoal actually belongs to the current list before prepending
+        guard let focus = focusGoal, currentGoals.contains(where: { $0.id == focus.id }) else {
+            return currentGoals
+        }
+        return [focus] + currentGoals.filter { $0.id != focus.id }
+    }
+
     var body: some View {
         VStack(spacing: 16) {
+            // Static Examples (Keep or remove as needed)
+            // You might want to make these dynamic too or remove them eventually
             switch selectedGoalType {
             case .distance:
-                // Static example(s) for Distance
-                GoalItemView(
-                    icon: "figure.walk.circle.fill",
-                    iconColor: .blue,
-                    title: "Step Count",
-                    currentValue: "6,745",
-                    targetValue: "12,000",
-                    unit: "Steps",
-                    progress: 0.56
-                )
-                // Reorder added goals: if a focus goal exists, show it first.
-                let reordered = focusGoal != nil ? [focusGoal!] + addedDistanceGoals.filter { $0.id != focusGoal!.id } : addedDistanceGoals
-                ForEach(reordered) { goal in
-                    GoalItemView(
-                        icon: "star.fill",
-                        iconColor: .orange,
-                        title: goal.title,
-                        currentValue: "0",
-                        targetValue: goal.target,
-                        unit: "",
-                        progress: 0.0
-                    )
-                    .overlay(
-                        (focusGoal?.id == goal.id) ?
-                            RoundedRectangle(cornerRadius: 12).stroke(Color.green, lineWidth: 3)
-                        : nil
-                    )
-                    .swipeToDelete {
-                            removeGoal(goal)
-                        }
-                    // New animation effect - fade up
-                    .opacity((focusGoal?.id == goal.id) && (animatingGoalID == goal.id) ? 0.7 : 1.0)
-                    .offset(y: (focusGoal?.id == goal.id) && (animatingGoalID == goal.id) ? 10 : 0)
-                    .zIndex((focusGoal?.id == goal.id) ? 1 : 0)
-                    .transition((focusGoal?.id == goal.id) ?
-                        .asymmetric(
-                            insertion: .opacity.combined(with: .move(edge: .bottom)),
-                            removal: .opacity
-                        ) : .identity
-                    )
-                    .id("\(goal.id)-\(focusGoal?.id == goal.id)") // Helps trigger animations
-                    .onLongPressGesture(minimumDuration: 0.8) { // Reduced duration for better UX
-                        // Set the animating goal ID before calling onLongPress
-                        self.animatingGoalID = goal.id
-                        
-                        // Reset animation flag after animation completes
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                            self.animatingGoalID = nil
-                        }
-                        
-                        onLongPress?(goal, .distance)
-                    }
-                }
-                
+                // You might want to pass a static Goal object here instead
+                 StaticGoalItemViewExample( /* Pass static data */ )
             case .performance:
-                // Static example(s) for Performance
-                GoalItemView(
-                    icon: "speedometer",
-                    iconColor: .blue,
-                    title: "Pace Target",
-                    currentValue: "6:30",
-                    targetValue: "5:45",
-                    unit: "min/km",
-                    progress: 0.65
-                )
-                let reordered = focusGoal != nil ? [focusGoal!] + addedPerformanceGoals.filter { $0.id != focusGoal!.id } : addedPerformanceGoals
-                ForEach(reordered) { goal in
-                    GoalItemView(
-                        icon: "star.fill",
-                        iconColor: .orange,
-                        title: goal.title,
-                        currentValue: "0",
-                        targetValue: goal.target,
-                        unit: "",
-                        progress: 0.0
-                    )
-                    .overlay(
-                        (focusGoal?.id == goal.id) ?
-                            RoundedRectangle(cornerRadius: 12).stroke(Color.green, lineWidth: 3)
-                        : nil
-                    )
-                    .swipeToDelete {
-                            removeGoal(goal)
-                        }
-                    // New animation effect - fade up
-                                        .opacity((focusGoal?.id == goal.id) && (animatingGoalID == goal.id) ? 0.7 : 1.0)
-                                        .offset(y: (focusGoal?.id == goal.id) && (animatingGoalID == goal.id) ? 10 : 0)
-                                        .zIndex((focusGoal?.id == goal.id) ? 1 : 0)
-                                        .transition((focusGoal?.id == goal.id) ?
-                                            .asymmetric(
-                                                insertion: .opacity.combined(with: .move(edge: .bottom)),
-                                                removal: .opacity
-                                            ) : .identity
-                                        )
-                                        .id("\(goal.id)-\(focusGoal?.id == goal.id)") // Helps trigger animations
-                                        .onLongPressGesture(minimumDuration: 0.8) { // Reduced duration for better UX
-                                            // Set the animating goal ID before calling onLongPress
-                                            self.animatingGoalID = goal.id
-                                            
-                                            // Reset animation flag after animation completes
-                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                                                self.animatingGoalID = nil
-                                            }
-                                            
-                                            onLongPress?(goal, .distance)
-                                        }
-                                    }
-                
+                 StaticGoalItemViewExample( /* Pass static data */ )
             case .personal:
-                // Static example(s) for Personal
-                GoalItemView(
-                    icon: "flame.fill",
-                    iconColor: .blue,
-                    title: "Calorie Burn Target",
-                    currentValue: "172",
-                    targetValue: "300",
-                    unit: "kcal",
-                    progress: 0.57
+                 StaticGoalItemViewExample( /* Pass static data */ )
+            }
+
+
+            // --- Use ForEach with the new GoalRowView ---
+            ForEach(reorderedGoals) { goal in // Iterate over the computed reorderedGoals
+                GoalRowView( // Use the extracted view
+                    goal: goal,
+                    goalType: selectedGoalType, // Pass the current selected type
+                    focusGoal: self.focusGoal, // Pass the overall focusGoal state
+                    animatingGoalID: self.animatingGoalID, // Pass the animation state
+                    onLongPress: self.onLongPress, // Pass the long press handler closure
+                    onDelete: removeGoal // Pass the removeGoal function
                 )
-                let reordered = focusGoal != nil ? [focusGoal!] + addedPersonalGoals.filter { $0.id != focusGoal!.id } : addedPersonalGoals
-                ForEach(reordered) { goal in
-                    GoalItemView(
-                        icon: "star.fill",
-                        iconColor: .orange,
-                        title: goal.title,
-                        currentValue: "0",
-                        targetValue: goal.target,
-                        unit: "",
-                        progress: 0.0
-                    )
-                    .overlay(
-                        (focusGoal?.id == goal.id) ?
-                            RoundedRectangle(cornerRadius: 12).stroke(Color.green, lineWidth: 3)
-                        : nil
-                    )
-                    .swipeToDelete {
-                            removeGoal(goal)
-                        }
-                    // New animation effect - fade up
-                    .opacity((focusGoal?.id == goal.id) && (animatingGoalID == goal.id) ? 0.7 : 1.0)
-                    .offset(y: (focusGoal?.id == goal.id) && (animatingGoalID == goal.id) ? 10 : 0)
-                    .zIndex((focusGoal?.id == goal.id) ? 1 : 0)
-                    .transition((focusGoal?.id == goal.id) ?
-                        .asymmetric(
-                            insertion: .opacity.combined(with: .move(edge: .bottom)),
-                            removal: .opacity
-                        ) : .identity
-                    )
-                    .id("\(goal.id)-\(focusGoal?.id == goal.id)") // Helps trigger animations
-                    .onLongPressGesture(minimumDuration: 0.8) {
-                        // Set the animating goal ID before calling onLongPress
-                        self.animatingGoalID = goal.id
-                        
-                        // Reset animation flag after animation completes
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                            self.animatingGoalID = nil
-                        }
-                        
-                        onLongPress?(goal, .personal)
-                    }
-                }
             }
         }
-        .animation(.goalFocus, value: focusGoal?.id) // Animates the list when focus changes
+        // Keep the animation modifier for the whole VStack if needed
+        .animation(.goalFocus, value: focusGoal?.id)
     }
+
+    // removeGoal function remains the same
     private func removeGoal(_ goal: Goal) {
+         // Note: Consider adding deletion from Firestore here as well
         switch selectedGoalType {
         case .distance:
             addedDistanceGoals.removeAll { $0.id == goal.id }
@@ -216,22 +96,22 @@ struct GoalsListView: View {
         case .personal:
             addedPersonalGoals.removeAll { $0.id == goal.id }
         }
-    }
-}
+         // If the removed goal was the focus goal, clear the focus
+         if focusGoal?.id == goal.id {
+             // You might need to communicate this back to GoalsView if focusGoalTuple is there
+             // Or handle focus clearing within the onLongPress logic in GoalsView
+         }
+     }
 
-struct GoalsListView_Previews: PreviewProvider {
-    static var previews: some View {
-        GoalsListView(
-            selectedGoalType: .distance,
-            // Use .constant(...) to create a non-mutable binding for previews
-            addedDistanceGoals: .constant([
-                Goal(title: "Test Goal", target: "20", category: "Distance")
-            ]),
-            addedPerformanceGoals: .constant([]),
-            addedPersonalGoals: .constant([]),
-            focusGoal: nil,
-            onLongPress: nil
-        )
-    }
+     // Placeholder for static examples if you keep them separate
+      struct StaticGoalItemViewExample: View {
+          // Add properties for static data
+          var body: some View {
+              // Simplified GoalItemView or specific layout for static examples
+              Text("Static Example Goal")
+                  .padding()
+                  .background(Color.gray.opacity(0.1))
+                  .cornerRadius(12)
+          }
+      }
 }
-

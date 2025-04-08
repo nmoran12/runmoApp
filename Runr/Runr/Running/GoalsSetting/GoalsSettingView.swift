@@ -211,15 +211,43 @@ struct GoalsSettingView: View {
                     Button(action: {
                         Task {
                             var goalsToUpload: [Goal] = []
-                            // Use the computed property to get all selected goals
-                            for goal in allSelectedGoals {
-                                let newTarget = getTargetValue(for: goal.title)
-                                // Create a new Goal with the updated target value.
-                                let updatedGoal = Goal(title: goal.title, target: newTarget, category: goal.category)
-                                goalsToUpload.append(updatedGoal)
-                            }
-                            // Upload the updated goals to Firestore.
-                            await uploadUserGoals(goals: goalsToUpload)
+                                     // Use the computed property to get all selected goals
+                                     for goal in allSelectedGoals {
+                                         // --- Get the raw target string from the @State variable ---
+                                         let targetString = getTargetValue(for: goal.title)
+
+                                         // --- Create a Goal object ready for upload ---
+                                         // Use the convenience initializer or ensure your main init handles this
+                                         // IMPORTANT: Pass the input string to 'targetRaw'
+                                         let goalToUpload = Goal(
+                                             // id: goal.id, // Let Firestore generate ID or handle updates based on existing ID
+                                             title: goal.title,
+                                             category: goal.category,
+                                             targetRaw: targetString // *** THIS IS THE KEY CHANGE ***
+                                             // Let targetValue, targetUnit, period be set by uploadUserGoals
+                                             // Or, preferably, parse/determine them here if logic is complex
+                                         )
+
+                                         // Only add if the target string is not empty
+                                         if !targetString.isEmpty {
+                                             goalsToUpload.append(goalToUpload)
+                                         } else {
+                                             print("Skipping goal '\(goal.title)' because target input is empty.")
+                                             // Optional: Decide if you want to upload goals with empty targets
+                                             // or delete existing ones if the input is cleared.
+                                             // If you want to *delete* goals deselected or cleared,
+                                             // you'll need more complex logic here or in uploadUserGoals.
+                                         }
+                                     }
+
+                                     // --- Only upload if there are goals with targets ---
+                                     if !goalsToUpload.isEmpty {
+                                         // Upload the goals (which now have targetRaw set) to Firestore.
+                                         print("Uploading \(goalsToUpload.count) goals...")
+                                         await GoalsService.shared.uploadUserGoals(goals: goalsToUpload)
+                                     } else {
+                                          print("No valid goals with targets set were selected for upload.")
+                                     }
                             dismiss()
                         }
                     }) {

@@ -51,6 +51,11 @@ struct RunningView: View {
                 AreaMap(region: $runTracker.region)
                     .edgesIgnoringSafeArea(.all)
                 
+                // Overlay the ghost runner path if one is selected.
+                    if let ghostRunner = ghostRunnerManager.selectedGhostRunners.first {
+                        GhostRunnerPath(ghostRunner: ghostRunner, region: runTracker.region)
+                    }
+                
                 // UI Overlays
                 VStack(alignment: .trailing, spacing: 0) {
                         
@@ -157,15 +162,9 @@ struct RunningView: View {
             )
         }
         .onAppear {
-            // Start a timer to update ghost runner positions every second.
-            Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { timer in
-                // If the run is no longer active, stop the timer.
-                if !runTracker.isRunning {
-                    timer.invalidate()
-                } else {
-                    ghostRunnerManager.updateSelectedGhostRunnerPositions(elapsedTime: runTracker.elapsedTime)
-                }
-            }
+            // --- LINK THE TRACKER AND MANAGER ---
+                    runTracker.setGhostRunnerManager(ghostRunnerManager)
+                    // --- END LINK ---
             
             // Your existing onAppear code for fetching leaderboard info etc.
             Task {
@@ -175,6 +174,12 @@ struct RunningView: View {
                 self.userPostedDistance = postedDist ?? 0
                 self.nextRankDistance = nextDist
                 computeDistanceToNextRank()
+                // Also fetch runs for calendar if needed here
+                self.runs = try await AuthService.shared.fetchUserRuns() // Assuming this is correct place
+            }
+            // Also load available ghost runners if needed
+            Task {
+                await ghostRunnerManager.loadAvailableGhostRunners()
             }
         }
 

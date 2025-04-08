@@ -8,27 +8,36 @@
 import SwiftUI
 
 struct WeeklyPlanView: View {
-    let plan: WeeklyPlan
-    @State private var selectedDay: DailyPlan?
+    let plan: WeeklyPlan // The specific week plan
+        let weekIndex: Int // Index of this week within the whole program
+        @ObservedObject var viewModel: NewRunningProgramViewModel // Receive the shared VM
+        @State private var selectedDay: DailyPlan?
     
     private var completionPercentage: Double {
         let completedDays = plan.dailyPlans.filter { $0.dailyDistance > 0 }.count
         return Double(completedDays) / Double(plan.dailyPlans.count)
     }
 
-        var body: some View {
+    var body: some View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     WeeklyPlanHeroSection(plan: plan, completionPercentage: completionPercentage)
-                    DailyScheduleSection(plan: plan, selectedDay: $selectedDay)
+                    // --- Pass viewModel and weekIndex down ---
+                    DailyScheduleSection(
+                        plan: plan,
+                        weekIndex: weekIndex, // Pass the week index
+                        selectedDay: $selectedDay,
+                        viewModel: viewModel // Pass the view model
+                    )
                     TipsView()
                 }
                 .padding()
             }
-            .navigationTitle("Weekly Plan")
+            .navigationTitle(plan.weekTitle) // Use week title
             .navigationBarTitleDisplayMode(.inline)
         }
     }
+
 
     struct WeeklyPlanHeroSection: View {
         let plan: WeeklyPlan
@@ -79,30 +88,39 @@ struct WeeklyPlanView: View {
         }
     }
 
-    struct DailyScheduleSection: View {
-        let plan: WeeklyPlan
-        @Binding var selectedDay: DailyPlan?
+struct DailyScheduleSection: View {
+    let plan: WeeklyPlan
+    let weekIndex: Int // Receive week index
+    @Binding var selectedDay: DailyPlan?
+    @ObservedObject var viewModel: NewRunningProgramViewModel // Receive shared VM
 
-        var body: some View {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Daily Schedule")
-                    .font(.title2)
-                    .fontWeight(.semibold)
-                    .padding(.bottom, 4)
-                
-                ForEach(plan.dailyPlans) { daily in
-                    NavigationLink(
-                        destination: DailyRunView(daily: daily),
-                        tag: daily,
-                        selection: $selectedDay
-                    ) {
-                        DailyRunCard(daily: daily, isSelected: selectedDay?.id == daily.id)
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Daily Schedule")
+                .font(.title2).fontWeight(.semibold).padding(.bottom, 4)
+
+            // --- Use .enumerated() here ---
+                        ForEach(Array(plan.dailyPlans.enumerated()), id: \.element.id) { dayIndex, daily in
+                            NavigationLink(
+                                 // Navigation destination might need dayIndex too if DailyRunView uses it
+                                destination: DailyRunView(daily: daily /*, weekIndex: weekIndex, dayIndex: dayIndex, viewModel: viewModel */),
+                                tag: daily,
+                                selection: $selectedDay
+                            ) {
+                                DailyRunCard(
+                                    daily: daily,
+                                    isSelected: selectedDay?.id == daily.id,
+                                    weekIndex: weekIndex,
+                                    dayIndex: dayIndex, // <-- Pass the dayIndex
+                                    viewModel: viewModel
+                                )
+                            }
+                        }
                     }
+                    .padding(.vertical)
                 }
             }
-            .padding(.vertical)
-        }
-    }
+
 
 
 struct SummaryCard: View {
@@ -123,6 +141,7 @@ struct SummaryCard: View {
             Text(title)
                 .font(.subheadline)
                 .foregroundColor(.secondary)
+
         }
         .frame(maxWidth: .infinity)
         .padding()
@@ -174,25 +193,36 @@ struct TipRow: View {
 
 struct WeeklyPlanView_Previews: PreviewProvider {
     static var previews: some View {
-        let sampleDailyPlans = [
+        // Create sample data needed for the preview
+        let sampleDailyPlans = [ /* ... your sample daily plans ... */
             DailyPlan(day: "Monday", distance: 5.0),
             DailyPlan(day: "Tuesday", distance: 7.5),
             DailyPlan(day: "Wednesday", distance: 0.0),
             DailyPlan(day: "Thursday", distance: 10.0),
-            DailyPlan(day: "Friday", distance: 100.0),
+            DailyPlan(day: "Friday", distance: 5.0), // Adjusted sample data
             DailyPlan(day: "Saturday", distance: 12.0),
             DailyPlan(day: "Sunday", distance: 8.0)
         ]
         let sampleWeeklyPlan = WeeklyPlan(
             weekNumber: 1,
-            weekTitle: "Week 1",
+            weekTitle: "Week 1 Preview",
             weeklyTotalWorkouts: 6,
             weeklyTotalDistance: sampleDailyPlans.reduce(0) { $0 + $1.dailyDistance },
             dailyPlans: sampleDailyPlans,
-            weeklyDescription: "This is a sample description"
+            weeklyDescription: "This is a sample description for preview"
         )
+        // --- Create a dummy ViewModel instance JUST for the preview ---
+        let previewViewModel = NewRunningProgramViewModel()
+        // --- Optionally set some preview state on the VM if needed ---
+        // previewViewModel.currentProgram = sampleProgram // If needed
+
         NavigationView {
-            WeeklyPlanView(plan: sampleWeeklyPlan)
+            // --- Provide the missing arguments ---
+            WeeklyPlanView(
+                plan: sampleWeeklyPlan,
+                weekIndex: 0, // Provide a sample index (e.g., 0 for the first week)
+                viewModel: previewViewModel // Provide the dummy view model
+            )
         }
         .preferredColorScheme(.light)
     }

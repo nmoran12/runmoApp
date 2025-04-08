@@ -126,16 +126,28 @@ struct FeedCell: View {
             NavigationLink(destination: RunDetailView(post: post)) {
                 VStack(alignment: .leading) {
                     HStack {
+                        NavigationLink(
+                            destination: ProfileView(user: .constant(post.user))
+                        ) {
                             CrownedProfileImage(
                                 profileImageUrl: postUser?.profileImageUrl ?? post.user.profileImageUrl,
                                 size: 40,
                                 isFirst: isFirst
                             )
+                        }
+                        .buttonStyle(.plain)
                         
-                        VStack(alignment: .leading) {
-                            Text(post.user.username)
-                                .font(.system(size: 16, weight: .bold))
-                                .foregroundColor(.primary)
+                        // Username + timestamp
+                        VStack(alignment: .leading, spacing: 2) {
+                            // Username link
+                            NavigationLink(
+                                destination: ProfileView(user: .constant(post.user))
+                            ) {
+                                Text(post.user.username)
+                                    .font(.system(size: 16, weight: .bold))
+                                    .foregroundColor(.primary)
+                            }
+                            .buttonStyle(.plain)
                             
                             Text(timeAgoSinceDate(post.timestamp))
                                 .font(.caption)

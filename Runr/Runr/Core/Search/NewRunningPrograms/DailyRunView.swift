@@ -9,8 +9,33 @@ import SwiftUI
 
 struct DailyRunView: View {
     let daily: DailyPlan
-    @State private var showRunningView = false  // New state variable
-
+    @State private var showRunningView = false
+    @Environment(\.colorScheme) var colorScheme
+    
+    // Colors and gradients
+    private var primaryColor: Color {
+        switch daily.dailyRunType {
+        case "Tempo": return Color.orange
+        case "Zone 2 Heart Rate": return Color.green
+        case "Speed": return Color.red
+        case "Long Run": return Color.purple
+        case "Recovery": return Color.blue
+        case "Rest": return Color.green
+        default: return Color.blue
+        }
+    }
+    
+    private var backgroundGradient: LinearGradient {
+        LinearGradient(
+            gradient: Gradient(colors: [
+                primaryColor.opacity(colorScheme == .dark ? 0.3 : 0.1),
+                Color(UIColor.systemBackground)
+            ]),
+            startPoint: .top,
+            endPoint: .bottom
+        )
+    }
+    
     // Function to get motivational message based on run type
     private func motivationalMessage() -> String {
         switch daily.dailyRunType {
@@ -33,124 +58,170 @@ struct DailyRunView: View {
     
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                // Header with day and date
-                HStack {
-                    VStack(alignment: .leading) {
+            VStack(alignment: .leading, spacing: 24) {
+                // Header with day, date and icon
+                HStack(alignment: .center) {
+                    VStack(alignment: .leading, spacing: 4) {
                         Text(daily.day)
-                            .font(.largeTitle)
-                            .fontWeight(.bold)
+                            .font(.system(size: 36, weight: .bold))
+                        
                         if let date = daily.dailyDate {
                             Text(date, style: .date)
-                                .font(.subheadline)
+                                .font(.headline)
                                 .foregroundColor(.secondary)
                         }
                     }
+                    
                     Spacer()
-                    Image(systemName: daily.dailyDistance > 0 ? "figure.run" : "figure.walk")
-                        .font(.system(size: 40))
-                        .foregroundColor(daily.dailyDistance > 0 ? .blue : .green)
+                    
+                    ZStack {
+                        Circle()
+                            .fill(primaryColor.opacity(0.2))
+                            .frame(width: 70, height: 70)
+                        
+                        Image(systemName: daily.dailyDistance > 0 ? "figure.run" : "figure.walk")
+                            .font(.system(size: 32))
+                            .foregroundColor(primaryColor)
+                    }
                 }
+                .padding(.top, 8)
                 
-                // Run type badge
-                if daily.dailyDistance > 0 {
-                    Text(daily.dailyRunType ?? "Regular Run")
+                // Run type badge with color based on run type
+                HStack {
+                    Text(daily.dailyDistance > 0 ? (daily.dailyRunType ?? "Regular Run") : "Rest Day")
                         .font(.headline)
+                        .foregroundColor(.white)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
                         .background(
                             Capsule()
-                                .fill(Color.blue.opacity(0.2))
+                                .fill(primaryColor)
                         )
-                } else {
-                    Text("Rest Day")
-                        .font(.headline)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(
-                            Capsule()
-                                .fill(Color.green.opacity(0.2))
-                        )
+                    
+                    Spacer()
                 }
                 
-                // Run details
-                VStack(alignment: .leading, spacing: 12) {
+                // Run details card
+                VStack(spacing: 24) {
                     if daily.dailyDistance > 0 {
-                        HStack(spacing: 20) {
-                            VStack(alignment: .leading) {
-                                Text("Distance")
+                        // Distance and duration in a nice card
+                        HStack(spacing: 30) {
+                            // Distance
+                            VStack(alignment: .center) {
+                                Text("\(daily.dailyDistance, specifier: "%.1f")")
+                                    .font(.system(size: 32, weight: .bold))
+                                    .foregroundColor(primaryColor)
+                                
+                                Text("kilometers")
                                     .font(.subheadline)
                                     .foregroundColor(.secondary)
-                                Text("\(daily.dailyDistance, specifier: "%.1f") km")
-                                    .font(.title2)
-                                    .fontWeight(.semibold)
                             }
+                            .frame(maxWidth: .infinity)
                             
+                            Divider()
+                                .frame(height: 40)
+                            
+                            // Duration if available
                             if let duration = daily.dailyEstimatedDuration {
-                                Divider()
-                                    .frame(height: 40)
-                                VStack(alignment: .leading) {
-                                    Text("Duration")
+                                VStack(alignment: .center) {
+                                    Text(duration)
+                                        .font(.system(size: 32, weight: .bold))
+                                        .foregroundColor(primaryColor)
+                                    
+                                    Text("duration")
                                         .font(.subheadline)
                                         .foregroundColor(.secondary)
-                                    Text(duration)
-                                        .font(.title2)
-                                        .fontWeight(.semibold)
                                 }
+                                .frame(maxWidth: .infinity)
                             }
                         }
+                        .padding()
+                        .background(
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(Color(UIColor.secondarySystemBackground))
+                        )
                     }
                     
-                    // Motivational message
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Today's Focus")
-                            .font(.headline)
-                            .foregroundColor(.secondary)
+                    // Motivational message in a card with icon
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack {
+                            Image(systemName: "quote.bubble")
+                                .font(.title3)
+                                .foregroundColor(primaryColor)
+                            
+                            Text("Today's Focus")
+                                .font(.headline)
+                                .foregroundColor(primaryColor)
+                            
+                            Spacer()
+                        }
                         
                         Text(motivationalMessage())
                             .font(.body)
                             .fixedSize(horizontal: false, vertical: true)
+                            .lineSpacing(4)
                     }
                     .padding()
                     .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color(UIColor.systemBackground))
-                            .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(Color(UIColor.secondarySystemBackground))
                     )
+                    
                 }
                 
-                Spacer()
+                Spacer(minLength: 32)
                 
-                // Start button that navigates to RunningView
+                // Start button with gradient and animation
                 if daily.dailyDistance > 0 {
                     Button(action: {
-                        showRunningView = true  // Trigger navigation
+                        withAnimation {
+                            showRunningView = true
+                        }
                     }) {
                         HStack {
                             Spacer()
+                            Image(systemName: "play.fill")
+                                .font(.headline)
                             Text("Start Run")
                                 .font(.headline)
-                                .foregroundColor(.white)
+                                .fontWeight(.semibold)
                             Spacer()
                         }
-                        .padding()
-                        .background(Color.blue)
-                        .cornerRadius(12)
+                        .padding(.vertical, 16)
+                        .foregroundColor(.white)
+                        .background(
+                            LinearGradient(
+                                gradient: Gradient(colors: [primaryColor, primaryColor.opacity(0.8)]),
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .cornerRadius(16)
+                        .shadow(color: primaryColor.opacity(0.4), radius: 8, x: 0, y: 4)
                     }
+                    .buttonStyle(ScaleButtonStyle())
                 }
                 
-                // Hidden NavigationLink that activates when showRunningView becomes true
+                // Hidden NavigationLink
                 NavigationLink(destination: RunningView(targetDistance: daily.dailyDistance), isActive: $showRunningView) {
                     EmptyView()
                 }
                 .hidden()
-
             }
             .padding()
         }
-        .navigationTitle(daily.day)
+        .navigationTitle("") // Remove title as it's redundant with the large day text
         .navigationBarTitleDisplayMode(.inline)
-        .background(Color(UIColor.systemGroupedBackground).ignoresSafeArea())
+        .background(backgroundGradient.ignoresSafeArea())
+    }
+}
+
+// Custom button style with scale effect
+struct ScaleButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .animation(.easeInOut(duration: 0.2), value: configuration.isPressed)
     }
 }
 
@@ -171,7 +242,7 @@ struct DailyRunView_Previews: PreviewProvider {
                     ]
                 ))
             }
-            .previewDisplayName("Running Day")
+            .previewDisplayName("Running Day - Tempo")
             
             NavigationView {
                 DailyRunView(daily: DailyPlan(
@@ -182,6 +253,18 @@ struct DailyRunView_Previews: PreviewProvider {
                 ))
             }
             .previewDisplayName("Rest Day")
+            
+            NavigationView {
+                DailyRunView(daily: DailyPlan(
+                    day: "Friday",
+                    date: Date(),
+                    distance: 8.0,
+                    runType: "Long Run",
+                    estimatedDuration: "60 min"
+                ))
+            }
+            .previewDisplayName("Long Run Day")
+            .preferredColorScheme(.dark)
         }
     }
 }

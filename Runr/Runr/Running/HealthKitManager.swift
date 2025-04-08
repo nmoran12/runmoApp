@@ -10,8 +10,6 @@ import HealthKit
 
 class HealthKitManager {
     static let shared = HealthKitManager()
-    
-    // Your one and only HealthKit store for the app
     let healthStore = HKHealthStore()
     
     private init() {}
@@ -20,6 +18,7 @@ class HealthKitManager {
         let readTypes: Set<HKSampleType> = [
             HKObjectType.quantityType(forIdentifier: .stepCount)!,
             HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!,
+            HKObjectType.quantityType(forIdentifier: .heartRate)!,
             // .heartRate, .distanceWalkingRunning, etc. if needed
         ]
     
@@ -47,7 +46,11 @@ class HealthKitManager {
         healthStore.requestAuthorization(toShare: [], read: typesToRead) { success, error in
             completion(success, error)
         }
+        
+        
     }
+    
+    
     
     // MARK: - Fetch Heart Rate Samples
         /// Fetch heart rate samples in the given date range
@@ -83,4 +86,65 @@ class HealthKitManager {
             
             healthStore.execute(query)
         }
+    
+    // MARK: - Fetch Average Heart Rate
+        /// Fetches the average heart rate (in bpm) between the given dates.
+        func fetchAverageHeartRate(startDate: Date,
+                                   endDate: Date,
+                                   completion: @escaping (Double?, Error?) -> Void)
+        {
+            guard let hrType = HKObjectType.quantityType(forIdentifier: .heartRate) else {
+                completion(nil, nil)
+                return
+            }
+
+            let predicate = HKQuery.predicateForSamples(
+                withStart: startDate,
+                end: endDate,
+                options: .strictStartDate
+            )
+
+            let statsQuery = HKStatisticsQuery(
+                quantityType: hrType,
+                quantitySamplePredicate: predicate,
+                options: .discreteAverage
+            ) { _, result, error in
+                guard let avgQuantity = result?.averageQuantity() else {
+                    completion(nil, error)
+                    return
+                }
+                let bpm = avgQuantity.doubleValue(
+                    for: HKUnit.count().unitDivided(by: HKUnit.minute())
+                )
+                completion(bpm, nil)
+            }
+
+            healthStore.execute(statsQuery)
+        }
+
+    
+    // MARK: - Average Heart Rate
+        /// Fetches the average heart rate for a given workout
+        func fetchAverageHeartRate(for workout: HKWorkout,
+                                   completion: @escaping (Double?) -> Void) {
+            guard let hrType = HKObjectType.quantityType(forIdentifier: .heartRate) else {
+                completion(nil)
+                return
+            }
+
+            let predicate = HKQuery.predicateForObjects(from: workout)
+            let statsQuery = HKStatisticsQuery(quantityType: hrType,
+                                               quantitySamplePredicate: predicate,
+                                               options: .discreteAverage) { _, result, error in
+                guard let avgQuantity = result?.averageQuantity() else {
+                    completion(nil)
+                    return
+                }
+                let bpm = avgQuantity.doubleValue(for: HKUnit.count().unitDivided(by: .minute()))
+                completion(bpm)
+            }
+
+            healthStore.execute(statsQuery)
+        }
     }
+

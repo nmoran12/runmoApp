@@ -84,21 +84,68 @@ class GhostRunnerManager: ObservableObject {
     
     /// Call this function periodically with the current elapsed time.
     func updateSelectedGhostRunnerPositions(elapsedTime: TimeInterval) {
+        // --- DEBUGGING ---
+        print("--- DEBUG: Manager Update START (elapsedTime: \(String(format: "%.1f", elapsedTime))) ---")
+        guard !selectedGhostRunners.isEmpty else {
+             print("DEBUG: Manager Update - No selected ghosts. EXIT.")
+             return
+         }
+        // --- END DEBUGGING ---
+
         for index in selectedGhostRunners.indices {
-            var ghost = selectedGhostRunners[index]
+            var ghost = selectedGhostRunners[index] // Get a mutable copy
             let totalPoints = ghost.runData.routeCoordinates.count
-            // Calculate progress percentage (clamped to 1.0)
-            let progressPercentage = min(elapsedTime / ghost.runData.elapsedTime, 1.0)
-            // Compute new index
-            let targetIndex = Int(Double(totalPoints - 1) * progressPercentage)
-            ghost.currentIndex = min(targetIndex, totalPoints - 1)
-            // Mark as finished if needed
-            if targetIndex >= totalPoints - 1 {
-                ghost.isActive = false
+            let ghostTotalTime = ghost.runData.elapsedTime
+
+            // --- DEBUGGING ---
+            print("DEBUG: Manager Update - Processing Ghost \(index) ('\(ghost.name)')")
+            print("DEBUG:    Data - totalPoints: \(totalPoints), ghostTotalTime: \(String(format: "%.1f", ghostTotalTime)), current Index: \(ghost.currentIndex)")
+
+            guard totalPoints > 1 else {
+                print("!!! DEBUG: Manager Update - Ghost \(index) has insufficient points (\(totalPoints)). Skipping index update.")
+                continue // Need at least 2 points to calculate progress
             }
-            // Reassign updated ghost back into the array so the @Published property is updated.
+            guard ghostTotalTime > 0 else {
+                print("!!! DEBUG: Manager Update - Ghost \(index) has zero or negative total time (\(ghostTotalTime)). Skipping index update.")
+                continue // Need positive total time for calculation
+            }
+            // --- END DEBUGGING ---
+
+            // Calculate progress percentage (clamped 0.0 to 1.0)
+            let progressPercentage = max(0.0, min(elapsedTime / ghostTotalTime, 1.0))
+
+            // Compute new index
+            // Make sure the multiplier is non-negative
+            let indexMultiplier = Double(totalPoints - 1)
+            let targetIndexDouble = indexMultiplier * progressPercentage
+            let targetIndex = Int(targetIndexDouble) // Convert to Int
+
+            // Ensure the final index is within the valid range [0, totalPoints - 1]
+            let newIndex = max(0, min(targetIndex, totalPoints - 1))
+
+            // --- DEBUGGING ---
+            print("DEBUG:    Calc - progress: \(String(format: "%.3f", progressPercentage)), targetIndexDouble: \(String(format: "%.2f", targetIndexDouble)), targetIndexInt: \(targetIndex), newIndex: \(newIndex)")
+            // --- END DEBUGGING ---
+
+            // Update the ghost's index in the mutable copy
+            ghost.currentIndex = newIndex
+
+            // Update isActive flag based on the newIndex
+            if newIndex >= totalPoints - 1 {
+                if ghost.isActive { print("DEBUG:    Status - Ghost \(index) Finished.") }
+                ghost.isActive = false
+            } else {
+                // Ensure it's active if not finished (could have been reset)
+                ghost.isActive = true
+            }
+
+            // --- IMPORTANT: Reassign the modified struct back to the array ---
             selectedGhostRunners[index] = ghost
+            // --- DEBUGGING ---
+            print("DEBUG:    Update - Set selectedGhostRunners[\(index)].currentIndex = \(newIndex), isActive = \(ghost.isActive)")
+            // --- END DEBUGGING ---
         }
+         print("--- DEBUG: Manager Update END ---")
     }
 
     
@@ -299,11 +346,11 @@ class GhostRunnerManager: ObservableObject {
         if selectedGhostRunners.contains(where: { $0.id == runner.id }) {
             selectedGhostRunners.removeAll { $0.id == runner.id }
         } else {
-            if selectedGhostRunners.count < 3 {
-                selectedGhostRunners.append(runner)
-            }
+            // Replace any existing selection with the new one
+            selectedGhostRunners = [runner]
         }
     }
+
     
     func resetForNewRun() {
         for i in 0..<selectedGhostRunners.count {
@@ -418,7 +465,7 @@ struct GhostRunnerSelectionView: View {
                     
                     // Selected ghost runners
                     VStack(alignment: .leading) {
-                        Text("Selected Ghost Runners (\(ghostRunnerManager.selectedGhostRunners.count)/3)")
+                        Text("Selected Ghost Runners (\(ghostRunnerManager.selectedGhostRunners.count)/1)")
                             .font(.headline)
                             .padding(.horizontal)
                         
@@ -741,28 +788,60 @@ struct GhostRunnerMarker: View {
 
 struct GhostRunnerStatusView: View {
     var ghostRunners: [GhostRunner]
-    var userDistance: Double
+    var userDistance: Double // Assuming this is in METERS
+
+    // Optional: Add state to track last index for cleaner debugging print
+    // @State private var lastPrintedIndex: Int? = nil
 
     var body: some View {
-        // Use the first ghost runner for the status card
-        if let ghost = ghostRunners.first, ghost.runData.routeCoordinates.count > 1 {
+        // Use the first active ghost runner for the status card
+        if let ghost = ghostRunners.first(where: { $0.isActive }), // Ensure ghost is active
+           ghost.runData.routeCoordinates.count > 1
+        {
+            // --- DEBUGGING ---
+            // Optional: Uncomment and use lastPrintedIndex to reduce log spam
+            // if ghost.currentIndex != lastPrintedIndex {
+                 print(">>> DEBUG: StatusView received ghost '\(ghost.name)' with currentIndex: \(ghost.currentIndex) <<<")
+            //     lastPrintedIndex = ghost.currentIndex
+            // }
+            // --- END DEBUGGING ---
+
             let totalPoints = ghost.runData.routeCoordinates.count
-            let ghostDistance = ghost.runData.distance * (Double(ghost.currentIndex) / Double(totalPoints - 1))
+            // Calculate ghost's current distance in METERS
+            let ghostTotalDistance = ghost.runData.distance // Assuming this is in METERS
+            // Ensure division by zero doesn't happen if totalPoints is 1
+            let ghostProgress = Double(ghost.currentIndex) / Double(max(1.0, Double(totalPoints - 1)))
+            let ghostDistance = ghostTotalDistance * ghostProgress // Ghost's current distance in METERS
+
+            // Difference in METERS
             let difference = ghostDistance - userDistance
-            let tolerance = 0.1  // km tolerance
-            
+            // --- Set Tolerance in METERS ---
+            let tolerance: Double = 10.0  // e.g., +/- 10 meters tolerance
+
             let paceStatus: String
-            if abs(difference) < tolerance {
+            let backgroundColor: Color // Variable for background color
+            let statusTextColor: Color = .primary // Keep text color standard, or adjust if needed
+
+            if abs(difference) <= tolerance {
                 paceStatus = "On pace"
+                // --- Set background for "On pace" (e.g., default gray or slightly blue) ---
+                backgroundColor = Color(UIColor.systemGray5) // A neutral gray
+                // Or use the ghost's color slightly opaque: backgroundColor = ghost.color.opacity(0.3)
             } else if difference > 0 {
-                paceStatus = String(format: "Off pace by %.2f km", difference)
+                // Ghost is ahead (user is behind)
+                paceStatus = String(format: "Behind by %d m", Int(difference)) // Use meters
+                // --- Set background for "Behind" (Amber/Orange) ---
+                backgroundColor = Color.orange.opacity(0.6) // Amber/Orange, slightly transparent
             } else {
-                paceStatus = String(format: "Ahead by %.2f km", abs(difference))
+                // User is ahead (difference is negative)
+                paceStatus = String(format: "Ahead by %d m", Int(abs(difference))) // Use meters
+                // --- Set background for "Ahead" (Green) ---
+                backgroundColor = Color.green.opacity(0.5) // Green, slightly transparent
             }
-            
+
             return AnyView(
                 HStack {
-                    // Left icon matching leaderboard card style
+                    // Left icon
                     Circle()
                         .fill(ghost.color.opacity(0.2))
                         .frame(width: 40, height: 40)
@@ -772,43 +851,70 @@ struct GhostRunnerStatusView: View {
                                 .foregroundColor(ghost.color)
                         )
                         .padding(.leading, 5)
-                    
+
                     // Main text area
                     VStack(alignment: .leading, spacing: 1) {
                         Text("\(ghost.name) ghost run")
                             .font(.system(size: 14, weight: .regular))
-                            .foregroundColor(.secondary)
+                            .foregroundColor(.secondary) // Keep secondary for label
                         Text(paceStatus)
-                            .font(.system(size: 15))
-                            .foregroundColor(.primary)
-                            .padding(.leading, 4)
+                            .font(.system(size: 15, weight: .semibold)) // Make status bold
+                            .foregroundColor(statusTextColor) // Use defined text color
+                            //.padding(.leading, 4) // Removed padding
                     }
-                    
+
                     Spacer()
-                    
-                    // Chevron for consistency (optional)
+
+                    // Optional: Chevron
                     Image(systemName: "chevron.right")
                         .font(.system(size: 14))
                         .foregroundColor(.secondary)
                         .padding(.trailing, 10)
                 }
                 .padding(.vertical, 8)
-                .background(Color(UIColor.systemGray6).opacity(0.6))
+                // --- Apply the dynamic background color ---
+                .background(backgroundColor)
                 .cornerRadius(8)
                 .padding(.horizontal, 10)
                 .padding(.top, 15)
+                // Add animation for smooth color changes
+                .animation(.easeInOut(duration: 0.3), value: backgroundColor)
             )
         } else {
+            // If no active ghost runner, show nothing
             return AnyView(EmptyView())
         }
     }
-    
-    // Get the current distance traveled by a ghost runner
-    private func getGhostDistance(_ runner: GhostRunner) -> Double {
-        guard runner.isActive else { return runner.runData.distance }
-        let totalPoints = runner.runData.routeCoordinates.count
-        let percentage = Double(runner.currentIndex) / Double(totalPoints - 1)
-        return runner.runData.distance * percentage
-    }
+    // Removed getGhostDistance as it's only used once now
 }
 
+struct GhostRunnerPath: View {
+    var ghostRunner: GhostRunner
+    var region: MKCoordinateRegion
+    
+    private func point(for coordinate: CLLocationCoordinate2D) -> CGPoint {
+        // Convert geographic coordinates to screen points based on the current region.
+        let spanHalfLon = region.span.longitudeDelta / 2.0
+        let leftLon = region.center.longitude - spanHalfLon
+        let rightLon = region.center.longitude + spanHalfLon
+        let x = CGFloat((coordinate.longitude - leftLon) / (rightLon - leftLon)) * UIScreen.main.bounds.width
+        
+        let spanHalfLat = region.span.latitudeDelta / 2.0
+        let bottomLat = region.center.latitude - spanHalfLat
+        let topLat = region.center.latitude + spanHalfLat
+        let y = CGFloat((topLat - coordinate.latitude) / (topLat - bottomLat)) * UIScreen.main.bounds.height
+        
+        return CGPoint(x: x, y: y)
+    }
+    
+    var body: some View {
+        Path { path in
+            guard let firstCoord = ghostRunner.runData.routeCoordinates.first else { return }
+            path.move(to: point(for: firstCoord))
+            for coord in ghostRunner.runData.routeCoordinates {
+                path.addLine(to: point(for: coord))
+            }
+        }
+        .stroke(ghostRunner.color, lineWidth: 3)
+    }
+}

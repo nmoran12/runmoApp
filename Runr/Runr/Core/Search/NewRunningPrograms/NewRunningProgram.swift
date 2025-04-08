@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftUI
+import FirebaseFirestore
 
 // Updated DailyPlan model to include additional properties
 struct DailyPlan: Hashable, Identifiable {
@@ -17,8 +18,9 @@ struct DailyPlan: Hashable, Identifiable {
     let dailyRunType: String?
     let dailyEstimatedDuration: String?
     let dailyWorkoutDetails: [String]?
-    var isCompleted: Bool  // New property
-    
+    var isCompleted: Bool
+
+    // Keep your existing memberwise init
     init(
         day: String,
         date: Date? = nil,
@@ -26,7 +28,7 @@ struct DailyPlan: Hashable, Identifiable {
         runType: String? = nil,
         estimatedDuration: String? = nil,
         workoutDetails: [String]? = nil,
-        isCompleted: Bool = false  // Default to false
+        isCompleted: Bool = false
     ) {
         self.day = day
         self.dailyDate = date
@@ -39,32 +41,150 @@ struct DailyPlan: Hashable, Identifiable {
 }
 
 struct WeeklyPlan: Identifiable {
-    let id = UUID()
-    let weekNumber: Int // e.g. '1', '2', '3', etc.
-    let weekTitle: String      // e.g., "Week 1", "Week 2", etc.
-    let weeklyTotalWorkouts: Int     // total number of workouts in that week
-    let weeklyTotalDistance: Double  // total kilometers to run in that week
-    var dailyPlans: [DailyPlan] // breakdown day by day
-    let weeklyDescription: String // a short description to describe what we will do in that week
+    var id = UUID()
+    let weekNumber: Int
+    let weekTitle: String
+    let weeklyTotalWorkouts: Int
+    let weeklyTotalDistance: Double
+    var dailyPlans: [DailyPlan]
+    let weeklyDescription: String
+
+     // Add a basic memberwise init if needed (often generated automatically for structs)
+      init(id: UUID = UUID(), weekNumber: Int, weekTitle: String, weeklyTotalWorkouts: Int, weeklyTotalDistance: Double, dailyPlans: [DailyPlan], weeklyDescription: String) {
+         self.id = id
+         self.weekNumber = weekNumber
+         self.weekTitle = weekTitle
+         self.weeklyTotalWorkouts = weeklyTotalWorkouts
+         self.weeklyTotalDistance = weeklyTotalDistance
+         self.dailyPlans = dailyPlans
+         self.weeklyDescription = weeklyDescription
+     }
 }
 
 struct NewRunningProgram: Identifiable {
-    let id = UUID()
-    let title: String // title for running program
-    let raceName: String? // name of race if it is for a race (e.g. Sydney Marathon)
-    let subtitle: String // title under the title
-    let finishDate: Date // when the program will finish
-    let imageUrl: String // image to display
-    let totalDistance: Int // total distancae that will be ran across the entire running program (in km's)
-    let planOverview: String // short overview of what the running program is about
-    let experienceLevel: String // beginner, advanced, intermediate, pro, etc.
+    let id: UUID // Use UUID if that's what you store or need internally
+    let title: String
+    let raceName: String?
+    let subtitle: String
+    let finishDate: Date
+    let imageUrl: String
+    let totalDistance: Int // Assuming this comes from Firestore now
+    let planOverview: String
+    let experienceLevel: String
     var weeklyPlan: [WeeklyPlan]
-    
-    // Computed property to derive totalWeeks from weeklyPlan.count
-        var totalWeeks: Int {
-            return weeklyPlan.count
-        }
+
+    var totalWeeks: Int {
+        return weeklyPlan.count
+    }
+
+     // Add a basic memberwise init if needed
+      init(id: UUID = UUID(), title: String, raceName: String? = nil, subtitle: String, finishDate: Date, imageUrl: String, totalDistance: Int, planOverview: String, experienceLevel: String, weeklyPlan: [WeeklyPlan]) {
+         self.id = id
+         self.title = title
+         self.raceName = raceName
+         self.subtitle = subtitle
+         self.finishDate = finishDate
+         self.imageUrl = imageUrl
+         self.totalDistance = totalDistance
+         self.planOverview = planOverview
+         self.experienceLevel = experienceLevel
+         self.weeklyPlan = weeklyPlan
+     }
 }
+
+
+// MARK: - Firestore Decoding Initializers
+
+extension DailyPlan {
+    // Failable initializer to decode from Firestore dictionary
+    init?(from data: [String: Any]) {
+        // Guard only the truly REQUIRED fields that cause init to fail if missing
+        guard let dayStr = data["day"] as? String,
+              let distance = data["dailyDistance"] as? Double
+              // REMOVE 'completed' from the guard
+        else {
+            print("Error decoding DailyPlan: Missing required fields (day, dailyDistance). Data: \(data)")
+            return nil // Initialization failed if day or distance are missing
+        }
+
+        // Assign required properties
+        // self.id = UUID() // Let Swift auto-generate UUID for the struct instance
+        self.day = dayStr
+        self.dailyDistance = distance
+
+        // --- Assign 'isCompleted' AFTER the guard, providing default value ---
+        self.isCompleted = data["completed"] as? Bool ?? false // Defaults to false if nil or wrong type
+
+        // Assign other optional properties
+        self.dailyDate = (data["dailyDate"] as? Timestamp)?.dateValue()
+        self.dailyRunType = data["dailyRunType"] as? String
+        self.dailyEstimatedDuration = data["dailyEstimatedDuration"] as? String
+        self.dailyWorkoutDetails = data["dailyWorkoutDetails"] as? [String]
+     }
+ }
+
+extension WeeklyPlan {
+    // Failable initializer to decode from Firestore dictionary
+     init?(from data: [String: Any]) {
+        guard let weekNum = data["weekNumber"] as? Int,
+              let weekTitle = data["weekTitle"] as? String,
+              let workouts = data["weeklyTotalWorkouts"] as? Int,
+              let distance = data["weeklyTotalDistance"] as? Double,
+              let description = data["weeklyDescription"] as? String,
+              let dailyPlansData = data["dailyPlans"] as? [[String: Any]] // Expect an array of dictionaries
+        else {
+             print("Error decoding WeeklyPlan: Missing required fields or type mismatch. Data: \(data)")
+             return nil
+        }
+
+        // Assign properties
+        // self.id = UUID() // Generate a new UUID for the struct instance
+        self.weekNumber = weekNum
+        self.weekTitle = weekTitle
+        self.weeklyTotalWorkouts = workouts
+        self.weeklyTotalDistance = distance
+        self.weeklyDescription = description
+        // Decode the nested array of DailyPlan dictionaries
+        self.dailyPlans = dailyPlansData.compactMap { DailyPlan(from: $0) }
+     }
+ }
+
+ extension NewRunningProgram {
+    // Failable initializer to decode from Firestore dictionary
+     init?(from data: [String: Any]) {
+         // Safely unwrap all required fields
+         guard let idString = data["id"] as? String, // Expecting UUID as String from Firestore
+               let id = UUID(uuidString: idString), // Convert String back to UUID
+               let title = data["title"] as? String,
+               let subtitle = data["subtitle"] as? String,
+               let finishTimestamp = data["finishDate"] as? Timestamp, // Get Timestamp
+               let imageUrl = data["imageUrl"] as? String,
+               let totalDistance = data["totalDistance"] as? Int, // Assuming stored as Int
+               let planOverview = data["planOverview"] as? String,
+               let experienceLevel = data["experienceLevel"] as? String,
+               let weeklyPlanData = data["weeklyPlan"] as? [[String: Any]] // Array of Dictionaries
+         else {
+             print("Error decoding NewRunningProgram: Missing required fields or type mismatch. Data: \(data)")
+             return nil // Initialization failed
+         }
+
+         // Assign properties
+         self.id = id
+         self.title = title
+         self.raceName = data["raceName"] as? String // Optional field
+         self.subtitle = subtitle
+         self.finishDate = finishTimestamp.dateValue() // Convert Timestamp to Date
+         self.imageUrl = imageUrl
+         self.totalDistance = totalDistance
+         self.planOverview = planOverview
+         self.experienceLevel = experienceLevel
+
+         // Decode nested weekly plans using their initializer
+         self.weeklyPlan = weeklyPlanData.compactMap { WeeklyPlan(from: $0) }
+     }
+ }
+
+
 
 // SAMPLE DATA FOR TESTING PURPOSES
 // Sample daily plans for the weekly plan card view

@@ -26,6 +26,15 @@ struct RunDetailView: View {
     @State private var splits: [Split] = []
     @State private var paceData: [PaceData] = []
     
+    // --- NEW: State for TE Score ---
+        @State private var trainingEffectScore: Double = 0.0
+    
+    // --- NEW: Placeholder User Data for TE Calculation ---
+        // Fetch these dynamically later from user profile/settings!
+        let userRestingHR: Double = 65.0  // Example Resting HR
+        let userMaxHR: Double = 190.0 // Example Max HR (e.g., 220 - age)
+        let userGenderFactorB: Double = 1.92 // Example factor for male (1.67 for female)
+    
     // HealthKit
     let healthManager = HealthKitManager.shared
     @State private var stepCount: Double = 0
@@ -340,6 +349,12 @@ struct RunDetailView: View {
                             .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
                             .padding(.horizontal)
                             .padding(.top, 16)
+                
+                // --- !!! NEW: Training Effect Card !!! ---
+                            if trainingEffectScore > 0 { // Only display if score is calculated
+                                TrainingEffectCard(teScore: trainingEffectScore)
+                            }
+                            // --- !!! END NEW SECTION !!! ---
                             
 
                 // MARK: Splits Section
@@ -489,12 +504,16 @@ struct RunDetailView: View {
                             
                     // Use this for simulating heart rate samples instead of fetching from HealthKit
                             let simulatedSamples = generateMockHeartRateSamples(startDate: startDate, duration: run.elapsedTime)
-                            self.heartRateSamples = simulatedSamples
-                            let results = processHeartRateSamples(simulatedSamples, age: 30) // placeholder age
-                            self.averageHR = results.averageHR
-                            self.minHR = results.minHR
-                            self.maxHR = results.maxHR
-                            self.heartRateZones = results.zones
+                                    self.heartRateSamples = simulatedSamples
+                                    let results = processHeartRateSamples(simulatedSamples, age: 30) // placeholder age
+                                    self.averageHR = results.averageHR
+                                    self.minHR = results.minHR
+                                    self.maxHR = results.maxHR
+                                    self.heartRateZones = results.zones
+
+                                    // --- !!! ADD TE CALCULATION HERE for simulated data !!! ---
+                                    calculateTrainingEffect(runData: run, avgHR: self.averageHR)
+                                    // --- !!! END TE CALCULATION !!! ---
                             
                             // Fetch Steps
                             fetchSteps(startDate: startDate, endDate: endDate) { fetchedSteps in
@@ -512,12 +531,27 @@ struct RunDetailView: View {
                                 }
                             }
                             
+                            // fetch average heart rate
+                            healthManager.fetchAverageHeartRate(
+                              startDate: startDate,
+                              endDate:   endDate
+                            ) { avgBPM, error in
+                              guard let bpm = avgBPM, error == nil else {
+                                print("Avg HR error:", error ?? "unknown")
+                                return
+                              }
+                              DispatchQueue.main.async {
+                                self.averageHR = bpm
+                              }
+                            }
+                            
                                 // Fetch Heart Rate
                                 healthManager.fetchHeartRateData(startDate: startDate, endDate: endDate) { samples, error in
                                     guard let samples = samples, error == nil else {
                                         print("Error fetching heart rate: \(String(describing: error))")
                                         return
                                     }
+                                    
                                     DispatchQueue.main.async {
                                         self.heartRateSamples = samples
                                         let results = processHeartRateSamples(samples, age: 30) // placeholder age
@@ -559,6 +593,31 @@ struct RunDetailView: View {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .short
         return formatter.localizedString(for: date, relativeTo: Date())
+    }
+    
+    // --- NEW: Helper function to calculate TE ---
+    private func calculateTrainingEffect(runData: RunData, avgHR: Double) {
+        // Ensure we have valid inputs before calculating
+        guard avgHR > 0, runData.elapsedTime > 0 else {
+            print("DEBUG: Skipping TE calculation due to invalid avgHR or elapsedTime.")
+            self.trainingEffectScore = 0.0 // Reset score if inputs invalid
+            return
+        }
+
+        let calculator = TrainingEffectCalculator(
+            hrRest: userRestingHR,
+            hrMax: userMaxHR,
+            b: userGenderFactorB
+        )
+        let durationMinutes = runData.elapsedTime / 60.0
+        let trimp = calculator.computeTRIMP(avgHR: avgHR, durationMinutes: durationMinutes)
+        let teScore = calculator.trainingEffect(from: trimp)
+
+        // Update the state variable on the main thread
+        DispatchQueue.main.async {
+            self.trainingEffectScore = teScore
+            print("DEBUG: Calculated Training Effect Score: \(teScore)") // Verify calculation
+        }
     }
 }
 

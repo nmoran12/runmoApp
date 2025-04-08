@@ -26,7 +26,7 @@ struct GoalsView: View {
     @State private var focusGoalTuple: (goal: Goal, type: GoalType)? = nil
     
     // Animation tracking state
-    @State private var animatingGoalID: UUID? = nil
+    @State private var animatingGoalID: String? = nil // Change UUID? to String?
     
     var body: some View {
         NavigationView {
@@ -124,7 +124,8 @@ struct GoalsView: View {
             .navigationBarHidden(true)
             .onAppear {
                 Task {
-                    let fetchedGoals = await fetchUserGoals()
+                    // Line 127 in your GoalsView.swift .onAppear
+                    let fetchedGoals = await GoalsService.shared.fetchUserGoals() // Call via the singleton instance
                     // Filter goals based on their category matching the GoalType raw values.
                     addedDistanceGoals = fetchedGoals.filter { $0.category == GoalType.distance.rawValue }
                     addedPerformanceGoals = fetchedGoals.filter { $0.category == GoalType.performance.rawValue }
@@ -132,77 +133,6 @@ struct GoalsView: View {
                 }
             }
         }
-    }
-}
-
-
-
-
-// Goal Item Component
-struct GoalItemView: View {
-    let icon: String
-    let iconColor: Color
-    let title: String
-    let currentValue: String
-    let targetValue: String
-    let unit: String
-    let progress: Double
-    
-    var body: some View {
-        HStack {
-            // Left side - Icon
-            VStack {
-                Image(systemName: icon)
-                    .font(.system(size: 24))
-                    .foregroundColor(iconColor)
-                    .frame(width: 50, height: 50)
-                    .background(Color.gray.opacity(0.1))
-                    .cornerRadius(12)
-            }
-            .padding(.trailing, 10)
-            
-            // Middle - Content
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.headline)
-                
-                HStack {
-                    Image(systemName: "checkmark.circle")
-                        .foregroundColor(.gray)
-                    Text("\(currentValue) / \(targetValue) \(unit)")
-                        .font(.subheadline)
-                        .foregroundColor(.gray)
-                }
-                
-                // Progress bar
-                ZStack(alignment: .leading) {
-                    Rectangle()
-                        .frame(height: 6)
-                        .opacity(0.2)
-                        .foregroundColor(.blue)
-                        .cornerRadius(3)
-                    
-                    Rectangle()
-                        .frame(width: CGFloat(progress) * UIScreen.main.bounds.width * 0.65, height: 6)
-                        .foregroundColor(.blue)
-                        .cornerRadius(3)
-                }
-            }
-            
-            Spacer()
-            
-            // Right side - More button
-            Button(action: {
-                // More options
-            }) {
-                Image(systemName: "ellipsis")
-                    .foregroundColor(.gray)
-            }
-        }
-        .padding()
-        .background(Color.white)
-        .cornerRadius(12)
-        .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
     }
 }
 

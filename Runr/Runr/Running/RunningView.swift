@@ -29,6 +29,8 @@ struct RunningView: View {
     
     var runningProgramTargetDistance: Double?
 
+    @EnvironmentObject var viewModel: NewRunningProgramViewModel
+
 
 
     // For controlling navigation to LeaderboardView
@@ -101,11 +103,18 @@ struct RunningView: View {
                     
                     // Main stats display and controls
                     VStack(spacing: 0) {
-                        if let programTarget = runningProgramTargetDistance {
-                                                RunningProgramBarView(
-                                                    targetDistance: programTarget,
-                                                    currentDistance: runTracker.distanceTraveled
-                                                )
+                        if let userProgram = viewModel.currentUserProgram,
+                           let todayPlan = viewModel.getTodaysDailyPlan(),
+                           !viewModel.currentDailyRunIsCompleted {
+
+                            let dailyRunType = todayPlan.dailyRunType ?? "Unknown"
+                            
+                            RunningProgramBarView(
+                                targetDistance: viewModel.currentDailyTargetDistance,
+                                currentDistance: runTracker.distanceTraveled,
+                                dailyRunType: dailyRunType
+                            )
+
                         } else if !ghostRunnerManager.selectedGhostRunners.isEmpty {
                             GhostRunnerStatusView(
                                 ghostRunners: ghostRunnerManager.selectedGhostRunners,
@@ -397,16 +406,23 @@ struct RunningView: View {
                 Button(action: {
                     runTracker.pauseRun()
                     
-                    // this is to make it so completing a run will count towards my running program but it is not
-                    // fully implemented
-                    if let programTarget = runningProgramTargetDistance {
-                        let distanceInKm = runTracker.distanceTraveled / 1000.0
-                        if distanceInKm >= programTarget {
-                            // Example usage
-                            //markDailyRunCompletedHelper()
-
+                    let target = viewModel.currentDailyTargetDistance
+                    let distanceInKm = runTracker.distanceTraveled / 1000.0
+                        if distanceInKm >= target {
+                            // Attempt to retrieve today’s daily plan indices.
+                            if let indices = viewModel.getTodaysDailyPlanIndices() {
+                                Task {
+                                    await viewModel.markDailyRunCompleted(
+                                        weekIndex: indices.weekIndex,
+                                        dayIndex: indices.dayIndex,
+                                        completed: true
+                                    )
+                                }
+                            } else {
+                                print("Today’s daily plan indices were not found.")
+                            }
                         }
-                    }
+                    
                     withAnimation {
                         showPostRunDetails = true
                     }
@@ -420,6 +436,7 @@ struct RunningView: View {
                         .clipShape(Circle())
                         .shadow(color: .primary.opacity(0.2), radius: 4, x: 0, y: 2)
                 }
+
                 .scaleEffect(isPressed ? 1.1 : 1.0)
                 .opacity(isPressed ? 0.8 : 1.0)
                 .simultaneousGesture(

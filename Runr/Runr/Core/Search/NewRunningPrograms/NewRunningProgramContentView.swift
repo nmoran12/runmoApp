@@ -8,74 +8,120 @@
 import SwiftUI
 
 struct NewRunningProgramContentView: View {
-    // Use @StateObject here as this view likely "owns" the VM for this specific program instance
-    @StateObject private var viewModel = NewRunningProgramViewModel()
-    let plan: NewRunningProgram // The program data is passed into this view
+    // This view "owns" the view model for this program instance.
+    @EnvironmentObject private var viewModel: NewRunningProgramViewModel
+    let plan: NewRunningProgram // The program template is passed into this view
 
     var body: some View {
-        // Consider if NavigationView is needed here or if it's part of a larger navigation structure
-        NavigationView { // Removed for now, add back if needed
+        NavigationView {
             ScrollView {
-                VStack(spacing: 0) { // Use VStack with spacing 0, let cards handle padding
-                    
-                    // Display the NewRunningProgramCardView (summary card)
+                VStack(spacing: 0) {
+                    // Display a summary card of the running program template
                     NewRunningProgramCardView(program: plan)
                         .padding(.horizontal)
-                        .padding(.bottom) // Add some bottom padding
+                        .padding(.bottom)
                     
+                    // For a marathon target, for example, insert the estimated time view here:
+                   // EstimatedRunTimeView(targetDistance: 42.2)
+                          //  .padding(.horizontal)
+                          //  .padding(.bottom)
                     
-                    Text("Weekly Breakdown") // Add a section header
+                    // NEW: Current Day Plan View
+                    ShowCurrentDayPlanView()
+                        .environmentObject(viewModel) // Ensure the view model is passed properly.
+                        .padding(.horizontal)
+                        .padding(.top, 16)
+                    
+                    Text("Weekly Breakdown")
                         .font(.title2).bold()
                         .padding(.horizontal)
                         .padding(.bottom, 5)
                     
-                    // --- MODIFIED ForEach ---
-                    ForEach(Array(plan.weeklyPlan.enumerated()), id: \.element.id) { index, singleWeek in
+                    // Determine which weekly plan to display:
+                    // If there's an active user program, use its weeklyPlan; otherwise, use the template.
+                    // new might have to remove
+                    let displayedWeeklyPlan = mergeWeeklyPlans(template: plan.weeklyPlan,
+                                                                 user: viewModel.currentUserProgram?.weeklyPlan)
+
+                    
+                    ForEach(Array(displayedWeeklyPlan.enumerated()), id: \.element.id) { index, singleWeek in
                         WeeklyPlanCardView(
                             plan: singleWeek,
-                            weekIndex: index,   // <-- Pass the index
-                            viewModel: viewModel // <-- Pass the viewModel
+                            weekIndex: index,
+                            viewModel: _viewModel
                         )
-                        .padding(.horizontal) // Add horizontal padding to cards
-                        .padding(.bottom)    // Add vertical spacing between cards
+                        .padding(.horizontal)
+                        .padding(.bottom)
                     }
-                    // --- END MODIFICATION ---
                     
-                    
-                    // TEMPORARY Upload Button (Consider moving this elsewhere, e.g., when saving edits)
-                    Button(action: {
-                        // This now uses the STABLE ID based on the title for saving/updating
-                        // Ensure the 'plan' object passed in has the correct title
-                        Task { // Use Task for async operation
-                            await viewModel.saveNewRunningProgram(plan) // Use the correct save function
+                    // DO NOT REMOVE
+                     //seeding running program template only click once
+                    Button("Seed Running Program Template") {
+                        Task {
+                            do {
+                                // Use your sample program or a specific template you want to seed.
+                                try await seedTemplateIfNeeded(sampleProgram)
+                            } catch {
+                                print("Error seeding template: \(error.localizedDescription)")
+                            }
                         }
-                    }) {
-                        Text("Save/Upload Program") // Changed text for clarity
-                            .padding()
-                            .frame(maxWidth: .infinity) // Make button wider
-                            .background(Color.green) // Use green for save?
-                            .foregroundColor(.white)
-                            .cornerRadius(10)
                     }
-                    .padding() // Padding around the button
-                }
-            }
-        }
-            .navigationTitle(plan.title) // Set title from the program
-            .navigationBarTitleDisplayMode(.inline)
-             // Load the program into the ViewModel when this view appears
-             // This assumes the plan passed in IS the one you want to manage/update
 
+                    
+                    // Display a message if an active program is found.
+                                        if viewModel.hasActiveProgram {
+                                            Text("You already have an active running program.")
+                                                .foregroundColor(.red)
+                                                .padding()
+                                        }
+                                        
+                                        // The "Start Program" button now creates a user instance.
+                                        Button(action: {
+                                            Task {
+                                                // Retrieve the user's username from AuthService.
+                                                let currentUsername = AuthService.shared.currentUser?.username ?? "UnknownUser"
+                                                
+                                                // Before starting, check if the user already has an active program.
+                                                await viewModel.checkActiveUserProgram(for: currentUsername)
+                                                
+                                                // Only start a new program if none is active.
+                                                if !viewModel.hasActiveProgram {
+                                                    await viewModel.startUserRunningProgram(from: plan, username: currentUsername)
+                                                    // After creating a user instance, update the check.
+                                                    await viewModel.checkActiveUserProgram(for: currentUsername)
+                                                }
+                                            }
+                                        }) {
+                                            Text("Start Program")
+                                                .padding()
+                                                .frame(maxWidth: .infinity)
+                                                .background(viewModel.hasActiveProgram ? Color.gray : Color.green)
+                                                .foregroundColor(.white)
+                                                .cornerRadius(10)
+                                        }
+                                        // Disable the button if an active program exists.
+                                        .disabled(viewModel.hasActiveProgram)
+                                        .padding()
+                                    }
+                                }
+                            }
+        .navigationTitle(plan.title)
+        .navigationBarTitleDisplayMode(.inline)
         .onAppear {
-            // --- Call the ViewModel's load function ---
-            // Pass the title of the program this view is meant to display
             Task {
+                // Load the template as before.
                 await viewModel.loadProgram(titled: plan.title)
+                let currentUsername = AuthService.shared.currentUser?.username ?? "UnknownUser"
+                await viewModel.checkActiveUserProgram(for: currentUsername)
+                if viewModel.hasActiveProgram {
+                    // Load the active user instance.
+                    await viewModel.loadActiveUserProgram(for: currentUsername)
+                }
             }
             print("Program Content View appeared. Attempting to load program: \(plan.title)")
         }
-             .background(Color(.systemGroupedBackground).ignoresSafeArea()) // Set background
-        // } // End NavigationView
+
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
     }
 }
 

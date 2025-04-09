@@ -10,50 +10,45 @@ import SwiftUI
 struct NewRunningProgramCardView: View {
     
     let program: NewRunningProgram
-    // For now, weeksCompleted is hard-coded to 0
-    let weeksCompleted: Int = 0
+    @EnvironmentObject var programVM: NewRunningProgramViewModel
+
+    var weeksCompleted: Int {
+        if let userProgram = programVM.currentUserProgram {
+            // Define a completed week as one where all daily plans are completed.
+            return userProgram.weeklyPlan.filter { week in
+                week.dailyPlans.allSatisfy { $0.isCompleted }
+            }.count
+        }
+        return 0
+    }
     
     // Compute the total distance from all weeks dynamically
     var totalDistanceFromWeeks: Double {
          program.weeklyPlan.reduce(0) { $0 + $1.weeklyTotalDistance }
     }
+
+    // A helper to format the target race time (in seconds) as a time string.
+    private func formatTime(from seconds: Double) -> String {
+        let hrs = Int(seconds) / 3600
+        let mins = (Int(seconds) % 3600) / 60
+        let secs = Int(seconds) % 60
+        return String(format: "%d:%02d:%02d", hrs, mins, secs)
+    }
     
     var body: some View {
         // Plan card
-        VStack(spacing: 4) {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        // Display the program title
-                        Text(program.title)
-                            .font(.title2)
-                            .fontWeight(.bold)
-                        
-                        // Display race info if available
-                        if let race = program.raceName {
-                            HStack(spacing: 2) {
-                                Text("Your Race:")
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                                Text(race)
-                                    .font(.subheadline)
-                                    .foregroundColor(.orange)
-                            }
-                        }
-                        
-                        HStack(spacing: 2) {
-                            Text("Your Race Date:")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                            
-                            Text("OCT 13, 2024")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                        }
-                    }
+        VStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 16) {
+                // Header section
+                HStack(alignment: .top) {
+                    // Program title
+                    Text(program.title)
+                        .font(.title2)
+                        .fontWeight(.bold)
                     
                     Spacer()
                     
+                    // Race distance badge
                     ZStack {
                         Rectangle()
                             .fill(Color.black)
@@ -67,6 +62,19 @@ struct NewRunningProgramCardView: View {
                     }
                 }
                 
+                // Race details without labels
+                VStack(alignment: .leading, spacing: 6) {
+                    if let race = program.raceName {
+                        Text(race)
+                            .font(.subheadline)
+                            .foregroundColor(.orange)
+                    }
+                    
+                    Text("OCT 13, 2024")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                
                 // Progress bar using totalWeeks from the program
                 HStack(spacing: 4) {
                     ForEach(0..<program.totalWeeks, id: \.self) { i in
@@ -76,50 +84,54 @@ struct NewRunningProgramCardView: View {
                             .cornerRadius(2)
                     }
                 }
-                .padding(.vertical, 8)
+                .padding(.vertical, 4)
                 
+                // Stats row
                 HStack {
-                    HStack {
-                        Image(systemName: "calendar.badge.clock")
-                            .foregroundColor(.orange)
+                    // Weeks completed
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "calendar.badge.clock")
+                                .foregroundColor(.orange)
+                            
+                            Text("Weeks completed")
+                                .font(.footnote)
+                                .foregroundColor(.secondary)
+                        }
                         
-                        Text("Weeks completed")
-                            .font(.footnote)
-                            .foregroundColor(.secondary)
+                        Text("\(weeksCompleted)/\(program.totalWeeks)")
+                            .font(.title2)
+                            .fontWeight(.bold)
                     }
                     
                     Spacer()
                     
-                    Text("Distance")
-                        .font(.footnote)
-                        .foregroundColor(.secondary)
-                    
-                    Image(systemName: "figure.run")
-                        .foregroundColor(.orange)
-                }
-                
-                // Use computed values for weeks and distance progress
-                HStack {
-                    Text("\(weeksCompleted)/\(program.totalWeeks)")
-                        .font(.title)
-                        .fontWeight(.bold)
-                    
-                    Spacer()
-                    
-                    // Here "0" represents distance completed; update that as needed.
-                    Text("0/\(Int(totalDistanceFromWeeks)) km")
-                        .font(.title3)
-                        .fontWeight(.bold)
+                    // Target race time
+                    VStack(alignment: .trailing, spacing: 6) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "clock")
+                                .foregroundColor(.orange)
+                            
+                            Text("Target Race Time")
+                                .font(.footnote)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Text(formatTime(from: programVM.currentUserProgram?.targetTimeSeconds ?? programVM.targetTimeSeconds))
+                            .font(.title2)
+                            .fontWeight(.bold)
+                    }
                 }
             }
-            .padding()
+            .padding(16)
             .background(Color.white)
-            .cornerRadius(12)
-            .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
+            .cornerRadius(16)
+            .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
         }
     }
 }
 
 #Preview {
     NewRunningProgramCardView(program: sampleProgram)
+        .environmentObject(NewRunningProgramViewModel())
 }

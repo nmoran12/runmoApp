@@ -30,6 +30,9 @@ struct CurrentUserProfileView: View {
     @State private var showPrivacyPolicy = false
     @State private var showSavedItemsView = false
     @State private var showCalendarView = false
+    
+    @State private var showTargetRaceTimeUpdate: Bool = false
+
 
     var body: some View {
         NavigationStack {
@@ -48,6 +51,10 @@ struct CurrentUserProfileView: View {
                     }
                 }
                 .confirmationDialog("Menu", isPresented: $showMenu, titleVisibility: .visible) {
+                    Button("Update Target Race Time") {
+                        showTargetRaceTimeUpdate.toggle()
+                    }
+
                     Button("Calendar") {
                         showCalendarView = true
                     }
@@ -103,6 +110,14 @@ struct CurrentUserProfileView: View {
                             isPreviewPresented = false
                         }
                     )
+                }
+            
+                .sheet(isPresented: $showTargetRaceTimeUpdate) {
+                    NavigationStack { // Wrap in a NavigationStack if you wish to keep a title bar, etc.
+                        TargetRaceTimeInputView()
+                            .environmentObject(NewRunningProgramViewModel()) // You may wish to use the same instance already injected in the app.
+                            .navigationTitle("Update Target Race Time")
+                    }
                 }
                 .task {
                     await loadProfileData()

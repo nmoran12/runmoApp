@@ -7,24 +7,58 @@
 
 import Foundation
 import FirebaseFirestore
-import Combine // Import Combine for PassthroughSubject
+import Combine
 
 class NewRunningProgramViewModel: ObservableObject {
     
     @Published var currentProgram: NewRunningProgram?
+    @Published var currentUserProgram: UserRunningProgram?
     @Published var isLoading: Bool = false
     @Published var error: Error? = nil
+    @Published var hasActiveProgram: Bool = false
+    @Published var targetTimeSeconds: Double = 10800  // Default or initial value
+    @Published var todaysDailyPlanOverride: DailyPlan? = nil
+
     
-    // Store the STABLE document ID for the currently loaded program
-    // In NewRunningProgramViewModel.swift
-    @Published private(set) var currentStableDocumentId: String? = nil // Change 'private' to 'private(set)'
+    // Store the STABLE document ID for the currently loaded template program
+    @Published private(set) var currentStableDocumentId: String? = nil
     private let db = Firestore.firestore()
     
-    // Optional: To notify views when a program is updated (e.g., completion status)
+    // To notify views when a program is updated (e.g. completion status)
     let programUpdated = PassthroughSubject<Void, Never>()
     
-    // --- NEW: Load a specific program ---
-    @MainActor // Ensure updates happen on the main thread
+    /// Loads the active user program for the given username from "userRunningPrograms"
+    @MainActor
+    func loadActiveUserProgram(for username: String) async {
+        do {
+            let querySnapshot = try await db.collection("userRunningPrograms")
+                .whereField("username", isEqualTo: username)
+                .whereField("userProgramActive", isEqualTo: true)
+                .getDocuments()
+            if let document = querySnapshot.documents.first {
+                let data = document.data()
+                if let loadedProgram = UserRunningProgram(from: data) {
+                    self.currentUserProgram = loadedProgram
+                    // Update the view model's targetTimeSeconds with the loaded value:
+                    self.targetTimeSeconds = loadedProgram.targetTimeSeconds
+                    print("Loaded active user program for \(username) with targetTimeSeconds: \(loadedProgram.targetTimeSeconds)")
+                } else {
+                    print("Error: Failed to decode active user program for \(username)")
+                }
+            } else {
+                print("No active user program found for \(username)")
+            }
+        } catch {
+            print("Error loading active user program: \(error.localizedDescription)")
+        }
+    }
+
+
+    
+    // MARK: - Template Loading
+    
+    // Load a template running program from the "runningProgramTemplates" collection.
+    @MainActor
     func loadProgram(titled programTitle: String) async {
         guard !programTitle.isEmpty else {
             print("PROGRAM LOAD ERROR: Program title is empty.")
@@ -35,132 +69,150 @@ class NewRunningProgramViewModel: ObservableObject {
         
         isLoading = true
         error = nil
-        self.currentProgram = nil // Clear previous program while loading
+        self.currentProgram = nil
+        
+        // Generate the stable document ID based on the title
         let stableId = generateStableDocumentId(for: programTitle)
-        self.currentStableDocumentId = stableId // Store the ID we're using
+        self.currentStableDocumentId = stableId
         
-        print("PROGRAM LOAD: Attempting to load program with stable ID: \(stableId)")
+        print("PROGRAM LOAD: Attempting to load program template with stable ID: \(stableId)")
         
-        let docRef = db.collection("runningPrograms").document(stableId)
+        // Use the "runningProgramTemplates" collection for templates.
+        let docRef = db.collection("runningProgramTemplates").document(stableId)
         
         do {
             let document = try await docRef.getDocument()
             if document.exists, let data = document.data() {
-                // --- You need a way to decode Firestore data back into your NewRunningProgram struct ---
-                // This requires NewRunningProgram and its nested types to be Decodable
-                // or you need a manual initializer like the Goal one.
-                // Assuming you have an initializer or decoding logic:
-                self.currentProgram = NewRunningProgram(from: data) // Replace with your actual decoding/init
-                // ---------------------------------------------------------------
-                print("PROGRAM LOAD: Successfully loaded '\(programTitle)'")
+                self.currentProgram = NewRunningProgram(from: data)
+                print("PROGRAM LOAD: Successfully loaded template '\(programTitle)'")
             } else {
-                print("PROGRAM LOAD WARNING: No program found with title '\(programTitle)' (ID: \(stableId)).")
-                // Optionally: Handle creation of a default program if it doesn't exist?
-                self.error = NSError(domain: "AppError", code: 404, userInfo: [NSLocalizedDescriptionKey: "Running program not found."])
+                print("PROGRAM LOAD WARNING: No template found with title '\(programTitle)' (ID: \(stableId)).")
+                self.error = NSError(domain: "AppError", code: 404, userInfo: [NSLocalizedDescriptionKey: "Running program template not found."])
             }
         } catch let fetchError {
-            print("PROGRAM LOAD ERROR: Failed to fetch program '\(programTitle)': \(fetchError.localizedDescription)")
+            print("PROGRAM LOAD ERROR: Failed to fetch program template '\(programTitle)': \(fetchError.localizedDescription)")
             self.error = fetchError
         }
         isLoading = false
     }
     
+    // MARK: - Creating a User Instance
     
-    // --- MODIFIED: Save or Create (Use Stable ID) ---
-    // This should primarily be used when CREATING a new program or making MAJOR edits.
-    // For simple updates like completion, use markDailyRunCompleted.
+    /// Creates a user-specific instance from a template and writes it to the "userRunningPrograms" collection.
     @MainActor
-    func saveNewRunningProgram(_ program: NewRunningProgram) async {
-        guard !program.title.isEmpty else {
-            print("PROGRAM SAVE ERROR: Program title cannot be empty.")
-            return
-        }
-        isLoading = true
-        error = nil
-        let stableId = generateStableDocumentId(for: program.title)
-        let data = dictionaryFrom(program: program) // Use your existing conversion function
+    func startUserRunningProgram(from template: NewRunningProgram, username: String) async {
+        // Create a new user instance using the custom initializer.
+        let userProgram = UserRunningProgram(from: template, username: username)
+        let data = dictionaryFrom(userProgram: userProgram)
         
-        print("PROGRAM SAVE: Saving program '\(program.title)' with stable ID: \(stableId)")
-        
-        let docRef = db.collection("runningPrograms").document(stableId)
+        // Save to the "userRunningPrograms" collection using the new instance ID.
+        let docRef = db.collection("userRunningPrograms").document(userProgram.id.uuidString)
         
         do {
-            // Use setData with merge:false initially, or decide on update strategy
-            // If you want it to *always* overwrite or create, use setData without merge.
-            // If you want it to create or update existing fields, use setData with merge:true
-            try await docRef.setData(data, merge: true)
-            self.currentProgram = program // Update local state
-            self.currentStableDocumentId = stableId // Store the ID
-            print("PROGRAM SAVE: Program '\(program.title)' saved successfully!")
-            programUpdated.send() // Notify listeners
-        } catch let saveError {
-            print("PROGRAM SAVE ERROR: Failed to save program '\(program.title)': \(saveError.localizedDescription)")
-            self.error = saveError
+            try await docRef.setData(data, merge: false)
+            print("USER PROGRAM STARTED: Instance created for \(username) based on template \(template.title)")
+            // Save the user instance in the view model.
+            self.currentUserProgram = userProgram
+        } catch {
+            print("Error starting user running program: \(error.localizedDescription)")
+            self.error = error
         }
-        isLoading = false
     }
     
+    // MARK: - Checking Active User Program
+    @MainActor
+    func checkActiveUserProgram(for username: String) async {
+        do {
+            let querySnapshot = try await db.collection("userRunningPrograms")
+                .whereField("username", isEqualTo: username)
+                .whereField("userProgramActive", isEqualTo: true)
+                .getDocuments()
+            
+            hasActiveProgram = !querySnapshot.documents.isEmpty
+            
+            if hasActiveProgram {
+                print("User \(username) already has an active running program.")
+            } else {
+                print("User \(username) does not have an active running program.")
+            }
+        } catch {
+            print("Error checking active user program: \(error.localizedDescription)")
+            hasActiveProgram = false
+        }
+    }
     
-    // --- REVISED: Mark Daily Run Completed (Efficient Update) ---
+    // NEW: Function to update the user's target race time in Firestore.
+        @MainActor
+        func updateUserTargetTime(newTargetTime: Double) async {
+            guard var userProgram = currentUserProgram else {
+                print("No active user program to update target time.")
+                return
+            }
+            // Update the targetTimeSeconds property in the user instance.
+            userProgram.targetTimeSeconds = newTargetTime
+            self.currentUserProgram = userProgram
+            let docRef = db.collection("userRunningPrograms").document(userProgram.id.uuidString)
+            let updatedData = dictionaryFrom(userProgram: userProgram)
+            do {
+                try await docRef.setData(updatedData, merge: false)
+                print("Updated targetTimeSeconds in Firestore to \(newTargetTime)")
+            } catch {
+                print("Failed to update targetTimeSeconds: \(error.localizedDescription)")
+            }
+        }
+
+    
+    // MARK: - Updating Daily Completion for User Instance
+    
+    /// Updates a day's completion in the active user instance.
     @MainActor
     func markDailyRunCompleted(weekIndex: Int, dayIndex: Int, completed: Bool) async {
-        // Guard against trying to update a program that isn't loaded
-        guard let stableId = currentStableDocumentId, var program = currentProgram else {
-            print("MARK COMPLETE ERROR: No program loaded to update.")
+        guard var userProgram = currentUserProgram else {
+            print("MARK COMPLETE ERROR: No active user instance to update.")
             return
         }
-        // Validate indices
-        guard program.weeklyPlan.indices.contains(weekIndex),
-              program.weeklyPlan[weekIndex].dailyPlans.indices.contains(dayIndex) else {
-            print("MARK COMPLETE ERROR: Invalid week (\(weekIndex)) or day (\(dayIndex)) index.")
+        guard userProgram.weeklyPlan.indices.contains(weekIndex),
+              userProgram.weeklyPlan[weekIndex].dailyPlans.indices.contains(dayIndex) else {
+            print("MARK COMPLETE ERROR: Invalid week (\(weekIndex)) or day (\(dayIndex)) index in user instance.")
             return
         }
         
-        // Update local state FIRST for immediate UI feedback
-        program.weeklyPlan[weekIndex].dailyPlans[dayIndex].isCompleted = completed
-        self.currentProgram = program // Assign the modified program back to the @Published var
-        programUpdated.send() // Notify UI immediately
+        // Update the local user instance (which should be complete)
+        userProgram.weeklyPlan[weekIndex].dailyPlans[dayIndex].isCompleted = completed
+        self.currentUserProgram = userProgram
+        programUpdated.send()
         
-        // --- Update ONLY the specific field in Firestore ---
-        let fieldPath = "weeklyPlan.\(weekIndex).dailyPlans.\(dayIndex).completed"
-        let docRef = db.collection("runningPrograms").document(stableId)
+        // Instead of updating a single field, update the entire document so it always remains complete.
+        let docRef = db.collection("userRunningPrograms").document(userProgram.id.uuidString)
         
-        print("MARK COMPLETE: Updating Firestore doc '\(stableId)' path '\(fieldPath)' to \(completed)")
-        
+        let fullDict = dictionaryFrom(userProgram: userProgram)
+        print("MARK COMPLETE: Overwriting user instance doc '\(userProgram.id.uuidString)' with full data: \(fullDict)")
         do {
-            // Use updateData for targeted field update
-            try await docRef.updateData([fieldPath: completed])
-            print("MARK COMPLETE: Firestore updated successfully.")
+            try await docRef.setData(fullDict, merge: false)
+            print("MARK COMPLETE: User instance updated successfully.")
         } catch let updateError {
-            print("MARK COMPLETE ERROR: Firestore update failed: \(updateError.localizedDescription)")
-            // Optionally: Revert local state change on error
-            // program.weeklyPlan[weekIndex].dailyPlans[dayIndex].isCompleted = !completed
-            // self.currentProgram = program
-            // self.error = updateError
-            // programUpdated.send() // Notify UI of reversion
+            print("MARK COMPLETE ERROR: User instance update failed: \(updateError.localizedDescription)")
         }
     }
+    
+    
+
+
+
 }
 
-// Helper function to generate a custom document ID based on date and time
-/// Generates a Firestore-safe document ID from a program title.
-/// (e.g., "My 10k Plan!" -> "my-10k-plan-")
+// MARK: - Helper Functions
+
 func generateStableDocumentId(for programTitle: String) -> String {
     let lowercased = programTitle.lowercased()
-    // Remove disallowed characters and replace spaces with hyphens
     let allowedChars = CharacterSet.alphanumerics.union(.whitespaces)
     let sanitized = lowercased.components(separatedBy: allowedChars.inverted).joined()
     let hyphenated = sanitized.replacingOccurrences(of: " ", with: "-")
-    // Truncate if too long (Firestore IDs have limits, though usually generous)
-    let maxLength = 100 // Example max length
+    let maxLength = 100
     let truncated = String(hyphenated.prefix(maxLength))
-    // Handle empty string case
-    return truncated.isEmpty ? UUID().uuidString : truncated // Use UUID if title sanitizes to empty
+    return truncated.isEmpty ? UUID().uuidString : truncated
 }
 
-// You can now REMOVE the old generateDocumentId() function that used DateFormatter.
-
-// Function to convert your NewRunningProgram instance into a dictionary
 func dictionaryFrom(program: NewRunningProgram) -> [String: Any] {
     let weeklyPlanData = program.weeklyPlan.map { week -> [String: Any] in
         let dailyPlansData = week.dailyPlans.map { day -> [String: Any] in
@@ -171,7 +223,7 @@ func dictionaryFrom(program: NewRunningProgram) -> [String: Any] {
                 "dailyRunType": day.dailyRunType ?? "",
                 "dailyEstimatedDuration": day.dailyEstimatedDuration ?? "",
                 "dailyWorkoutDetails": day.dailyWorkoutDetails ?? [],
-                "completed": day.isCompleted    // New field to store completion status
+                "completed": day.isCompleted
             ]
         }
         return [
@@ -199,4 +251,210 @@ func dictionaryFrom(program: NewRunningProgram) -> [String: Any] {
         "experienceLevel": program.experienceLevel,
         "weeklyPlan": weeklyPlanData
     ]
+}
+
+func dictionaryFrom(userProgram: UserRunningProgram) -> [String: Any] {
+    let weeklyPlanData = userProgram.weeklyPlan.map { week -> [String: Any] in
+        let dailyPlansData = week.dailyPlans.map { day -> [String: Any] in
+            return [
+                "day": day.day,
+                "dailyDate": day.dailyDate != nil ? Timestamp(date: day.dailyDate!) : NSNull(),
+                "dailyDistance": day.dailyDistance,
+                "dailyRunType": day.dailyRunType ?? "",
+                "dailyEstimatedDuration": day.dailyEstimatedDuration ?? "",
+                "dailyWorkoutDetails": day.dailyWorkoutDetails ?? [],
+                "completed": day.isCompleted
+            ]
+        }
+        return [
+            "weekNumber": week.weekNumber,
+            "weekTitle": week.weekTitle,
+            "weeklyTotalWorkouts": week.weeklyTotalWorkouts,
+            "weeklyTotalDistance": week.weeklyTotalDistance,
+            "dailyPlans": dailyPlansData,
+            "weeklyDescription": week.weeklyDescription
+        ]
+    }
+    
+    let calculatedTotalDistance = userProgram.weeklyPlan.reduce(0) { $0 + $1.weeklyTotalDistance }
+    
+    return [
+        "id": userProgram.id.uuidString,
+        "templateId": userProgram.templateId,
+        "title": userProgram.title,
+        "raceName": userProgram.raceName ?? "",
+        "subtitle": userProgram.subtitle,
+        // Convert dates to Timestamps
+        "finishDate": Timestamp(date: userProgram.finishDate),
+        "imageUrl": userProgram.imageUrl,
+        "totalDistance": calculatedTotalDistance,
+        "planOverview": userProgram.planOverview,
+        "experienceLevel": userProgram.experienceLevel,
+        "weeklyPlan": weeklyPlanData,
+        "username": userProgram.username,
+        "startDate": Timestamp(date: userProgram.startDate),
+        "overallCompletion": userProgram.overallCompletion,
+        "userProgramActive": userProgram.userProgramActive,
+        "userProgramCompleted": userProgram.userProgramCompleted,
+        // NEW: Persist the target race time
+        "targetTimeSeconds": userProgram.targetTimeSeconds
+    ]
+}
+
+
+
+
+
+
+
+// ONLY CALL THIS ONCE EVER AND DONT MAKE IT CALLABLE IN THE APP
+@MainActor
+func seedTemplateIfNeeded(_ template: NewRunningProgram) async throws {
+    let db = Firestore.firestore()
+    
+    let stableId = generateStableDocumentId(for: template.title)
+    let templateRef = db.collection("runningProgramTemplates").document(stableId)
+    
+    // Check if the template already exists.
+    let document = try await templateRef.getDocument()
+    if document.exists {
+        print("Template '\(template.title)' already exists.")
+    } else {
+        let data = dictionaryFrom(program: template)
+        try await templateRef.setData(data, merge: false)
+        print("Template '\(template.title)' created successfully in runningProgramTemplates.")
+    }
+}
+
+
+
+func mergeWeeklyPlans(template: [WeeklyPlan], user: [WeeklyPlan]?) -> [WeeklyPlan] {
+    // If there's no user progress, return the template as is.
+    guard let user = user else { return template }
+    
+    // Assume same ordering and count; if not, you might need to merge by unique identifiers.
+    var merged = template
+    
+    // Loop through weeks and days to update the completed flag.
+    for weekIndex in 0..<min(template.count, user.count) {
+        for dayIndex in 0..<min(template[weekIndex].dailyPlans.count, user[weekIndex].dailyPlans.count) {
+            // Use the user instance value
+            merged[weekIndex].dailyPlans[dayIndex].isCompleted = user[weekIndex].dailyPlans[dayIndex].isCompleted
+        }
+    }
+    return merged
+}
+
+func dictionaryFrom(day: DailyPlan) -> [String: Any] {
+    return [
+        "day": day.day,
+        "dailyDate": day.dailyDate != nil ? Timestamp(date: day.dailyDate!) : NSNull(),
+        "dailyDistance": day.dailyDistance,
+        "dailyRunType": day.dailyRunType ?? "",
+        "dailyEstimatedDuration": day.dailyEstimatedDuration ?? "",
+        "dailyWorkoutDetails": day.dailyWorkoutDetails ?? [],
+        "completed": day.isCompleted
+    ]
+}
+
+
+// new 2 might have to remove
+func dictionaryFrom(week: WeeklyPlan) -> [String: Any] {
+    let dailyPlansData = week.dailyPlans.map { dictionaryFrom(day: $0) }
+    return [
+        "weekNumber": week.weekNumber,
+        "weekTitle": week.weekTitle,
+        "weeklyTotalWorkouts": week.weeklyTotalWorkouts,
+        "weeklyTotalDistance": week.weeklyTotalDistance,
+        "dailyPlans": dailyPlansData,
+        "weeklyDescription": week.weeklyDescription
+    ]
+}
+
+extension NewRunningProgramViewModel {
+    /// Returns true if today's run (if found) is completed.
+    /// If no daily plan for today is found, it assumes the run is complete.
+    var currentDailyRunIsCompleted: Bool {
+        guard let userProgram = currentUserProgram else { return true }
+        // Look for a daily plan scheduled for today.
+        for week in userProgram.weeklyPlan {
+            for day in week.dailyPlans {
+                if let date = day.dailyDate, Calendar.current.isDateInToday(date) {
+                    return day.isCompleted
+                }
+            }
+        }
+        // If none is found, assume today's run is not yet completed.
+        return false
+    }
+
+    
+    /// Optionally, if you want to get today's target distance (for use in your RunInProgressCardView),
+    /// you could add something like:
+    var currentDailyTargetDistance: Double {
+            guard let userProgram = currentUserProgram else { return 0 }
+            
+            // Get today's weekday name from the current calendar.
+            let todayWeekday = Calendar.current.component(.weekday, from: Date())
+            let weekdaySymbols = Calendar.current.weekdaySymbols // ["Sunday", "Monday", "Tuesday", ...]
+            let todayName = weekdaySymbols[todayWeekday - 1] // e.g. "Tuesday"
+            
+            // Iterate through the weekly plans.
+            for week in userProgram.weeklyPlan {
+                for day in week.dailyPlans {
+                    // First, if a dailyDate is present, check if it's today.
+                    if let date = day.dailyDate, Calendar.current.isDateInToday(date) {
+                        return day.dailyDistance
+                    }
+                    // Fallback: if dailyDate is not set, compare the day name.
+                    if day.day.caseInsensitiveCompare(todayName) == .orderedSame {
+                        return day.dailyDistance
+                    }
+                }
+            }
+            return 0
+        }
+    }
+
+extension NewRunningProgramViewModel {
+    func getTodaysDailyPlan() -> DailyPlan? {
+        // If an override is provided, return that.
+        if let override = todaysDailyPlanOverride {
+            return override
+        }
+        // Otherwise, use the default logic.
+        guard let userProgram = currentUserProgram else { return nil }
+        for week in userProgram.weeklyPlan {
+            for day in week.dailyPlans {
+                if let date = day.dailyDate, Calendar.current.isDateInToday(date) {
+                    return day
+                }
+            }
+        }
+        return nil
+    }
+}
+
+
+extension NewRunningProgramViewModel {
+    /// Returns the indices (week and day) for the daily plan corresponding to today.
+    func getTodaysDailyPlanIndices() -> (weekIndex: Int, dayIndex: Int)? {
+        guard let userProgram = currentUserProgram else { return nil }
+        let today = Date()
+        let calendar = Calendar.current
+        for (weekIndex, week) in userProgram.weeklyPlan.enumerated() {
+            for (dayIndex, day) in week.dailyPlans.enumerated() {
+                if let date = day.dailyDate, calendar.isDate(date, inSameDayAs: today) {
+                    return (weekIndex, dayIndex)
+                }
+                // Fallback: if the dailyDate isn’t set, you could also compare by day name.
+                let weekdaySymbols = calendar.weekdaySymbols
+                let todayName = weekdaySymbols[calendar.component(.weekday, from: today) - 1]
+                if day.dailyDate == nil && day.day.caseInsensitiveCompare(todayName) == .orderedSame {
+                    return (weekIndex, dayIndex)
+                }
+            }
+        }
+        return nil
+    }
 }

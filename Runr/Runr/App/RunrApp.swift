@@ -22,6 +22,7 @@ struct RunrApp: App {
     @StateObject var runTracker = RunTracker()
     @StateObject var authService = AuthService.shared
     @StateObject var registrationViewModel = RegistrationViewModel()
+    @StateObject var newProgramVM = NewRunningProgramViewModel()
 
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
 
@@ -32,10 +33,12 @@ struct RunrApp: App {
                     LoginView()
                         .environmentObject(authService)
                         .environmentObject(registrationViewModel)
+                        .environmentObject(newProgramVM)
                 } else {
                     RunrTabView()
                         .environmentObject(authService)
                         .environmentObject(runTracker)
+                        .environmentObject(newProgramVM)
                 }
             }
             .onAppear {

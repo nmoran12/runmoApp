@@ -9,6 +9,8 @@ import SwiftUI
 
 struct TrainingEffectCard: View {
     let teScore: Double
+    // In a production app you might pass in historical or average TE data here.
+    //let averageTe: Double?
 
     // Helper to get a descriptive label for the score
     private func descriptionForScore(_ te: Double) -> String {
@@ -17,59 +19,101 @@ struct TrainingEffectCard: View {
         case 2.0..<3.0: return "Maintaining Fitness"
         case 3.0..<4.0: return "Improving Fitness"
         case 4.0..<5.0: return "Highly Improving Fitness"
-        case 5.0...: return "Overreaching / Max Effort" // Handle score of 5.0 or slightly above
-        default: return "Intensity Load" // Fallback
+        case 5.0...: return "Overreaching / Max Effort"
+        default: return "Intensity Load"
         }
     }
 
-    // Helper for color remains the same
+    // Color for the gauge and number
     private func colorForScore(_ te: Double) -> Color {
         switch te {
-         case ..<2.0: return .blue // Use blue for recovery? Or keep green
-         case 2.0..<3.0: return .green // Maintaining
-         case 3.0..<4.0: return .yellow // Improving
-         case 4.0..<5.0: return .orange // Highly Improving
-         case 5.0...: return .red    // Overreaching
+         case ..<2.0: return .blue
+         case 2.0..<3.0: return .green
+         case 3.0..<4.0: return .yellow
+         case 4.0..<5.0: return .orange
+         case 5.0...: return .red
          default: return .gray
         }
     }
+    
+    // State to control display of the info alert/modal
+    @State private var showInfo: Bool = false
 
     var body: some View {
-        VStack(spacing: 8) { // Add spacing
-            Text("Training Effect")
-                .font(.headline)
-                .foregroundColor(.secondary) // Subdue the title slightly
+        VStack(spacing: 16) {
+            HStack {
+                Text("Training Effect")
+                    .font(.headline)
+                    .foregroundColor(.secondary)
+                Spacer()
+                // Info button to explain training effect
+                Button {
+                    showInfo = true
+                } label: {
+                    Image(systemName: "info.circle")
+                        .foregroundColor(.blue)
+                }
+                .alert(isPresented: $showInfo) {
+                    Alert(
+                        title: Text("What is Training Effect?"),
+                        message: Text("Training Effect is a measure of how much a workout stresses your body. It’s derived from heart rate data, workout duration, and personalized parameters. Lower scores suggest a recovery or maintenance session, while higher scores indicate higher intensity that can lead to fitness improvements or, if too high, overreaching."),
+                        dismissButton: .default(Text("Got it!"))
+                    )
+                }
+            }
 
-            Text(String(format: "%.1f", teScore))
-                .font(.system(size: 48, weight: .bold))
-                .foregroundColor(colorForScore(teScore)) // Color the score
+            // Circular gauge to visualize the TE score on a 1-5 scale
+            ZStack {
+                Circle()
+                    .trim(from: 0, to: 1)
+                    .stroke(style: StrokeStyle(lineWidth: 12, lineCap: .round))
+                    .foregroundColor(Color(.systemGray5))
+                    .rotationEffect(.degrees(-90))
+                
+                // The dynamic portion of the gauge
+                Circle()
+                    .trim(from: 0, to: CGFloat(min(teScore / 5.0, 1.0)))
+                    .stroke(style: StrokeStyle(lineWidth: 12, lineCap: .round))
+                    .foregroundColor(colorForScore(teScore))
+                    .rotationEffect(.degrees(-90))
+                    .animation(.easeOut, value: teScore)
 
-            // Use the dynamic description
+                // Display the numeric TE score in the center
+                Text(String(format: "%.1f", teScore))
+                    .font(.system(size: 36, weight: .bold))
+                    .foregroundColor(colorForScore(teScore))
+            }
+            .frame(width: 120, height: 120)
+
+            // Description below the gauge
             Text(descriptionForScore(teScore))
                 .font(.subheadline)
-                .foregroundColor(.primary) // Make description primary
-                .multilineTextAlignment(.center) // Center if it wraps
-
+                .foregroundColor(.primary)
+                .multilineTextAlignment(.center)
+            
+            // Optional additional context:
         }
-        // Keep padding and background consistent with SectionContainer or standalone style
-        // If used within SectionContainer, these modifiers might not be needed here.
-        // If used standalone:
-         .padding()
-         .background(RoundedRectangle(cornerRadius: 12)
-                        .fill(Color(.secondarySystemGroupedBackground)) // Use adaptive bg
-                         .shadow(radius: 3, x: 0, y: 1)) // Subtle shadow
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color(.secondarySystemGroupedBackground))
+                .shadow(radius: 4, x: 0, y: 2)
+        )
+        .padding([.horizontal, .top])
     }
 }
 
-// Preview for testing different scores
-#Preview {
-    VStack(spacing: 20) {
-        TrainingEffectCard(teScore: 1.5)
-        TrainingEffectCard(teScore: 2.8)
-        TrainingEffectCard(teScore: 3.9)
-        TrainingEffectCard(teScore: 4.7)
-        TrainingEffectCard(teScore: 5.0)
+// MARK: - Preview
+struct TrainingEffectCard_Previews: PreviewProvider {
+    static var previews: some View {
+        VStack(spacing: 20) {
+            TrainingEffectCard(teScore: 1.5)
+            TrainingEffectCard(teScore: 2.8)
+            TrainingEffectCard(teScore: 3.9)
+            TrainingEffectCard(teScore: 4.7)
+            TrainingEffectCard(teScore: 5.0)
+        }
+        .padding()
+        .background(Color(.systemGroupedBackground))
     }
-    .padding()
-    .background(Color(.systemGroupedBackground))
 }

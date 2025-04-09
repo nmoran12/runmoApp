@@ -12,7 +12,7 @@ struct ProfileStatsView: View {
     let user: User
     @State private var runs: [RunData] = []
     @State private var selectedTimeframe: Timeframe = .weekly
-    
+
     enum Timeframe: String, CaseIterable {
         case weekly = "Weekly"
         case monthly = "Monthly"
@@ -20,7 +20,7 @@ struct ProfileStatsView: View {
         case allTime = "All Time"
     }
     
-    // Filter runs based on the selected timeframe
+    // Filter runs based on the selected timeframe.
     var filteredRuns: [RunData] {
         let now = Date()
         switch selectedTimeframe {
@@ -38,7 +38,7 @@ struct ProfileStatsView: View {
         }
     }
     
-    // Computed stats
+    // Computed stats.
     var runCount: Int {
         filteredRuns.count
     }
@@ -52,17 +52,15 @@ struct ProfileStatsView: View {
     }
     
     var averagePace: Double {
-        // Calculate average pace in min/km. totalTime is in seconds.
         totalDistance > 0 ? (totalTime / 60) / totalDistance : 0
     }
     
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                // Header with profile picture and title
+                // Header with profile picture and title.
                 HStack(spacing: 16) {
-                    if let urlString = user.profileImageUrl,
-                       let url = URL(string: urlString) {
+                    if let urlString = user.profileImageUrl, let url = URL(string: urlString) {
                         KFImage(url)
                             .resizable()
                             .aspectRatio(contentMode: .fill)
@@ -75,7 +73,6 @@ struct ProfileStatsView: View {
                             .frame(width: 60, height: 60)
                             .foregroundColor(.secondary)
                     }
-                    
                     Text("\(user.username) Stats")
                         .font(.largeTitle)
                         .fontWeight(.bold)
@@ -87,13 +84,11 @@ struct ProfileStatsView: View {
                 .padding(.horizontal)
                 .padding(.top)
                 
-                // Timeframe selector
+                // Timeframe selector.
                 HStack {
                     Text("Timeframe")
                         .font(.headline)
-                    
                     Spacer()
-                    
                     Picker("", selection: $selectedTimeframe) {
                         ForEach(Timeframe.allCases, id: \.self) { timeframe in
                             Text(timeframe.rawValue).tag(timeframe)
@@ -103,35 +98,38 @@ struct ProfileStatsView: View {
                 }
                 .padding(.horizontal)
                 
-                // Stats cards
-                VStack(spacing: 16) {
-                    StatCardView(
-                        title: "Total Runs",
-                        value: "\(runCount)",
-                        icon: "figure.run"
-                    )
-                    
-                    StatCardView(
-                        title: "Total Distance",
-                        value: "\(totalDistance.formatted(.number.precision(.fractionLength(2)))) km",
-                        icon: "map"
-                    )
-                    
-                    StatCardView(
-                        title: "Total Time",
-                        value: formatTime(totalTime),
-                        icon: "clock"
-                    )
-                    
-                    StatCardView(
-                        title: "Average Pace",
-                        value: "\(averagePace.formatted(.number.precision(.fractionLength(1)))) min/km",
-                        icon: "speedometer"
-                    )
-                }
+                // Combined stats card.
+                CombinedStatsCardView(
+                    runCount: runCount,
+                    totalDistance: totalDistance,
+                    totalTime: totalTime,
+                    averagePace: averagePace
+                )
                 .padding(.horizontal)
                 
-                // Personal Bests section
+                // Overall Pace Chart.
+                if !filteredRuns.isEmpty {
+                    OverallPaceChartView(runs: filteredRuns)
+                        .padding(.horizontal)
+                        .padding(.top, 16)
+                }
+                
+                if !filteredRuns.isEmpty {
+                    OverallHeartRateZonesView(runs: filteredRuns)
+                        .padding(.horizontal)
+                        .padding(.top, 16)
+                }
+                
+                if !filteredRuns.isEmpty {
+                    HeartRateZoneChartView(runs: filteredRuns)
+                        .padding(.horizontal)
+                        .padding(.top, 16)
+                }
+                
+
+
+                
+                // Personal Bests section.
                 VStack(alignment: .leading, spacing: 8) {
                     BestEffortsCardView()
                         .padding(.horizontal)
@@ -139,7 +137,7 @@ struct ProfileStatsView: View {
             }
             .padding(.vertical)
         }
-        .background(Color(.systemGroupedBackground))
+        .background(Color(.systemBackground))
         .navigationBarTitleDisplayMode(.inline)
         .task {
             do {
@@ -149,8 +147,37 @@ struct ProfileStatsView: View {
             }
         }
     }
+}
+
+// Combined stats card that shows all four stats in one card.
+struct CombinedStatsCardView: View {
+    let runCount: Int
+    let totalDistance: Double
+    let totalTime: Double
+    let averagePace: Double
     
-    // Helper function to format elapsed time into h/m/s
+    var body: some View {
+        VStack(spacing: 16) {
+            HStack {
+                StatItemView(title: "Runs", value: "\(runCount)")
+                Divider()
+                    .frame(height: 40)
+                StatItemView(title: "Distance", value: "\(totalDistance.formatted(.number.precision(.fractionLength(2)))) km")
+            }
+            HStack {
+                StatItemView(title: "Time", value: formatTime(totalTime))
+                Divider()
+                    .frame(height: 40)
+                StatItemView(title: "Avg Pace", value: "\(averagePace.formatted(.number.precision(.fractionLength(1)))) min/km")
+            }
+        }
+        .padding()
+        .background(Color.white)
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+    }
+    
+    // Helper function to format elapsed time.
     func formatTime(_ totalTime: Double) -> String {
         let totalSeconds = Int(totalTime)
         let hours = totalSeconds / 3600
@@ -165,36 +192,22 @@ struct ProfileStatsView: View {
     }
 }
 
-struct StatCardView: View {
+// A simple view representing a single stat item.
+struct StatItemView: View {
     let title: String
     let value: String
-    let icon: String
     
     var body: some View {
-        HStack(spacing: 16) {
-            // Icon view
-            Image(systemName: icon)
-                .font(.system(size: 24))
-                .foregroundColor(.accentColor)
-                .frame(width: 56, height: 56)
-                .background(Color.accentColor.opacity(0.2))
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-            
-            // Stat details
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                Text(value)
-                    .font(.title2)
-                    .fontWeight(.semibold)
-            }
-            
-            Spacer()
+        VStack(spacing: 4) {
+            Text(title)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+            Text(value)
+                .font(.title2)
+                .fontWeight(.semibold)
+                .foregroundColor(.primary)
         }
-        .padding(16)
-        .background(Color(.systemBackground))
-        .cornerRadius(16)
+        .frame(maxWidth: .infinity)
     }
 }
 

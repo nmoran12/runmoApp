@@ -13,7 +13,7 @@ class BestEffortsViewModel: ObservableObject {
     @Published var bestEfforts: [BestEffort] = []
     
     // Updated BestEffort to include a date property.
-    struct BestEffort: Identifiable {
+    struct BestEffort: Identifiable, Equatable {
         var id = UUID()
         let distance: String  // e.g., "5K", "10K", etc.
         let time: Double      // Best time in seconds

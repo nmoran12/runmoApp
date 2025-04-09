@@ -8,16 +8,19 @@
 import SwiftUI
 
 struct RunningProgramBarView: View {
-    var targetDistance: Double
-    var currentDistance: Double
-    
+    var targetDistance: Double    // in kilometres
+    var currentDistance: Double   // in metres
+    var dailyRunType: String      // new property
+
+    // Calculate remaining distance after converting currentDistance to kilometers.
     private var remainingDistance: Double {
-        max(targetDistance - currentDistance, 0)
+        let currentKm = currentDistance / 1000.0
+        return max(targetDistance - currentKm, 0)
     }
     
     var body: some View {
         HStack {
-            // Circle with running icon
+            // Circle with running icon remains unchanged.
             Circle()
                 .fill(Color.blue.opacity(0.2))
                 .frame(width: 40, height: 40)
@@ -28,22 +31,22 @@ struct RunningProgramBarView: View {
                 )
                 .padding(.leading, 5)
             
-            // Target distance text
-            VStack(alignment: .leading, spacing: 1) {
-                Text("Today's Target")
-                    .font(.system(size: 14, weight: .regular))
+            // Instead of the previous VStack, we now display:
+            // "Today's Run" on top, then the dailyRunType, then the remaining distance.
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Today's Run")
+                    .font(.headline)
                     .foregroundColor(.secondary)
                 
-                Text(String(format: "%.2f km", targetDistance))
-                    .font(.system(size: 15))
+                Text(dailyRunType)
+                    .font(.subheadline)
                     .foregroundColor(.primary)
-                    .padding(.leading, 4)
                 
-                Text(String(format: "Remaining: %.2f km", remainingDistance))
-                    .font(.system(size: 15))
+                Text(String(format: "%.2f km to go", remainingDistance))
+                    .font(.subheadline)
                     .foregroundColor(.primary)
-                    .padding(.leading, 4)
             }
+            .padding(.leading, 4)
             
             Spacer()
         }
@@ -57,7 +60,8 @@ struct RunningProgramBarView: View {
 
 struct RunningProgramBarView_Previews: PreviewProvider {
     static var previews: some View {
-        RunningProgramBarView(targetDistance: 5.0, currentDistance: 0.0)
+        // Example: target is 7.5 km and currentDistance is 3000 metres (3 km)
+        RunningProgramBarView(targetDistance: 7.5, currentDistance: 3000, dailyRunType: "Long Run")
             .previewLayout(.sizeThatFits)
             .padding()
     }

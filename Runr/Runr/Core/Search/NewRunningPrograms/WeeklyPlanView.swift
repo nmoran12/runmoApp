@@ -10,13 +10,14 @@ import SwiftUI
 struct WeeklyPlanView: View {
     let plan: WeeklyPlan // The specific week plan
         let weekIndex: Int // Index of this week within the whole program
-        @ObservedObject var viewModel: NewRunningProgramViewModel // Receive the shared VM
+    @EnvironmentObject var viewModel: NewRunningProgramViewModel
         @State private var selectedDay: DailyPlan?
     
     private var completionPercentage: Double {
-        let completedDays = plan.dailyPlans.filter { $0.dailyDistance > 0 }.count
+        let completedDays = plan.dailyPlans.filter { $0.isCompleted }.count
         return Double(completedDays) / Double(plan.dailyPlans.count)
     }
+
 
     var body: some View {
             ScrollView {
@@ -27,7 +28,7 @@ struct WeeklyPlanView: View {
                         plan: plan,
                         weekIndex: weekIndex, // Pass the week index
                         selectedDay: $selectedDay,
-                        viewModel: viewModel // Pass the view model
+                        viewModel: _viewModel // Pass the view model
                     )
                     TipsView()
                 }
@@ -39,29 +40,47 @@ struct WeeklyPlanView: View {
     }
 
 
-    struct WeeklyPlanHeroSection: View {
-        let plan: WeeklyPlan
-        let completionPercentage: Double
+struct WeeklyPlanHeroSection: View {
+    let plan: WeeklyPlan
+    let completionPercentage: Double
 
-        var body: some View {
-            ZStack {
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.blue.opacity(0.1))
-                
-                VStack(spacing: 16) {
-                    Text(plan.weekTitle)
-                        .font(.system(size: 28, weight: .bold))
-                    ProgressRingView(completionPercentage: completionPercentage)
-                    HStack(spacing: 20) {
-                        SummaryCard(title: "Workouts", value: "\(plan.weeklyTotalWorkouts)", iconName: "figure.run")
-                        SummaryCard(title: "Distance", value: "\(plan.weeklyTotalDistance) km", iconName: "map")
-                    }
-                }
-                .padding()
+    var body: some View {
+        VStack(spacing: 16) {
+            // Week title header
+            Text(plan.weekTitle)
+                .font(.system(size: 28, weight: .bold))
+                .foregroundColor(.primary)
+            HStack {
             }
-            .padding(.bottom)
+            .padding(.horizontal)
+            
+            // Progress ring to show weekly completion
+            ProgressRingView(completionPercentage: completionPercentage)
+                .padding(.top, 8)
+            
+            // Combined stats card using style similar to ProfileStatsView
+            VStack(spacing: 16) {
+                HStack {
+                    StatItemView(title: "Workouts", value: "\(plan.weeklyTotalWorkouts)")
+                    Divider()
+                        .frame(height: 40)
+                    StatItemView(
+                        title: "Distance",
+                        value: String(format: "%.1f", plan.weeklyTotalDistance) + " km"
+                    )
+
+                }
+            }
+            
         }
+        .padding()
+        .background(Color.white)
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.20), radius: 8, x: 0, y: 4)
+        .padding(.horizontal)
     }
+}
+
 
     struct ProgressRingView: View {
         let completionPercentage: Double
@@ -88,70 +107,65 @@ struct WeeklyPlanView: View {
         }
     }
 
+// In WeeklyPlanView.swift
+
 struct DailyScheduleSection: View {
     let plan: WeeklyPlan
     let weekIndex: Int // Receive week index
     @Binding var selectedDay: DailyPlan?
-    @ObservedObject var viewModel: NewRunningProgramViewModel // Receive shared VM
+    @EnvironmentObject var viewModel: NewRunningProgramViewModel
+
+
+    // Helper to generate a dummy RunData from a DailyPlan.
+    // Adjust this function as needed to reflect your actual run stats.
+    private func runDataFromDailyPlan(_ daily: DailyPlan) -> RunData {
+        // Assume daily.dailyDistance is in kilometers; convert to meters.
+        let distanceMeters = daily.dailyDistance * 1000
+        // Use a dummy elapsed time (30 minutes, i.e. 1800 seconds) – replace with real data when available.
+        let elapsedTime = 1800.0
+        return RunData(date: daily.dailyDate ?? Date(),
+                       distance: distanceMeters,
+                       elapsedTime: elapsedTime,
+                       routeCoordinates: [])     // Dummy value; add coordinates if available.
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Daily Schedule")
-                .font(.title2).fontWeight(.semibold).padding(.bottom, 4)
+                .font(.title2)
+                .fontWeight(.semibold)
+                .padding(.bottom, 4)
 
-            // --- Use .enumerated() here ---
-                        ForEach(Array(plan.dailyPlans.enumerated()), id: \.element.id) { dayIndex, daily in
-                            NavigationLink(
-                                 // Navigation destination might need dayIndex too if DailyRunView uses it
-                                destination: DailyRunView(daily: daily /*, weekIndex: weekIndex, dayIndex: dayIndex, viewModel: viewModel */),
-                                tag: daily,
-                                selection: $selectedDay
-                            ) {
-                                DailyRunCard(
-                                    daily: daily,
-                                    isSelected: selectedDay?.id == daily.id,
-                                    weekIndex: weekIndex,
-                                    dayIndex: dayIndex, // <-- Pass the dayIndex
-                                    viewModel: viewModel
-                                )
-                            }
-                        }
-                    }
-                    .padding(.vertical)
+            ForEach(Array(plan.dailyPlans.enumerated()), id: \.element.id) { dayIndex, daily in
+                NavigationLink(
+                    destination: daily.isCompleted
+                        ? AnyView(
+                            DailyRunCompletedView(
+                                daily: daily,
+                                runData: runDataFromDailyPlan(daily)
+                            )
+                          )
+                        : AnyView(DailyRunView(daily: daily)),
+                    tag: daily,
+                    selection: $selectedDay
+                ) {
+                    DailyRunCard(
+                        daily: daily,
+                        isSelected: selectedDay?.id == daily.id,
+                        weekIndex: weekIndex,
+                        dayIndex: dayIndex,
+                        viewModel: viewModel  // Alternatively, if DailyRunCard uses the same view model, make it also an environment object.
+                    )
                 }
+
+
+
             }
-
-
-
-struct SummaryCard: View {
-    let title: String
-    let value: String
-    let iconName: String
-    
-    var body: some View {
-        VStack {
-            Image(systemName: iconName)
-                .font(.system(size: 24))
-                .foregroundColor(.blue)
-                .padding(.bottom, 2)
-            
-            Text(value)
-                .font(.system(size: 20, weight: .bold))
-            
-            Text(title)
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-
         }
-        .frame(maxWidth: .infinity)
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.white)
-                .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
-        )
+        .padding(.vertical)
     }
 }
+
 
 struct TipsView: View {
     var body: some View {
@@ -217,13 +231,13 @@ struct WeeklyPlanView_Previews: PreviewProvider {
         // previewViewModel.currentProgram = sampleProgram // If needed
 
         NavigationView {
-            // --- Provide the missing arguments ---
             WeeklyPlanView(
                 plan: sampleWeeklyPlan,
-                weekIndex: 0, // Provide a sample index (e.g., 0 for the first week)
-                viewModel: previewViewModel // Provide the dummy view model
+                weekIndex: 0
             )
+            .environmentObject(previewViewModel)  // provide the same instance
         }
+
         .preferredColorScheme(.light)
     }
 }

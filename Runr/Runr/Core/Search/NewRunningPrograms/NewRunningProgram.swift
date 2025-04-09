@@ -96,58 +96,171 @@ struct NewRunningProgram: Identifiable {
 // MARK: - Firestore Decoding Initializers
 
 extension DailyPlan {
-    // Failable initializer to decode from Firestore dictionary
     init?(from data: [String: Any]) {
-        // Guard only the truly REQUIRED fields that cause init to fail if missing
-        guard let dayStr = data["day"] as? String,
-              let distance = data["dailyDistance"] as? Double
-              // REMOVE 'completed' from the guard
-        else {
-            print("Error decoding DailyPlan: Missing required fields (day, dailyDistance). Data: \(data)")
-            return nil // Initialization failed if day or distance are missing
+        // Use defaults if fields are missing for backward compatibility.
+        let dayStr = data["day"] as? String ?? "Unknown Day"
+        
+        // Try to decode the distance from either a Double or an Int.
+        var distance: Double = 0.0
+        if let d = data["dailyDistance"] as? Double {
+            distance = d
+        } else if let i = data["dailyDistance"] as? Int {
+            distance = Double(i)
         }
-
-        // Assign required properties
-        // self.id = UUID() // Let Swift auto-generate UUID for the struct instance
+        
         self.day = dayStr
         self.dailyDistance = distance
-
-        // --- Assign 'isCompleted' AFTER the guard, providing default value ---
-        self.isCompleted = data["completed"] as? Bool ?? false // Defaults to false if nil or wrong type
-
-        // Assign other optional properties
+        // For the completed flag, try Bool directly or default to false.
+        self.isCompleted = data["completed"] as? Bool ?? false
+        // Other fields might be missing in older data.
         self.dailyDate = (data["dailyDate"] as? Timestamp)?.dateValue()
         self.dailyRunType = data["dailyRunType"] as? String
         self.dailyEstimatedDuration = data["dailyEstimatedDuration"] as? String
         self.dailyWorkoutDetails = data["dailyWorkoutDetails"] as? [String]
-     }
- }
+    }
+}
+
 
 extension WeeklyPlan {
-    // Failable initializer to decode from Firestore dictionary
-     init?(from data: [String: Any]) {
-        guard let weekNum = data["weekNumber"] as? Int,
-              let weekTitle = data["weekTitle"] as? String,
-              let workouts = data["weeklyTotalWorkouts"] as? Int,
-              let distance = data["weeklyTotalDistance"] as? Double,
-              let description = data["weeklyDescription"] as? String,
-              let dailyPlansData = data["dailyPlans"] as? [[String: Any]] // Expect an array of dictionaries
-        else {
-             print("Error decoding WeeklyPlan: Missing required fields or type mismatch. Data: \(data)")
-             return nil
+    init?(from data: [String: Any]) {
+        // First, decode the dailyPlans field in a flexible manner.
+        var dailyPlansData: [[String: Any]] = []
+        if let arr = data["dailyPlans"] as? [[String: Any]] {
+            dailyPlansData = arr
+        } else if let dict = data["dailyPlans"] as? [String: Any] {
+            // If stored as a dictionary keyed by index, sort by keys.
+            let sortedKeys = dict.keys.sorted { (key1, key2) -> Bool in
+                if let int1 = Int(key1), let int2 = Int(key2) {
+                    return int1 < int2
+                }
+                return false
+            }
+            for key in sortedKeys {
+                if let dayData = dict[key] as? [String: Any] {
+                    dailyPlansData.append(dayData)
+                }
+            }
         }
-
-        // Assign properties
-        // self.id = UUID() // Generate a new UUID for the struct instance
+        
+        var decodedDailyPlans = [DailyPlan]()
+        for dayData in dailyPlansData {
+            // If decoding fails, we get a default DailyPlan with fallback values.
+            if let day = DailyPlan(from: dayData) {
+                decodedDailyPlans.append(day)
+            }
+        }
+        
+        // Use default values if these keys are missing.
+        let weekNum = data["weekNumber"] as? Int ?? 0
+        let weekTitle = data["weekTitle"] as? String ?? "Week \(weekNum)"
+        let weeklyTotalWorkouts = data["weeklyTotalWorkouts"] as? Int ?? decodedDailyPlans.count
+        
+        var weeklyTotalDistance: Double = 0.0
+        if let d = data["weeklyTotalDistance"] as? Double {
+            weeklyTotalDistance = d
+        } else if let i = data["weeklyTotalDistance"] as? Int {
+            weeklyTotalDistance = Double(i)
+        } else {
+            // If the field is missing, calculate the sum from daily plans.
+            weeklyTotalDistance = decodedDailyPlans.reduce(0.0) { $0 + $1.dailyDistance }
+        }
+        
+        let weeklyDescription = data["weeklyDescription"] as? String ?? ""
+        
         self.weekNumber = weekNum
         self.weekTitle = weekTitle
-        self.weeklyTotalWorkouts = workouts
-        self.weeklyTotalDistance = distance
-        self.weeklyDescription = description
-        // Decode the nested array of DailyPlan dictionaries
-        self.dailyPlans = dailyPlansData.compactMap { DailyPlan(from: $0) }
-     }
- }
+        self.weeklyTotalWorkouts = weeklyTotalWorkouts
+        self.weeklyTotalDistance = weeklyTotalDistance
+        self.weeklyDescription = weeklyDescription
+        self.dailyPlans = decodedDailyPlans
+    }
+}
+
+extension WeeklyPlan {
+    /// Returns true if all active days (i.e. those with dailyDistance > 0) are marked as completed.
+    var isCompleted: Bool {
+        let activeDays = dailyPlans.filter { $0.dailyDistance > 0 }
+        // If there are active days and all are completed, return true.
+        return !activeDays.isEmpty && activeDays.allSatisfy { $0.isCompleted }
+    }
+}
+
+
+
+extension UserRunningProgram {
+    init?(from data: [String: Any]) {
+        // Decode the required fields.
+        guard let idString = data["id"] as? String,
+              let id = UUID(uuidString: idString),
+              let templateId = data["templateId"] as? String,
+              let title = data["title"] as? String,
+              let subtitle = data["subtitle"] as? String,
+              let finishDateValue = data["finishDate"],
+              let imageUrl = data["imageUrl"] as? String,
+              let totalDistance = data["totalDistance"] as? Int,
+              let planOverview = data["planOverview"] as? String,
+              let experienceLevel = data["experienceLevel"] as? String,
+              let username = data["username"] as? String,
+              let startDateValue = data["startDate"],
+              let overallCompletion = data["overallCompletion"] as? Int,
+              let userProgramActive = data["userProgramActive"] as? Bool,
+              let userProgramCompleted = data["userProgramCompleted"] as? Bool
+        else {
+            print("UserRunningProgram decoding failed: Missing required fields. Data: \(data)")
+            return nil
+        }
+        
+        // Convert finishDate and startDate from Timestamp (or Date)
+        var finishDate: Date?
+        if let ts = finishDateValue as? Timestamp {
+            finishDate = ts.dateValue()
+        } else if let dt = finishDateValue as? Date {
+            finishDate = dt
+        }
+        var startDate: Date?
+        if let ts = startDateValue as? Timestamp {
+            startDate = ts.dateValue()
+        } else if let dt = startDateValue as? Date {
+            startDate = dt
+        }
+        guard let fDate = finishDate, let sDate = startDate else {
+            print("UserRunningProgram decoding failed: Date conversion issue.")
+            return nil
+        }
+        
+        // Decode the target race time; if not present, default to 10800 seconds.
+        let targetTime = data["targetTimeSeconds"] as? Double ?? 10800
+        
+        // Decode the weeklyPlan.
+        // (Assuming you have similar logic elsewhere; here’s a simple placeholder.)
+        let weeklyPlanArray: [WeeklyPlan]
+        if let wpData = data["weeklyPlan"] as? [[String: Any]] {
+            weeklyPlanArray = wpData.compactMap { WeeklyPlan(from: $0) }
+        } else {
+            weeklyPlanArray = []
+        }
+        
+        // Assign values.
+        self.id = id
+        self.templateId = templateId
+        self.title = title
+        self.raceName = data["raceName"] as? String
+        self.subtitle = subtitle
+        self.finishDate = fDate
+        self.imageUrl = imageUrl
+        self.totalDistance = totalDistance
+        self.planOverview = planOverview
+        self.experienceLevel = experienceLevel
+        self.weeklyPlan = weeklyPlanArray
+        self.username = username
+        self.startDate = sDate
+        self.overallCompletion = overallCompletion
+        self.userProgramActive = userProgramActive
+        self.userProgramCompleted = userProgramCompleted
+        self.targetTimeSeconds = targetTime
+    }
+}
+
 
  extension NewRunningProgram {
     // Failable initializer to decode from Firestore dictionary
@@ -190,14 +303,15 @@ extension WeeklyPlan {
 // Sample daily plans for the weekly plan card view
 // Create sample daily plans that will be reused in each week
 let sampleDailyPlans = [
-    DailyPlan(day: "Monday", distance: 5.0),
-    DailyPlan(day: "Tuesday", distance: 7.5),
-    DailyPlan(day: "Wednesday", distance: 0.0), // rest day
-    DailyPlan(day: "Thursday", distance: 10.0),
-    DailyPlan(day: "Friday", distance: 100.0),
-    DailyPlan(day: "Saturday", distance: 12.0),
-    DailyPlan(day: "Sunday", distance: 8.0)
+    DailyPlan(day: "Monday", distance: 5.0, runType: "Tempo"),
+    DailyPlan(day: "Tuesday", distance: 7.5, runType: "Easy Run"),
+    DailyPlan(day: "Wednesday", distance: 0.0, runType: nil), // Rest day
+    DailyPlan(day: "Thursday", distance: 10.0, runType: "Long Run"),
+    DailyPlan(day: "Friday", distance: 5.0, runType: "Intervals"),
+    DailyPlan(day: "Saturday", distance: 12.0, runType: "Long Run"),
+    DailyPlan(day: "Sunday", distance: 8.0, runType: "Easy Run")
 ]
+
 
 // Generate multiple WeeklyPlan instances using a loop
 let sampleWeeklyPlans: [WeeklyPlan] = (1...6).map { weekNumber in

@@ -9,86 +9,110 @@ import SwiftUI
 
 struct WeeklyPlanCardView: View {
     let plan: WeeklyPlan
-    let weekIndex: Int // <-- Add week index
-    @ObservedObject var viewModel: NewRunningProgramViewModel // <-- Add view model
+    let weekIndex: Int // Index of the week this card represents
+    @EnvironmentObject var viewModel: NewRunningProgramViewModel
 
+    // Helper: Determine if the given week is the current week based on the program's start date.
+    private func isCurrentWeek() -> Bool {
+        guard let startDate = viewModel.currentUserProgram?.startDate else { return false }
+        let calendar = Calendar.current
+        // Calculate the number of weeks since the program started.
+        let diff = calendar.dateComponents([.weekOfYear], from: startDate, to: Date())
+        let currentWeekIndex = diff.weekOfYear ?? 0
+        return currentWeekIndex == weekIndex
+    }
+    
+    // Helper: Determine if a given daily plan is scheduled for today and is in the current week.
+    private func isTodayInCurrentWeek(_ dayPlan: DailyPlan) -> Bool {
+        // Only return true if this card represents the current week.
+        guard isCurrentWeek() else { return false }
+        let today = Date()
+        let calendar = Calendar.current
+        if let date = dayPlan.dailyDate {
+            return calendar.isDate(date, inSameDayAs: today)
+        } else {
+            let todayWeekday = calendar.weekdaySymbols[calendar.component(.weekday, from: today) - 1]
+            return dayPlan.day.caseInsensitiveCompare(todayWeekday) == .orderedSame
+        }
+    }
+    
     var body: some View {
-        // Pass weekIndex and viewModel to the destination
-        NavigationLink(destination: WeeklyPlanView(plan: plan, weekIndex: weekIndex, viewModel: viewModel)) {
-            // ... Keep the existing content of the card (VStack with Text, Labels, HStacks) ...
+        NavigationLink(destination: WeeklyPlanView(plan: plan, weekIndex: weekIndex, viewModel: _viewModel)) {
             VStack(alignment: .leading, spacing: 12) {
-               // Title
+                // Title
                 Text(plan.weekTitle)
-                   .font(.title2)
-                   .fontWeight(.bold)
-                   .foregroundColor(Color.blue)
-
-               // Summary
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundColor(Color.blue)
+                
+                // Summary
                 HStack {
-                   Label("Workouts: \(plan.weeklyTotalWorkouts)", systemImage: "figure.run")
-                       // ... modifiers
-                   Spacer()
-                   Label("Total: \(plan.weeklyTotalDistance, specifier: "%.1f") km", systemImage: "ruler")
-                       // ... modifiers
+                    Label("Workouts: \(plan.weeklyTotalWorkouts)", systemImage: "figure.run")
+                    Spacer()
+                    Label("Total: \(plan.weeklyTotalDistance, specifier: "%.1f") km", systemImage: "ruler")
+                }
+                
+                Divider().padding(.vertical, 4)
+                
+                // Daily Breakdown: For each daily plan, highlight only if the day is scheduled for today in the current week.
+                // Daily Breakdown: For each daily plan, highlight only if the day is scheduled for today in the current week.
+                ForEach(plan.dailyPlans, id: \.id) { dayPlan in
+                    HStack {
+                        // Display tick icon and day label in one line without wrapping.
+                        HStack(spacing: 4) {
+                            if dayPlan.isCompleted {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(.green)
+                                    .font(.caption)
+                            }
+                            Text(dayPlan.day + ":")
+                                .font(.caption)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.5)
+                        }
+                        .frame(width: 80, alignment: .leading) // Increased width from 70 to 80
+                                        
+                        Text(dayPlan.dailyDistance > 0 ? "\(dayPlan.dailyDistance, specifier: "%.1f") km" : "Rest")
+                            .font(.caption)
+                            .foregroundColor(dayPlan.dailyDistance > 0 ? .primary : .secondary)
+                        Spacer()
+                    }
+                    .padding(4)
+                    // Highlight if this is the current day's run and not completed; otherwise, use green if completed.
+                    .background(isTodayInCurrentWeek(dayPlan) && !dayPlan.isCompleted ? Color.blue.opacity(0.2) : (dayPlan.isCompleted ? Color.green.opacity(0.3) : Color.clear))
+                    .cornerRadius(4)
                 }
 
-               Divider().padding(.vertical, 4)
-
-               // Daily Breakdown (Keep your existing layout for this)
-               // Example structure:
-                ForEach(Array(plan.dailyPlans.prefix(3).enumerated()), id: \.element.id) { index, dayPlan in
-                     HStack {
-                         Text(dayPlan.day + ":") // Day name
-                             .font(.caption)
-                             .frame(width: 70, alignment: .leading)
-                         Text(dayPlan.dailyDistance > 0 ? "\(dayPlan.dailyDistance, specifier: "%.1f") km" : "Rest")
-                             .font(.caption)
-                             .foregroundColor(dayPlan.dailyDistance > 0 ? .primary : .secondary)
-                         Spacer()
-                     }
-                 }
-                if plan.dailyPlans.count > 3 {
-                    Text("...and more")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
             }
             .padding()
-            .background(Color(UIColor.systemBackground)) // Use adaptive background
+            // Overall card styling.
+            .background(plan.isCompleted ? Color.green.opacity(0.2) : Color(UIColor.systemBackground))
             .cornerRadius(16)
-            .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2) // Slightly adjusted shadow
+            .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
             .overlay(
-                 RoundedRectangle(cornerRadius: 16)
-                     .stroke(Color.gray.opacity(0.2), lineWidth: 1)
-             )
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(plan.isCompleted ? Color.green : Color.gray.opacity(0.2), lineWidth: 1)
+            )
         }
-         .buttonStyle(PlainButtonStyle()) // Make the whole card tappable without button styling
+        .buttonStyle(PlainButtonStyle())
     }
-    // Removed distanceIndicator as it might be complex here, simplified daily display
 }
 
 struct WeeklyPlanCardView_Previews: PreviewProvider {
     static var previews: some View {
-        // Create necessary sample data
-        // --- Use the globally defined sampleDailyPlans ---
+        // Provide sample data as needed. Assume sampleDailyPlans is defined.
         let samplePlan = WeeklyPlan(
             weekNumber: 1,
-            weekTitle: "Sample Title in WeeklyPlanCardView",
-            weeklyTotalWorkouts: sampleDailyPlans.filter { $0.dailyDistance > 0 }.count,
-            weeklyTotalDistance: sampleDailyPlans.reduce(0) { $0 + $1.dailyDistance },
-            dailyPlans: sampleDailyPlans, // <-- Use global constant here
-            weeklyDescription: "preview weekly description"
+            weekTitle: "Sample Week",
+            weeklyTotalWorkouts: 4,
+            weeklyTotalDistance: 20,
+            dailyPlans: sampleDailyPlans,
+            weeklyDescription: "A sample week"
         )
         let previewViewModel = NewRunningProgramViewModel()
-
-        // --- REMOVE the local 'let sampleDailyPlans = [...]' block ---
-
-        WeeklyPlanCardView(
-            plan: samplePlan,
-            weekIndex: 0, // Sample index
-            viewModel: previewViewModel // Dummy VM
-        )
-        .padding()
-        .previewLayout(.sizeThatFits)
+        WeeklyPlanCardView(plan: samplePlan, weekIndex: 0)
+            .environmentObject(previewViewModel)
+            .padding()
+            .previewLayout(.sizeThatFits)
     }
 }

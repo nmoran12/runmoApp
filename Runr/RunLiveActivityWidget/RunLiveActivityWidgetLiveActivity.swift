@@ -1,15 +1,15 @@
 //
-//  RunningActivityWidgetLiveActivity.swift
-//  RunningActivityWidget
+//  RunLiveActivityWidgetLiveActivity.swift
+//  RunLiveActivityWidget
 //
-//  Created by Noah Moran on 24/3/2025.
+//  Created by Noah Moran on 14/4/2025.
 //
 
 import ActivityKit
 import WidgetKit
 import SwiftUI
 
-struct RunningActivityWidgetAttributes: ActivityAttributes {
+struct RunLiveActivityWidgetAttributes: ActivityAttributes {
     public struct ContentState: Codable, Hashable {
         // Dynamic stateful properties about your activity go here!
         var emoji: String
@@ -19,9 +19,9 @@ struct RunningActivityWidgetAttributes: ActivityAttributes {
     var name: String
 }
 
-struct RunningActivityWidgetLiveActivity: Widget {
+struct RunLiveActivityWidgetLiveActivity: Widget {
     var body: some WidgetConfiguration {
-        ActivityConfiguration(for: RunningActivityWidgetAttributes.self) { context in
+        ActivityConfiguration(for: RunLiveActivityWidgetAttributes.self) { context in
             // Lock screen/banner UI goes here
             VStack {
                 Text("Hello \(context.state.emoji)")
@@ -56,25 +56,25 @@ struct RunningActivityWidgetLiveActivity: Widget {
     }
 }
 
-extension RunningActivityWidgetAttributes {
-    fileprivate static var preview: RunningActivityWidgetAttributes {
-        RunningActivityWidgetAttributes(name: "World")
+extension RunLiveActivityWidgetAttributes {
+    fileprivate static var preview: RunLiveActivityWidgetAttributes {
+        RunLiveActivityWidgetAttributes(name: "World")
     }
 }
 
-extension RunningActivityWidgetAttributes.ContentState {
-    fileprivate static var smiley: RunningActivityWidgetAttributes.ContentState {
-        RunningActivityWidgetAttributes.ContentState(emoji: "😀")
+extension RunLiveActivityWidgetAttributes.ContentState {
+    fileprivate static var smiley: RunLiveActivityWidgetAttributes.ContentState {
+        RunLiveActivityWidgetAttributes.ContentState(emoji: "😀")
      }
      
-     fileprivate static var starEyes: RunningActivityWidgetAttributes.ContentState {
-         RunningActivityWidgetAttributes.ContentState(emoji: "🤩")
+     fileprivate static var starEyes: RunLiveActivityWidgetAttributes.ContentState {
+         RunLiveActivityWidgetAttributes.ContentState(emoji: "🤩")
      }
 }
 
-#Preview("Notification", as: .content, using: RunningActivityWidgetAttributes.preview) {
-   RunningActivityWidgetLiveActivity()
+#Preview("Notification", as: .content, using: RunLiveActivityWidgetAttributes.preview) {
+   RunLiveActivityWidgetLiveActivity()
 } contentStates: {
-    RunningActivityWidgetAttributes.ContentState.smiley
-    RunningActivityWidgetAttributes.ContentState.starEyes
+    RunLiveActivityWidgetAttributes.ContentState.smiley
+    RunLiveActivityWidgetAttributes.ContentState.starEyes
 }

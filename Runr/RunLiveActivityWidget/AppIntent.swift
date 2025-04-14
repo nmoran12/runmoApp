@@ -1,13 +1,14 @@
 //
 //  AppIntent.swift
-//  RunningActivityWidget
+//  RunLiveActivityWidget
 //
-//  Created by Noah Moran on 24/3/2025.
+//  Created by Noah Moran on 14/4/2025.
 //
 
 import WidgetKit
 import AppIntents
 
+@available(iOSApplicationExtension 17.0, *)
 struct ConfigurationAppIntent: WidgetConfigurationIntent {
     static var title: LocalizedStringResource { "Configuration" }
     static var description: IntentDescription { "This is an example widget." }

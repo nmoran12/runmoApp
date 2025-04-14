@@ -88,7 +88,7 @@ struct WeeklyPlanCardView: View {
             // Overall card styling.
             .background(plan.isCompleted ? Color.green.opacity(0.2) : Color(UIColor.systemBackground))
             .cornerRadius(16)
-            .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
+            .shadow(color: Color.black.opacity(0.20), radius: 8, x: 0, y: 4)
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
                     .stroke(plan.isCompleted ? Color.green : Color.gray.opacity(0.2), lineWidth: 1)

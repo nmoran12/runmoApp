@@ -6,8 +6,16 @@
 //
 
 import Foundation
-import FirebaseFirestore
 import Combine
+#if os(iOS)
+    // Include properties, methods, or imports that use iOS-only frameworks.
+    import FirebaseFirestore
+    // … your iOS-specific code …
+    #else
+    // Provide watchOS-specific implementation or stubs.
+    // For example, you might leave these properties unpopulated,
+    // or implement alternative logic for watchOS.
+    #endif
 
 class NewRunningProgramViewModel: ObservableObject {
     
@@ -327,6 +335,31 @@ func seedTemplateIfNeeded(_ template: NewRunningProgram) async throws {
 }
 
 
+// THIS IS TO SEED ALL OF YOUR RUNNING PROGRAM TEMPLATES
+@MainActor
+func seedAllRunningProgramTemplates() async {
+    do {
+        try await seedTemplateIfNeeded(beginnerProgram)
+        try await seedTemplateIfNeeded(intermediateProgram)
+        try await seedTemplateIfNeeded(advancedProgram)
+    } catch {
+        print("Error seeding running program templates: \(error.localizedDescription)")
+    }
+}
+
+@MainActor
+func updateTemplate(_ template: NewRunningProgram) async throws {
+    let db = Firestore.firestore()
+    let stableId = generateStableDocumentId(for: template.title)
+    let templateRef = db.collection("runningProgramTemplates").document(stableId)
+    let data = dictionaryFrom(program: template)
+    try await templateRef.setData(data, merge: false)
+    print("Template '\(template.title)' updated successfully in runningProgramTemplates.")
+}
+
+
+
+
 
 func mergeWeeklyPlans(template: [WeeklyPlan], user: [WeeklyPlan]?) -> [WeeklyPlan] {
     // If there's no user progress, return the template as is.
@@ -435,26 +468,105 @@ extension NewRunningProgramViewModel {
     }
 }
 
-
 extension NewRunningProgramViewModel {
-    /// Returns the indices (week and day) for the daily plan corresponding to today.
+    /// Automatically check today's daily target against the given runDistance (in km) and mark as completed if met.
+    @MainActor
+    func autoMarkDailyRunIfNeeded(runDistance: Double) async {
+        // Try to get today’s plan indices (modify getTodaysDailyPlanIndices to fall back on day name if dailyDate is nil)
+        if let indices = getTodaysDailyPlanIndices() {
+            // Use your computed property/currentDailyTargetDistance (in km) as target
+            let targetDistance = currentDailyTargetDistance
+            if runDistance >= targetDistance {
+                await markDailyRunCompleted(
+                    weekIndex: indices.weekIndex,
+                    dayIndex: indices.dayIndex,
+                    completed: true
+                )
+                print("AutoMark: Today’s run marked as completed (runDistance: \(runDistance) km, target: \(targetDistance) km).")
+            } else {
+                print("AutoMark: Run distance (\(runDistance) km) did not meet target (\(targetDistance) km).")
+            }
+        } else {
+            print("AutoMark: Today's daily plan indices were not found.")
+        }
+    }
+    
+    /// Example fallback implementation for getTodaysDailyPlanIndices.
+    /// This method should look for a DailyPlan scheduled for today based on dailyDate,
+    /// or (if dailyDate is nil) based on the day name (e.g., matching "Monday", "Tuesday", etc.)
     func getTodaysDailyPlanIndices() -> (weekIndex: Int, dayIndex: Int)? {
         guard let userProgram = currentUserProgram else { return nil }
         let today = Date()
         let calendar = Calendar.current
-        for (weekIndex, week) in userProgram.weeklyPlan.enumerated() {
-            for (dayIndex, day) in week.dailyPlans.enumerated() {
+        let weekdayName = calendar.weekdaySymbols[calendar.component(.weekday, from: today) - 1]
+        
+        for (wIndex, week) in userProgram.weeklyPlan.enumerated() {
+            for (dIndex, day) in week.dailyPlans.enumerated() {
                 if let date = day.dailyDate, calendar.isDate(date, inSameDayAs: today) {
-                    return (weekIndex, dayIndex)
+                    return (wIndex, dIndex)
                 }
-                // Fallback: if the dailyDate isn’t set, you could also compare by day name.
-                let weekdaySymbols = calendar.weekdaySymbols
-                let todayName = weekdaySymbols[calendar.component(.weekday, from: today) - 1]
-                if day.dailyDate == nil && day.day.caseInsensitiveCompare(todayName) == .orderedSame {
-                    return (weekIndex, dayIndex)
+                // Fallback: if dailyDate is not set, compare by checking if the stored day
+                // starts with the same three letters (ignoring case)
+                let storedDay = day.day.lowercased()
+                let todayPrefix = weekdayName.lowercased().prefix(3)
+                if day.dailyDate == nil && storedDay.hasPrefix(todayPrefix) {
+                    return (wIndex, dIndex)
                 }
             }
         }
         return nil
     }
+    
+    // This takes the run a user just did, gets the distance from 'runs' document in firestore,
+    // compares it to my 'daily run' distance in my running program, and then if it exceeds it, it
+    // marks the daily run as completed.a
+    @MainActor
+    func checkMostRecentRunCompletion() async {
+        // Ensure the user is logged in and a current user program exists.
+        guard let userId = AuthService.shared.userSession?.uid,
+              currentUserProgram != nil else {
+            print("checkMostRecentRunCompletion: No user program loaded or user not logged in.")
+            return
+        }
+        
+        // Reference the user's "runs" subcollection.
+        let runsRef = db.collection("users").document(userId).collection("runs")
+        do {
+            // Query for the most recent run document (ordered by "date" descending)
+            let snapshot = try await runsRef.order(by: "date", descending: true).limit(to: 1).getDocuments()
+            guard let document = snapshot.documents.first else {
+                print("checkMostRecentRunCompletion: No runs found for the user.")
+                return
+            }
+            let runData = document.data()
+            // Get the distance from the run document (assumed stored in meters)
+            guard let distanceInMeters = runData["distance"] as? Double else {
+                print("checkMostRecentRunCompletion: Run document does not contain a valid 'distance' field.")
+                return
+            }
+            // Convert the distance to kilometers.
+            let runDistanceKm = distanceInMeters / 1000.0
+            // Get the daily target distance (in km) from your computed property.
+            let targetDistance = currentDailyTargetDistance
+            
+            print("checkMostRecentRunCompletion: Most recent run distance: \(runDistanceKm) km. Daily target: \(targetDistance) km.")
+            
+            // Compare and mark the day as completed if the run's distance meets or exceeds the target.
+            if runDistanceKm >= targetDistance {
+                if let indices = getTodaysDailyPlanIndices() {
+                    await markDailyRunCompleted(weekIndex: indices.weekIndex, dayIndex: indices.dayIndex, completed: true)
+                    print("checkMostRecentRunCompletion: Today's daily run marked as completed.")
+                } else {
+                    print("checkMostRecentRunCompletion: Today's daily plan indices were not found.")
+                }
+            } else {
+                print("checkMostRecentRunCompletion: Run distance (\(runDistanceKm) km) did not meet the daily target (\(targetDistance) km).")
+            }
+        } catch {
+            print("checkMostRecentRunCompletion: Error fetching the most recent run: \(error.localizedDescription)")
+        }
+    }
+
+
+
 }

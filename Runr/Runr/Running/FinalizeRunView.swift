@@ -11,6 +11,7 @@ import FirebaseFirestore
 
 struct FinalizeRunView: View {
     @ObservedObject var runTracker: RunTracker
+    @EnvironmentObject var viewModel: NewRunningProgramViewModel
     @Binding var selectedFootwear: String
     
     // Replace these with whatever data you want from the user:
@@ -38,6 +39,8 @@ struct FinalizeRunView: View {
     
     // Access SwiftUI’s dismiss environment to pop this view
     @Environment(\.dismiss) private var dismiss
+    
+    
     
     var body: some View {
         NavigationStack {
@@ -208,10 +211,11 @@ struct FinalizeRunView: View {
     
     // MARK: - Save (Post) the run
     private func saveActivity() async {
-        guard let userId = AuthService.shared.userSession?.uid else {
-            print("DEBUG: No user logged in.")
-            return
-        }
+        guard let userId = AuthService.shared.userSession?.uid,
+                  let username = AuthService.shared.currentUser?.username else {
+                print("DEBUG: No user logged in.")
+                return
+            }
         
         // Optionally fetch old rank if you want to see if user advanced
         let oldRank = await fetchUserRank(userId: userId)
@@ -221,6 +225,11 @@ struct FinalizeRunView: View {
             withCaption: activityDescription,
             footwear: selectedFootwear
         )
+        
+        // Ensure the active user program is loaded.
+        await viewModel.loadActiveUserProgram(for: username)
+        
+        await viewModel.checkMostRecentRunCompletion()
         
         // Optionally fetch new rank and see if user advanced
         let newRank = await fetchUserRank(userId: userId)

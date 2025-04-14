@@ -23,12 +23,14 @@ struct RunrApp: App {
     @StateObject var authService = AuthService.shared
     @StateObject var registrationViewModel = RegistrationViewModel()
     @StateObject var newProgramVM = NewRunningProgramViewModel()
+    @StateObject var connectivityManager = iOSConnectivityManager.shared
 
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
 
     var body: some Scene {
         WindowGroup {
             Group {
+                
                 if authService.userSession == nil {
                     LoginView()
                         .environmentObject(authService)
@@ -40,6 +42,8 @@ struct RunrApp: App {
                         .environmentObject(runTracker)
                         .environmentObject(newProgramVM)
                 }
+                
+                
             }
             .onAppear {
                             // Request location permissions and fetch/store the current user location.

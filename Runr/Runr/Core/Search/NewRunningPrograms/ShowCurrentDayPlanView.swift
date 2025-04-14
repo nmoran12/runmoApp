@@ -13,92 +13,131 @@ struct ShowCurrentDayPlanView: View {
     var body: some View {
         Group {
             if let todayPlan = viewModel.getTodaysDailyPlan() {
-                // For run or rest days: if plan exists, show respective information.
-                HStack(spacing: 12) {
-                    if todayPlan.dailyDistance > 0 {
-                        // For a run day, display details for a run day.
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Today: \(todayPlan.day)")
-                                .font(.headline)
-                            
-                            HStack {
-                                Text("Run Type:")
-                                    .font(.subheadline)
-                                Text(todayPlan.dailyRunType ?? "Unknown")
+                // Wrap content in an HStack with a left accent bar:
+                HStack(spacing: 0) {
+                    // Accent bar for prominence
+                    Rectangle()
+                        .fill(Color.blue)
+                        .frame(width: 8)
+                        .cornerRadius(4)
+                    
+                    // Main content card for today's plan
+                    HStack(spacing: 12) {
+                        if todayPlan.dailyDistance > 0 {
+                            // Run day details
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Today: \(todayPlan.day)")
+                                    .font(.title3) // increased for prominence
+                                    .fontWeight(.bold)
+                                
+                                HStack {
+                                    Text("Run Type:")
+                                        .font(.subheadline)
+                                    Text(todayPlan.dailyRunType ?? "Unknown")
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                }
+                                
+                                HStack {
+                                    Text("Distance:")
+                                        .font(.subheadline)
+                                    Text("\(todayPlan.dailyDistance, specifier: "%.1f") km")
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                }
+                            }
+                        } else {
+                            // Rest day details
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Today: \(todayPlan.day)")
+                                    .font(.title3)
+                                    .fontWeight(.bold)
+                                Text("Rest Day")
                                     .font(.subheadline)
                                     .fontWeight(.semibold)
                             }
-                            
-                            HStack {
-                                Text("Distance:")
-                                    .font(.subheadline)
-                                Text("\(todayPlan.dailyDistance, specifier: "%.1f") km")
-                                    .font(.subheadline)
-                                    .fontWeight(.semibold)
+                        }
+                        
+                        // Play button appears on run days only.
+                        if todayPlan.dailyDistance > 0 {
+                            NavigationLink(destination: RunningView(targetDistance: todayPlan.dailyDistance)
+                                            .environmentObject(viewModel)) {
+                                Image(systemName: "play.fill")
+                                    .foregroundColor(.white)
+                                    .font(.title)
+                                    .frame(width: 60, height: 60)
+                                    .background(Color.blue)
+                                    .clipShape(Circle())
+                                    .shadow(color: Color.blue.opacity(0.4), radius: 8, x: 0, y: 4)
                             }
                         }
-                    } else {
-                        // For a rest day, show a simple rest message.
-                        VStack(alignment: .center, spacing: 8) {
-                            Text("Today: \(todayPlan.day)")
-                                .font(.headline)
-                            Text("Rest Day")
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
-                        }
                     }
-                    
-                    Spacer()
-                    
-                    // Show the "play" button only if it's a run day (non-zero distance).
-                    if todayPlan.dailyDistance > 0 {
-                        NavigationLink(destination: RunningView(targetDistance: todayPlan.dailyDistance)
-                                        .environmentObject(viewModel)) {
-                            Image(systemName: "play.fill")
-                                .foregroundColor(.white)
-                                .font(.title)
-                                .frame(width: 60, height: 60)
-                                .background(Color.blue)
-                                .clipShape(Circle())
-                                .shadow(color: Color.blue.opacity(0.4), radius: 8, x: 0, y: 4)
-                        }
-                    }
+                    .padding()
+                    .background(Color.white)
+                    .cornerRadius(12)
+                    .shadow(color: Color.black.opacity(0.2), radius: 8, x: 0, y: 4)
                 }
-                .padding()
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.white)
-                .cornerRadius(12)
-                .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
                 .padding(.horizontal)
             } else {
-                // When no plan exists for today, display an improved card.
-                HStack(spacing: 12) {
-                    Image(systemName: "moon.zzz.fill")
-                        .font(.largeTitle)
-                        .foregroundColor(.blue)
-                        .padding(.leading, 12)
+                // For a rest day with no specific plan, add an accent bar as well.
+                HStack(spacing: 0) {
+                    Rectangle()
+                        .fill(Color.blue)
+                        .frame(width: 8)
+                        .cornerRadius(4)
                     
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("No run plan for today")
-                            .font(.headline)
+                    HStack(spacing: 12) {
+                        Image(systemName: "moon.zzz.fill")
+                            .font(.largeTitle)
+                            .foregroundColor(.blue)
+                            .padding(.leading, 12)
                         
-                        Text("Take a rest, stretch a bit and get ready for the next day.")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Rest Day")
+                                .font(.title3)
+                                .fontWeight(.bold)
+                            
+                            Text("Take a rest, stretch a bit and get ready for the next day.")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(.vertical, 16)
+                        
+                        Spacer()
                     }
-                    .padding(.vertical, 16)
-                    
-                    Spacer()
+                    .background(Color.white)
+                    .cornerRadius(12, corners: [.topRight, .bottomRight])
+                    .shadow(color: Color.black.opacity(0.2), radius: 8, x: 0, y: 4)
                 }
-                .frame(maxWidth: .infinity)
-                .background(Color.white)
-                .cornerRadius(12)
-                .shadow(color: Color.black.opacity(0.2), radius: 5, x: 0, y: 2)
                 .padding(.horizontal)
             }
         }
     }
 }
+
+
+// Custom corner radius for my showcurrentdayplanview card
+struct RoundedCorner: Shape {
+    var radius: CGFloat = .infinity
+    var corners: UIRectCorner = .allCorners
+
+    func path(in rect: CGRect) -> Path {
+        let path = UIBezierPath(
+            roundedRect: rect,
+            byRoundingCorners: corners,
+            cornerRadii: CGSize(width: radius, height: radius)
+        )
+        return Path(path.cgPath)
+    }
+}
+
+extension View {
+    func cornerRadius(_ radius: CGFloat, corners: UIRectCorner) -> some View {
+        self.clipShape(RoundedCorner(radius: radius, corners: corners))
+    }
+}
+
+
 
 struct ShowCurrentDayPlanView_Previews: PreviewProvider {
     static var previews: some View {

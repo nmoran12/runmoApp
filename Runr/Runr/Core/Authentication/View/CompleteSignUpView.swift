@@ -18,14 +18,14 @@ struct CompleteSignUpView: View {
             
             Spacer()
             
-            Text("Welcome to Instagram, \(viewModel.realName)")
+            Text("Welcome to Runmo, \(viewModel.realName)")
                 .font(.title)
                 .fontWeight(.bold)
                 .padding(.top)
                 .multilineTextAlignment(.center)
 
             
-            Text("Click below to complete registration and start using Instagram")
+            Text("Click below to complete registration and start using Runmo")
                 .font(.footnote)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)

@@ -7,9 +7,15 @@
 
 import SwiftUI
 
+@MainActor
 struct FeedView: View {
-    @ObservedObject var viewModel = FeedViewModel()
+    @StateObject var viewModel = FeedViewModel()
     @State private var navigateToMessages = false
+    
+    // Remove the default argument so the initializer requires an explicit FeedViewModel.
+        init(viewModel: FeedViewModel) {
+            _viewModel = StateObject(wrappedValue: viewModel)
+        }
     
     var body: some View {
         NavigationStack {
@@ -105,10 +111,6 @@ struct PostListView: View {
             }
         }
     }
-}
-
-#Preview {
-    FeedView()
 }
 
 

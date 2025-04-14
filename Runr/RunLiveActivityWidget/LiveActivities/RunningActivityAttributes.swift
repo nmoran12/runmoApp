@@ -15,5 +15,5 @@ struct RunningActivityAttributes: ActivityAttributes {
         var elapsedTime: TimeInterval  // running time in seconds
     }
     // You can add any fixed attributes here (e.g., user or session ID)
+    
 }
-

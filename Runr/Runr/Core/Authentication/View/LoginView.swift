@@ -23,7 +23,7 @@ struct LoginView: View {
                 Spacer()
                 
                 // Logo Image
-                Text("Runr")
+                Text("Runmo")
                     .font(.system(size: 40))
                     .fontWeight(.bold)
                 

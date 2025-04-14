@@ -6,7 +6,10 @@
 //
 
 import SwiftUI
+#if os(iOS)
 import FirebaseFirestore
+#endif
+
 
 struct RunningView: View {
     @StateObject var runTracker = RunTracker()
@@ -49,7 +52,6 @@ struct RunningView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                // Map Layer
                 AreaMap(region: $runTracker.region)
                     .edgesIgnoringSafeArea(.all)
                 
@@ -404,25 +406,10 @@ struct RunningView: View {
         } else {
             return AnyView(
                 Button(action: {
+                    // Pause the run first
                     runTracker.pauseRun()
                     
-                    let target = viewModel.currentDailyTargetDistance
-                    let distanceInKm = runTracker.distanceTraveled / 1000.0
-                        if distanceInKm >= target {
-                            // Attempt to retrieve today’s daily plan indices.
-                            if let indices = viewModel.getTodaysDailyPlanIndices() {
-                                Task {
-                                    await viewModel.markDailyRunCompleted(
-                                        weekIndex: indices.weekIndex,
-                                        dayIndex: indices.dayIndex,
-                                        completed: true
-                                    )
-                                }
-                            } else {
-                                print("Today’s daily plan indices were not found.")
-                            }
-                        }
-                    
+                    // Finally, reveal the post-run details view
                     withAnimation {
                         showPostRunDetails = true
                     }
@@ -436,6 +423,7 @@ struct RunningView: View {
                         .clipShape(Circle())
                         .shadow(color: .primary.opacity(0.2), radius: 4, x: 0, y: 2)
                 }
+
 
                 .scaleEffect(isPressed ? 1.1 : 1.0)
                 .opacity(isPressed ? 0.8 : 1.0)

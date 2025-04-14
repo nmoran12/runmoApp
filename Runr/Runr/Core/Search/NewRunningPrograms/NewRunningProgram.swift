@@ -327,14 +327,350 @@ let sampleWeeklyPlans: [WeeklyPlan] = (1...6).map { weekNumber in
 }
 
 // Create a sample running program that now includes multiple weeks
+// Use the same weekly plans (allWeeks) and total distance calculation as for the beginner 18-week program.
 let sampleProgram = NewRunningProgram(
-    title: "Sample Running Program",
-    raceName: "Boston Marathon 2025",
-    subtitle: "A new running challenge",
-    finishDate: Date(),
-    imageUrl: "https://via.placeholder.com/300",
-    totalDistance: 500,
-    planOverview: "This is a sample overview of the running program. It details the plan and what you can expect.",
+    id: UUID(), // A new ID is fine; stable Firestore ID comes from the title below
+    title: "Sample Running Program",  // Must match your doc ID "sample-running-program"
+    raceName: "Popular Beginner Plan",
+    subtitle: "Build up from short runs to your full marathon",
+    finishDate: Date().addingTimeInterval(60 * 60 * 24 * 7 * 18), // 18 weeks from now
+    imageUrl: "https://via.placeholder.com/300?text=Beginner18Weeks",
+    totalDistance: Int(totalDistanceOver18Weeks),
+    planOverview: """
+        This is an 18-week schedule matching the beginner plan. 
+        We'll use it for testing dynamic scaling and customizations.
+        """,
     experienceLevel: "Beginner",
-    weeklyPlan: sampleWeeklyPlans
+    weeklyPlan: allWeeks // Same as your beginner plan's array
 )
+
+// 2) Write a small async function to overwrite 'sample-running-program' in Firestore.
+@MainActor
+func updateSampleRunningProgram() async {
+    do {
+        // 'updateTemplate' is your existing helper that calls setData(merge: false)
+        // to overwrite the doc based on the template's title.
+        try await updateTemplate(sampleProgram)
+        print("Template 'sample-running-program' updated successfully.")
+    } catch {
+        print("Error updating sample running program: \(error.localizedDescription)")
+    }
+}
+
+
+
+
+// multiple program running templates for beginner, intermediate, advanced marathons
+
+
+// BEGINNER RUNNING PROGRAM
+let beginnerProgram = NewRunningProgram(
+    title: "Beginner Marathon Running Program",
+    raceName: "City Marathon 2025",
+    subtitle: "A step-by-step program for new runners",
+    finishDate: Date().addingTimeInterval(60 * 60 * 24 * 180), // 6 months from now, for example
+    imageUrl: "https://via.placeholder.com/300?text=Beginner",
+    totalDistance: 400, // Your chosen total mileage
+    planOverview: "A program designed for those new to marathon training. Gradually build stamina and endurance.",
+    experienceLevel: "Beginner",
+    weeklyPlan: sampleWeeklyPlans // Reuse or define a specialized weekly plan here
+)
+
+let beginner18WeekProgram = NewRunningProgram(
+    id: UUID(),
+    title: "18-Week Beginner Marathon Program",
+    raceName: "Popular Beginner Plan",
+    subtitle: "Build up from short runs to your full marathon",
+    finishDate: Date().addingTimeInterval(60 * 60 * 24 * 7 * 18), // 18 weeks from now
+    imageUrl: "https://via.placeholder.com/300?text=Beginner18Weeks",
+    totalDistance: Int(totalDistanceOver18Weeks), // Convert Double to Int
+    planOverview: """
+        This 18-week beginner marathon training plan features gradual progression and two 
+        milestone races: a half marathon (Week 8) and a full marathon (Week 18). 
+        Each week includes three runs, two rest days, one long run, and a cross-training day.
+        """,
+    experienceLevel: "Beginner",
+    weeklyPlan: allWeeks
+)
+
+// Week 1
+let week1DailyPlans = [
+    DailyPlan(day: "Monday",    distance: 0.0,  runType: "Rest"),
+    DailyPlan(day: "Tuesday",   distance: 5.0,  runType: "Easy Run"),
+    DailyPlan(day: "Wednesday", distance: 5.0,  runType: "Easy Run"),
+    DailyPlan(day: "Thursday",  distance: 5.0,  runType: "Easy Run"),
+    DailyPlan(day: "Friday",    distance: 1.0,  runType: "Run"),
+    DailyPlan(day: "Saturday",  distance: 10.0,  runType: "Long Run"),
+    DailyPlan(day: "Sunday",    distance: 3.4,  runType: "Recovery Run")
+]
+
+// Week 2
+let week2DailyPlans = [
+    DailyPlan(day: "Monday",    distance: 0.0,  runType: "Rest"),
+    DailyPlan(day: "Tuesday",   distance: 5.0,  runType: "Easy Run"),
+    DailyPlan(day: "Wednesday", distance: 5.0,  runType: "Easy Run"),
+    DailyPlan(day: "Thursday",  distance: 5.0,  runType: "Easy Run"),
+    DailyPlan(day: "Friday",    distance: 0.0,  runType: "Rest"),
+    DailyPlan(day: "Saturday",  distance: 11.0, runType: "Long Run"),
+    DailyPlan(day: "Sunday",    distance: 3.4,  runType: "Recovery Run")
+]
+
+// Week 3
+let week3DailyPlans = [
+    DailyPlan(day: "Monday",    distance: 0.0,  runType: "Rest"),
+    DailyPlan(day: "Tuesday",   distance: 5.0,  runType: "Easy Run"),
+    DailyPlan(day: "Wednesday", distance: 6.0,  runType: "Easy Run"),
+    DailyPlan(day: "Thursday",  distance: 5.0,  runType: "Easy Run"),
+    DailyPlan(day: "Friday",    distance: 0.0,  runType: "Rest"),
+    DailyPlan(day: "Saturday",  distance: 13.0, runType: "Long Run"),
+    DailyPlan(day: "Sunday",    distance: 3.4,  runType: "Recovery Run")
+]
+
+// Week 4 (Easy Run distance increases to 6.4 km → Recovery ≈ 6.4*0.7 = 4.48 km, rounded to 4.5)
+let week4DailyPlans = [
+    DailyPlan(day: "Monday",    distance: 0.0,  runType: "Rest"),
+    DailyPlan(day: "Tuesday",   distance: 6.0,  runType: "Easy Run"),
+    DailyPlan(day: "Wednesday", distance: 6.0,  runType: "Easy Run"),
+    DailyPlan(day: "Thursday",  distance: 6.0,  runType: "Easy Run"),
+    DailyPlan(day: "Friday",    distance: 0.0,  runType: "Rest"),
+    DailyPlan(day: "Saturday",  distance: 14.5, runType: "Long Run"),
+    DailyPlan(day: "Sunday",    distance: 4.5,  runType: "Recovery Run")
+]
+
+// Week 5
+let week5DailyPlans = [
+    DailyPlan(day: "Monday",    distance: 0.0,  runType: "Rest"),
+    DailyPlan(day: "Tuesday",   distance: 6.0,  runType: "Easy Run"),
+    DailyPlan(day: "Wednesday", distance: 8.0,  runType: "Easy Run"),
+    DailyPlan(day: "Thursday",  distance: 6.0,  runType: "Easy Run"),
+    DailyPlan(day: "Friday",    distance: 0.0,  runType: "Rest"),
+    DailyPlan(day: "Saturday",  distance: 16.0, runType: "Long Run"),
+    DailyPlan(day: "Sunday",    distance: 4.5,  runType: "Recovery Run")
+]
+
+// Week 6 (Easy Run: 8.0 km → Recovery: 8.0*0.7 = 5.6 km)
+let week6DailyPlans = [
+    DailyPlan(day: "Monday",    distance: 0.0,  runType: "Rest"),
+    DailyPlan(day: "Tuesday",   distance: 8.0,  runType: "Easy Run"),
+    DailyPlan(day: "Wednesday", distance: 8.0,  runType: "Easy Run"),
+    DailyPlan(day: "Thursday",  distance: 8.0,  runType: "Easy Run"),
+    DailyPlan(day: "Friday",    distance: 0.0,  runType: "Rest"),
+    DailyPlan(day: "Saturday",  distance: 19.3, runType: "Long Run"),
+    DailyPlan(day: "Sunday",    distance: 5.6,  runType: "Recovery Run")
+]
+
+// Week 7 (Back to 4.8 km on easy days → Recovery: 3.4 km)
+let week7DailyPlans = [
+    DailyPlan(day: "Monday",    distance: 0.0,  runType: "Rest"),
+    DailyPlan(day: "Tuesday",   distance: 5.0,  runType: "Easy Run"),
+    DailyPlan(day: "Wednesday", distance: 5.0,  runType: "Easy Run"),
+    DailyPlan(day: "Thursday",  distance: 5.0,  runType: "Easy Run"),
+    DailyPlan(day: "Friday",    distance: 0.0,  runType: "Rest"),
+    DailyPlan(day: "Saturday",  distance: 14.5, runType: "Long Run"),
+    DailyPlan(day: "Sunday",    distance: 3.4,  runType: "Recovery Run")
+]
+
+// Week 8 (Race Week: Saturday is a half marathon; recovery is kept very short)
+let week8DailyPlans = [
+    DailyPlan(day: "Monday",    distance: 0.0,   runType: "Rest"),
+    DailyPlan(day: "Tuesday",   distance: 8.0,   runType: "Easy Run"),
+    DailyPlan(day: "Wednesday", distance: 11.0,  runType: "Easy Run"),
+    DailyPlan(day: "Thursday",  distance: 10.0,   runType: "Easy Run"),
+    DailyPlan(day: "Friday",    distance: 0.0,   runType: "Rest"),
+    DailyPlan(day: "Saturday",  distance: 21.1,  runType: "Half Marathon"),
+    DailyPlan(day: "Sunday",    distance: 3.0,   runType: "Recovery Run") // shorter recovery after race
+]
+
+// Week 9
+let week9DailyPlans = [
+    DailyPlan(day: "Monday",    distance: 0.0,  runType: "Rest"),
+    DailyPlan(day: "Tuesday",   distance: 5.0,  runType: "Easy Run"),
+    DailyPlan(day: "Wednesday", distance: 10.0,  runType: "Easy Run"),
+    DailyPlan(day: "Thursday",  distance: 14.5, runType: "Easy Run"),
+    DailyPlan(day: "Friday",    distance: 0.0,  runType: "Rest"),
+    DailyPlan(day: "Saturday",  distance: 19.3, runType: "Long Run"),
+    DailyPlan(day: "Sunday",    distance: 3.4,  runType: "Recovery Run")
+]
+
+// Week 10
+let week10DailyPlans = [
+    DailyPlan(day: "Monday",    distance: 0.0,  runType: "Rest"),
+    DailyPlan(day: "Tuesday",   distance: 8.0,  runType: "Easy Run"),
+    DailyPlan(day: "Wednesday", distance: 16.0, runType: "Easy Run"),
+    DailyPlan(day: "Thursday",  distance: 8.0,  runType: "Easy Run"),
+    DailyPlan(day: "Friday",    distance: 0.0,  runType: "Rest"),
+    DailyPlan(day: "Saturday",  distance: 25.7, runType: "Long Run"),
+    DailyPlan(day: "Sunday",    distance: 5.6,  runType: "Recovery Run")
+]
+
+// Week 11
+let week11DailyPlans = [
+    DailyPlan(day: "Monday",    distance: 0.0,  runType: "Rest"),
+    DailyPlan(day: "Tuesday",   distance: 8.0,  runType: "Easy Run"),
+    DailyPlan(day: "Wednesday", distance: 8.0,  runType: "Easy Run"),
+    DailyPlan(day: "Thursday",  distance: 8.0,  runType: "Easy Run"),
+    DailyPlan(day: "Friday",    distance: 0.0,  runType: "Rest"),
+    DailyPlan(day: "Saturday",  distance: 29.0, runType: "Long Run"),
+    DailyPlan(day: "Sunday",    distance: 5.6,  runType: "Recovery Run")
+]
+
+// Week 12
+let week12DailyPlans = [
+    DailyPlan(day: "Monday",    distance: 0.0,  runType: "Rest"),
+    DailyPlan(day: "Tuesday",   distance: 6.0,  runType: "Easy Run"),
+    DailyPlan(day: "Wednesday", distance: 13.0, runType: "Easy Run"),
+    DailyPlan(day: "Thursday",  distance: 6.0,  runType: "Easy Run"),
+    DailyPlan(day: "Friday",    distance: 0.0,  runType: "Rest"),
+    DailyPlan(day: "Saturday",  distance: 19.3, runType: "Long Run"),
+    DailyPlan(day: "Sunday",    distance: 4.5,  runType: "Recovery Run")
+]
+
+// Week 13
+let week13DailyPlans = [
+    DailyPlan(day: "Monday",    distance: 0.0,  runType: "Rest"),
+    DailyPlan(day: "Tuesday",   distance: 8.0,  runType: "Easy Run"),
+    DailyPlan(day: "Wednesday", distance: 14.5, runType: "Easy Run"),
+    DailyPlan(day: "Thursday",  distance: 8.0,  runType: "Easy Run"),
+    DailyPlan(day: "Friday",    distance: 0.0,  runType: "Rest"),
+    DailyPlan(day: "Saturday",  distance: 29.0, runType: "Long Run"),
+    DailyPlan(day: "Sunday",    distance: 5.6,  runType: "Recovery Run")
+]
+
+// Week 14
+let week14DailyPlans = [
+    DailyPlan(day: "Monday",    distance: 0.0,  runType: "Rest"),
+    DailyPlan(day: "Tuesday",   distance: 8.0,  runType: "Easy Run"),
+    DailyPlan(day: "Wednesday", distance: 14.5, runType: "Easy Run"),
+    DailyPlan(day: "Thursday",  distance: 8.0,  runType: "Easy Run"),
+    DailyPlan(day: "Friday",    distance: 0.0,  runType: "Rest"),
+    DailyPlan(day: "Saturday",  distance: 22.5, runType: "Long Run"),
+    DailyPlan(day: "Sunday",    distance: 5.6,  runType: "Recovery Run")
+]
+
+// Week 15
+let week15DailyPlans = [
+    DailyPlan(day: "Monday",    distance: 0.0,  runType: "Rest"),
+    DailyPlan(day: "Tuesday",   distance: 8.0,  runType: "Easy Run"),
+    DailyPlan(day: "Wednesday", distance: 16.0, runType: "Easy Run"),
+    DailyPlan(day: "Thursday",  distance: 8.0,  runType: "Easy Run"),
+    DailyPlan(day: "Friday",    distance: 0.0,  runType: "Rest"),
+    DailyPlan(day: "Saturday",  distance: 32.2, runType: "Long Run"),
+    DailyPlan(day: "Sunday",    distance: 5.6,  runType: "Recovery Run")
+]
+
+// Week 16
+let week16DailyPlans = [
+    DailyPlan(day: "Monday",    distance: 0.0,  runType: "Rest"),
+    DailyPlan(day: "Tuesday",   distance: 6.0,  runType: "Easy Run"),
+    DailyPlan(day: "Wednesday", distance: 13.0, runType: "Easy Run"),
+    DailyPlan(day: "Thursday",  distance: 6.0,  runType: "Easy Run"),
+    DailyPlan(day: "Friday",    distance: 0.0,  runType: "Rest"),
+    DailyPlan(day: "Saturday",  distance: 19.3, runType: "Long Run"),
+    DailyPlan(day: "Sunday",    distance: 4.5,  runType: "Recovery Run")
+]
+
+// Week 17
+let week17DailyPlans = [
+    DailyPlan(day: "Monday",    distance: 0.0,  runType: "Rest"),
+    DailyPlan(day: "Tuesday",   distance: 5.0,  runType: "Easy Run"),
+    DailyPlan(day: "Wednesday", distance: 10.0,  runType: "Easy Run"),
+    DailyPlan(day: "Thursday",  distance: 5.0,  runType: "Easy Run"),
+    DailyPlan(day: "Friday",    distance: 0.0,  runType: "Rest"),
+    DailyPlan(day: "Saturday",  distance: 13.0, runType: "Long Run"),
+    DailyPlan(day: "Sunday",    distance: 3.4,  runType: "Recovery Run")
+]
+
+// Week 18 (Race Week: Saturday is the full marathon)
+let week18DailyPlans = [
+    DailyPlan(day: "Monday",    distance: 0.0,  runType: "Rest"),
+    DailyPlan(day: "Tuesday",   distance: 5.0,  runType: "Easy Run"),
+    DailyPlan(day: "Wednesday", distance: 6.0,  runType: "Easy Run"),
+    DailyPlan(day: "Thursday",  distance: 3.2,  runType: "Long Run"),
+    DailyPlan(day: "Friday",    distance: 0.0,  runType: "Rest"),
+    DailyPlan(day: "Saturday",  distance: 42.2, runType: "Marathon"),
+    DailyPlan(day: "Sunday",    distance: 3.4,  runType: "Recovery Run")
+]
+
+
+// 3) Combine all weekly plans into one array.
+let allWeeks: [WeeklyPlan] = [
+    week1DailyPlans,  week2DailyPlans,  week3DailyPlans,  week4DailyPlans,
+    week5DailyPlans,  week6DailyPlans,  week7DailyPlans,  week8DailyPlans,
+    week9DailyPlans,  week10DailyPlans, week11DailyPlans, week12DailyPlans,
+    week13DailyPlans, week14DailyPlans, week15DailyPlans, week16DailyPlans,
+    week17DailyPlans, week18DailyPlans
+].enumerated().map { (index, dailyPlans) -> WeeklyPlan in
+    let weekIndex = index + 1
+    let totalDistance = dailyPlans.reduce(0.0) { $0 + $1.dailyDistance }
+    let totalWorkouts = dailyPlans.filter { $0.dailyDistance > 0 }.count
+    return WeeklyPlan(
+        weekNumber: weekIndex,
+        weekTitle: "Week \(weekIndex)",
+        weeklyTotalWorkouts: totalWorkouts,
+        weeklyTotalDistance: totalDistance,
+        dailyPlans: dailyPlans,
+        weeklyDescription: "Week \(weekIndex) of the 18-week beginner marathon plan."
+    )
+}
+
+// And totalDistanceOver18Weeks is computed as:
+let totalDistanceOver18Weeks = allWeeks.reduce(0.0) { $0 + $1.weeklyTotalDistance }
+
+// Now, create your updated running program instance.
+// Make sure the title is "Beginner Marathon Running Program" so that
+// generateStableDocumentId(for:) produces the ID "beginner-marathon-running-program".
+let updatedBeginnerProgram = NewRunningProgram(
+    id: UUID(), // A new UUID is okay; the stable document ID comes from the title.
+    title: "Beginner Marathon Running Program",
+    raceName: "Popular Beginner Plan",
+    subtitle: "Build up from short runs to your full marathon",
+    finishDate: Date().addingTimeInterval(60 * 60 * 24 * 7 * 18), // 18 weeks from now
+    imageUrl: "https://via.placeholder.com/300?text=Beginner18Weeks",
+    totalDistance: Int(totalDistanceOver18Weeks), // Total kilometers over the program
+    planOverview: """
+        This 18-week beginner marathon training plan features gradual progression and two milestone races: 
+        a half marathon (Week 8) and a full marathon (Week 18). Each week includes three runs, two rest days, 
+        one long run, and a cross-training day.
+        """,
+    experienceLevel: "Beginner",
+    weeklyPlan: allWeeks
+)
+
+// Now update the Firestore template.
+// This function uses your existing seedTemplateIfNeeded(_:) helper which
+// checks for an existing document based on the stable ID and creates or updates it.
+@MainActor
+func updateBeginnerMarathonTemplate() async {
+    do {
+        try await updateTemplate(updatedBeginnerProgram)
+        print("Template 'beginner-marathon-running-program' updated successfully.")
+    } catch {
+        print("Error updating beginner marathon template: \(error.localizedDescription)")
+    }
+}
+
+
+let intermediateProgram = NewRunningProgram(
+    title: "Intermediate Marathon Running Program",
+    raceName: "City Marathon 2025",
+    subtitle: "For runners looking to improve performance",
+    finishDate: Date().addingTimeInterval(60 * 60 * 24 * 150),
+    imageUrl: "https://via.placeholder.com/300?text=Intermediate",
+    totalDistance: 500,
+    planOverview: "This program builds upon basic endurance training with additional speed and strength workouts.",
+    experienceLevel: "Intermediate",
+    weeklyPlan: sampleWeeklyPlans // Customize if needed
+)
+
+let advancedProgram = NewRunningProgram(
+    title: "Advanced Marathon Running Program",
+    raceName: "City Marathon 2025",
+    subtitle: "Challenging workouts for seasoned runners",
+    finishDate: Date().addingTimeInterval(60 * 60 * 24 * 120),
+    imageUrl: "https://via.placeholder.com/300?text=Advanced",
+    totalDistance: 600,
+    planOverview: "High-intensity workouts and advanced training techniques to peak your performance.",
+    experienceLevel: "Advanced",
+    weeklyPlan: sampleWeeklyPlans // Adjust weekly plans if desired
+)
+

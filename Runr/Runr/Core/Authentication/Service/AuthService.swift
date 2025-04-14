@@ -251,9 +251,6 @@ extension AuthService {
         return user
     }
 
-}
-
-extension AuthService {
     /// Fetches a download URL for an image stored in Firebase Storage.
     /// - Parameters:
     ///   - filename: The name of the file (e.g., "someImage.jpg").

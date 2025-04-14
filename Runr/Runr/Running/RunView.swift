@@ -6,10 +6,12 @@
 //
 
 import SwiftUI
+#if os(iOS)
 import MapKit
 import Firebase
 import ActivityKit
 import FirebaseAuth
+#endif
 
 
 
@@ -27,6 +29,10 @@ class RunTracker: NSObject, ObservableObject {
     @Published var paceString: String = "0:00 / km"
     @Published var timedLocations: [TimedLocation] = []
     private weak var ghostRunnerManager: GhostRunnerManager?
+    
+    // For my live activities that update while running
+    var liveActivity: Activity<RunningActivityAttributes>?
+
 
 
     // New flag to ensure we update the user's location only once (or when desired)
@@ -70,6 +76,21 @@ class RunTracker: NSObject, ObservableObject {
         timedLocations.removeAll()
         paceString = "0:00 / km"
         
+        // --- Start Live Activity ---
+            if #available(iOS 16.1, *) {
+                let initialContent = RunningActivityAttributes.ContentState(distance: 0, pace: 0, elapsedTime: 0)
+                do {
+                    liveActivity = try Activity<RunningActivityAttributes>.request(
+                        attributes: RunningActivityAttributes(),
+                        contentState: initialContent,
+                        pushType: nil  // We're doing local updates, so nil here is fine.
+                    )
+                    print("Live Activity started with id: \(liveActivity?.id ?? "unknown")")
+                } catch {
+                    print("Error starting live activity: \(error.localizedDescription)")
+                }
+            }
+        
         // --- Reset ghosts when starting a new run ---
                 ghostRunnerManager?.resetForNewRun()
         
@@ -82,6 +103,8 @@ class RunTracker: NSObject, ObservableObject {
                     DispatchQueue.main.async {
                         self.elapsedTime += 1
                         self.updatePace()
+                        // Update live activity with new run data
+                                    self.updateLiveActivity()
                         // !!! --- ADD THIS LINE --- !!!
                         // --- DEBUGGING ---
                                 if self.ghostRunnerManager == nil {
@@ -95,7 +118,23 @@ class RunTracker: NSObject, ObservableObject {
                 }
             }
     
-    
+    // This is to update the live activity with real-time data
+    func updateLiveActivity() {
+        if #available(iOS 16.1, *),
+           let liveActivity = liveActivity {
+            // For example, calculate a simple pace. You might want to replace this with your own calculation.
+            let pace: Double = (elapsedTime > 0) ? (distanceTraveled / elapsedTime) : 0
+            let newContent = RunningActivityAttributes.ContentState(
+                distance: distanceTraveled,
+                pace: pace,
+                elapsedTime: elapsedTime
+            )
+            Task {
+                await liveActivity.update(using: newContent)
+            }
+        }
+    }
+
 
     
     // Function to stop a run
@@ -114,6 +153,15 @@ class RunTracker: NSObject, ObservableObject {
             timer?.invalidate()
             timer = nil
             isRunning = false
+        
+        // End the live activity if one is running
+            if #available(iOS 16.1, *),
+               let liveActivity = liveActivity {
+                Task {
+                    await liveActivity.end(dismissalPolicy: .immediate)
+                }
+                self.liveActivity = nil  // Clear the live activity reference
+            }
         }
 
     // Function to resume a run (after pausing it)
@@ -143,133 +191,136 @@ class RunTracker: NSObject, ObservableObject {
     
     // Uploading the run data to google firebase database
     // --- MODIFIED: uploadRunData Function ---
-        func uploadRunData(withCaption caption: String, footwear: String) async {
-            guard let userId = AuthService.shared.userSession?.uid else {
-                print("UPLOAD ERROR: No user logged in.")
+    func uploadRunData(withCaption caption: String, footwear: String) async {
+        guard let userId = AuthService.shared.userSession?.uid else {
+            print("UPLOAD ERROR: No user logged in.")
+            return
+        }
+        // Ensure there's actually data to upload
+        guard distanceTraveled > 0 || elapsedTime > 0 else {
+             print("UPLOAD WARNING: No distance or time recorded. Skipping upload.")
+             return
+        }
+
+        let db = Firestore.firestore()
+        let userRef = db.collection("users").document(userId)
+        let runCompletionDate = Date() // Capture completion date
+
+        // --- NEW: Compute and Format TRIMP ---
+        // Replace the placeholder average HR with your actual measured value if available.
+        let avgHR: Double = 140.0
+        let durationMinutes = self.elapsedTime / 60.0
+        let calculator = TrainingEffectCalculator(hrRest: 60, hrMax: 190, b: 1.92)
+        let trimpRaw = calculator.computeTRIMP(avgHR: avgHR, durationMinutes: durationMinutes)
+        let trimpStatUnformatted = calculator.trainingEffect(from: trimpRaw)
+        // Format it to one decimal place and convert back to Double.
+        let formattedTRIMP = Double(String(format: "%.1f", trimpStatUnformatted)) ?? trimpStatUnformatted
+        print("DEBUG: Computed trimpStat = \(formattedTRIMP)")
+        // --- END NEW ---
+
+        do {
+            // 1. Fetch username (already have this logic)
+            let userSnapshot = try await userRef.getDocument()
+            guard let username = userSnapshot.data()?["username"] as? String else {
+                print("UPLOAD ERROR: Username not found for userId \(userId)")
                 return
             }
-            // Ensure there's actually data to upload
-            guard distanceTraveled > 0 || elapsedTime > 0 else {
-                 print("UPLOAD WARNING: No distance or time recorded. Skipping upload.")
-                 return
-             }
 
-            let db = Firestore.firestore()
-            let userRef = db.collection("users").document(userId)
-            let runCompletionDate = Date() // Capture completion date
+            // 2. Generate Run ID (already have this logic)
+            let timestampString = runCompletionDate.formatted(date: .numeric, time: .standard)
+                .replacingOccurrences(of: "/", with: "-")
+                .replacingOccurrences(of: ":", with: "-")
+                .replacingOccurrences(of: " ", with: "_")
+            let runId = "\(username)_\(timestampString)_\(UUID().uuidString.prefix(4))"
+            let runRef = userRef.collection("runs").document(runId)
 
-            do {
-                // 1. Fetch username (already have this logic)
-                let userSnapshot = try await userRef.getDocument()
-                guard let username = userSnapshot.data()?["username"] as? String else {
-                    print("UPLOAD ERROR: Username not found for userId \(userId)")
-                    return
+            // 3. Prepare Run Data Dictionary (now including the formattedTRIMP value)
+            let runDataForUpload: [String: Any] = [
+                "date": Timestamp(date: runCompletionDate), // Use completion date
+                "distance": self.distanceTraveled, // Store distance in METERS
+                "elapsedTime": self.elapsedTime, // Store time in SECONDS
+                "routeCoordinates": self.timedLocations.map { timedLoc in
+                    [
+                        "latitude": timedLoc.coordinate.latitude,
+                        "longitude": timedLoc.coordinate.longitude,
+                        "timestamp": Timestamp(date: timedLoc.timestamp), // Store timestamp
+                        "altitude": timedLoc.altitude // Store altitude
+                    ]
+                },
+                "caption": caption,
+                "footwear": footwear,
+                // <-- New field for TRIMP stat stored as a Double with one decimal -->
+                "trimpStat": formattedTRIMP
+            ]
+
+            // 4. Save the Run Data
+            try await runRef.setData(runDataForUpload)
+            print("DEBUG: Run data uploaded successfully with Run ID: \(runId) and trimpStat: \(formattedTRIMP)")
+
+            // 5. Update User Aggregate Stats (Transaction)
+            let validFootwear = footwear.isEmpty ? "Unknown" : footwear
+            try await db.runTransaction({ (transaction, errorPointer) -> Any? in
+                do {
+                    let userDoc = try transaction.getDocument(userRef)
+                    let currentTotalDistanceKm = userDoc.data()?["totalDistance"] as? Double ?? 0
+                    let currentTotalTimeSec = userDoc.data()?["totalTime"] as? Double ?? 0
+                    var currentFootwearStats = userDoc.data()?["footwearStats"] as? [String: Double] ?? [:]
+
+                    let runDistanceKm = self.distanceTraveled / 1000.0
+                    let newTotalDistanceKm = currentTotalDistanceKm + runDistanceKm
+                    let newTotalTimeSec = currentTotalTimeSec + self.elapsedTime
+                    let newAveragePaceSecPerKm = newTotalDistanceKm > 0 ? (newTotalTimeSec / newTotalDistanceKm) : 0.0
+                    let currentFootwearMileageKm = currentFootwearStats[validFootwear] ?? 0.0
+                    currentFootwearStats[validFootwear] = currentFootwearMileageKm + runDistanceKm
+
+                    transaction.updateData([
+                        "totalDistance": newTotalDistanceKm,
+                        "totalTime": newTotalTimeSec,
+                        "averagePace": newAveragePaceSecPerKm,
+                        "footwearStats": currentFootwearStats
+                    ], forDocument: userRef)
+
+                    print("DEBUG: Firestore user stats transaction committed successfully.")
+                    return nil
+                } catch let fetchError as NSError {
+                    print("TRANSACTION ERROR: \(fetchError.localizedDescription)")
+                    errorPointer?.pointee = fetchError
+                    return nil
                 }
+            })
 
-                // 2. Generate Run ID (already have this logic)
-                let timestampString = runCompletionDate.formatted(date: .numeric, time: .standard)
-                    .replacingOccurrences(of: "/", with: "-")
-                    .replacingOccurrences(of: ":", with: "-")
-                    .replacingOccurrences(of: " ", with: "_")
-                let runId = "\(username)_\(timestampString)_\(UUID().uuidString.prefix(4))" // Add UUID snippet for uniqueness
-                let runRef = userRef.collection("runs").document(runId)
+            // 6. Create Feed Post (if applicable)
+            let postRef = db.collection("posts").document(runId)
+            let postData: [String: Any] = [
+                "id": runId,
+                "ownerUid": userId,
+                "username": username,
+                "runId": runId,
+                "likes": 0,
+                "caption": caption,
+                "timestamp": Timestamp(date: runCompletionDate),
+                "runDistance": self.distanceTraveled,
+                "runElapsedTime": self.elapsedTime
+            ]
+            try await postRef.setData(postData)
+            print("DEBUG: Feed post created successfully for Run ID: \(runId)")
 
-                // 3. Prepare Run Data Dictionary
-                let runDataForUpload: [String: Any] = [
-                    "date": Timestamp(date: runCompletionDate), // Use completion date
-                    "distance": self.distanceTraveled, // Store distance in METERS
-                    "elapsedTime": self.elapsedTime, // Store time in SECONDS
-                     // Map TimedLocation structs correctly
-                    "routeCoordinates": self.timedLocations.map { timedLoc in
-                        [
-                            "latitude": timedLoc.coordinate.latitude,
-                            "longitude": timedLoc.coordinate.longitude,
-                            "timestamp": Timestamp(date: timedLoc.timestamp), // Store timestamp
-                            "altitude": timedLoc.altitude // Store altitude
-                        ]
-                    },
-                    "caption": caption,
-                    "footwear": footwear
-                ]
+            // 7. Update Goals Progress
+            print("DEBUG: Attempting to update goals progress...")
+            await GoalsService.shared.updateGoalsProgress(
+                runDistance: self.distanceTraveled,
+                runDuration: self.elapsedTime,
+                runDate: runCompletionDate
+            )
+            print("DEBUG: Goal progress update process finished.")
 
-                // 4. Save the Run Data
-                try await runRef.setData(runDataForUpload)
-                print("DEBUG: Run data uploaded successfully with Run ID: \(runId)")
-
-                // 5. Update User Aggregate Stats (Transaction)
-                // Make sure to handle the footwear string correctly if it might be empty
-                let validFootwear = footwear.isEmpty ? "Unknown" : footwear
-                try await db.runTransaction({ (transaction, errorPointer) -> Any? in
-                    do {
-                        let userDoc = try transaction.getDocument(userRef)
-
-                        // Fetch current stats
-                        let currentTotalDistanceKm = userDoc.data()?["totalDistance"] as? Double ?? 0
-                        let currentTotalTimeSec = userDoc.data()?["totalTime"] as? Double ?? 0
-                        var currentFootwearStats = userDoc.data()?["footwearStats"] as? [String: Double] ?? [:]
-
-                        // Calculate new stats
-                        let runDistanceKm = self.distanceTraveled / 1000.0 // Convert to KM for aggregate stats
-                        let newTotalDistanceKm = currentTotalDistanceKm + runDistanceKm
-                        let newTotalTimeSec = currentTotalTimeSec + self.elapsedTime
-                        // Recalculate average pace if needed (Pace in seconds per KM)
-                        let newAveragePaceSecPerKm = newTotalDistanceKm > 0 ? (newTotalTimeSec / newTotalDistanceKm) : 0.0
-
-                        // Update footwear stats (using KM)
-                        let currentFootwearMileageKm = currentFootwearStats[validFootwear] ?? 0.0
-                        currentFootwearStats[validFootwear] = currentFootwearMileageKm + runDistanceKm
-
-                        // Update user document in the transaction
-                        transaction.updateData([
-                            "totalDistance": newTotalDistanceKm,     // Store aggregate distance in KM
-                            "totalTime": newTotalTimeSec,         // Store aggregate time in Seconds
-                            "averagePace": newAveragePaceSecPerKm, // Store aggregate pace in Sec/KM
-                            "footwearStats": currentFootwearStats   // Update footwear stats
-                        ], forDocument: userRef)
-
-                        print("DEBUG: Firestore user stats transaction committed successfully.")
-                        return nil // Success
-                    } catch let fetchError as NSError {
-                        print("TRANSACTION ERROR: \(fetchError.localizedDescription)")
-                        errorPointer?.pointee = fetchError
-                        return nil // Failure
-                    }
-                })
-
-                // 6. Create Feed Post (if applicable)
-                let postRef = db.collection("posts").document(runId) // Use runId for post ID for easy linking
-                let postData: [String: Any] = [
-                    "id": runId, // Post ID matches Run ID
-                    "ownerUid": userId,
-                    "username": username, // Denormalize username
-                    "runId": runId, // Reference to the run document
-                    "likes": 0,
-                    "caption": caption,
-                    "timestamp": Timestamp(date: runCompletionDate), // Use completion date
-                    // Add other relevant post fields: runDistance, runTime, etc. for feed display
-                     "runDistance": self.distanceTraveled, // Store meters in post too? Or km? Be consistent.
-                     "runElapsedTime": self.elapsedTime
-                ]
-                try await postRef.setData(postData)
-                print("DEBUG: Feed post created successfully for Run ID: \(runId)")
-
-                // --- !!! 7. UPDATE GOALS PROGRESS !!! ---
-                print("DEBUG: Attempting to update goals progress...")
-                await GoalsService.shared.updateGoalsProgress(
-                    runDistance: self.distanceTraveled, // Pass distance in METERS
-                    runDuration: self.elapsedTime, // Pass duration in SECONDS
-                    runDate: runCompletionDate // Pass the date the run was completed
-                )
-                print("DEBUG: Goal progress update process finished.")
-                // --- !!! END GOALS UPDATE !!! ---
-
-
-            } catch {
-                // Consolidated error handling
-                print("UPLOAD ERROR: Failed during run upload/update process: \(error.localizedDescription)")
-                // Optionally: Implement retry logic or user feedback
-            }
+        } catch {
+            print("UPLOAD ERROR: Failed during run upload/update process: \(error.localizedDescription)")
         }
+    }
+
+
+
 
     // Displaying a history of runs for a user
     func fetchRuns() async -> [RunData] {
@@ -445,3 +496,59 @@ func startLiveActivity() {
     }
 }
 
+// MARK: EVERYTHING BELOW HERE IS FOR WATCHOS
+// MARK: EVERYTHING BELOW HERE IS FOR WATCHOS
+// MARK: EVERYTHING BELOW HERE IS FOR WATCHOS
+// MARK: EVERYTHING BELOW HERE IS FOR WATCHOS
+// MARK: EVERYTHING BELOW HERE IS FOR WATCHOS
+// MARK: EVERYTHING BELOW HERE IS FOR WATCHOS
+// MARK: EVERYTHING BELOW HERE IS FOR WATCHOS
+// MARK: EVERYTHING BELOW HERE IS FOR WATCHOS
+// MARK: EVERYTHING BELOW HERE IS FOR WATCHOS
+// MARK: EVERYTHING BELOW HERE IS FOR WATCHOS
+// MARK: EVERYTHING BELOW HERE IS FOR WATCHOS
+// MARK: EVERYTHING BELOW HERE IS FOR WATCHOS
+// MARK: EVERYTHING BELOW HERE IS FOR WATCHOS
+// MARK: EVERYTHING BELOW HERE IS FOR WATCHOS
+// MARK: EVERYTHING BELOW HERE IS FOR WATCHOS
+// MARK: EVERYTHING BELOW HERE IS FOR WATCHOS
+// MARK: EVERYTHING BELOW HERE IS FOR WATCHOS
+// MARK: EVERYTHING BELOW HERE IS FOR WATCHOS
+// MARK: EVERYTHING BELOW HERE IS FOR WATCHOS
+// MARK: EVERYTHING BELOW HERE IS FOR WATCHOS
+// MARK: EVERYTHING BELOW HERE IS FOR WATCHOS
+// MARK: EVERYTHING BELOW HERE IS FOR WATCHOS
+// MARK: EVERYTHING BELOW HERE IS FOR WATCHOS
+// MARK: EVERYTHING BELOW HERE IS FOR WATCHOS
+// MARK: EVERYTHING BELOW HERE IS FOR WATCHOS
+// MARK: EVERYTHING BELOW HERE IS FOR WATCHOS
+
+// THIS IS USED IN WATCHOS TO SEND RUNN DATA TO MY IOS APP SO IT CAN THEN BE UPLOADED TO FIRESTORE BECAUSE
+// YOU CANT UPLOAD FROM THE WATCHOS DIRECTLY
+#if os(watchOS)
+import WatchConnectivity
+
+extension RunTracker {
+/// Delegates the run data upload to the iOS app by sending a message via WCSession.
+private func sendRunDataToiOS(withCaption caption: String, footwear: String) {
+    let runData: [String: Any] = [
+        "distanceTraveled": self.distanceTraveled,
+        "elapsedTime": self.elapsedTime,
+        "timestamp": Date().timeIntervalSince1970,
+        "caption": caption,
+        "footwear": footwear
+    ]
+    
+    // Check if the iOS app is reachable
+    if WCSession.default.isReachable {
+        WCSession.default.sendMessage(runData, replyHandler: { reply in
+            print("Run data successfully sent to iOS: \(reply)")
+        }, errorHandler: { error in
+            print("Failed to send run data to iOS: \(error.localizedDescription)")
+        })
+    } else {
+        print("iOS app is not reachable via WCSession.")
+    }
+}
+}
+#endif

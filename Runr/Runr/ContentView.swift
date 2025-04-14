@@ -11,10 +11,10 @@ struct ContentView: View {
     
     
     var body: some View {
-        VStack{
-            
-            FeedView()
+        VStack {
+            FeedView(viewModel: FeedViewModel())
         }
+
     }
 }
 

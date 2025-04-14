@@ -1,17 +1,18 @@
 //
-//  RunningActivityWidgetControl.swift
-//  RunningActivityWidget
+//  RunLiveActivityWidgetControl.swift
+//  RunLiveActivityWidget
 //
-//  Created by Noah Moran on 24/3/2025.
+//  Created by Noah Moran on 14/4/2025.
 //
 
 import AppIntents
 import SwiftUI
 import WidgetKit
 
-struct RunningActivityWidgetControl: ControlWidget {
-    static let kind: String = "ios.Learning.Runmo.RunningActivityWidget"
+struct RunLiveActivityWidgetControl: ControlWidget {
+    static let kind: String = "ios.Learning.Runmo.RunLiveActivityWidget"
 
+    @available(iOSApplicationExtension 18.0, *)
     var body: some ControlWidgetConfiguration {
         AppIntentControlConfiguration(
             kind: Self.kind,
@@ -30,24 +31,27 @@ struct RunningActivityWidgetControl: ControlWidget {
     }
 }
 
-extension RunningActivityWidgetControl {
+extension RunLiveActivityWidgetControl {
     struct Value {
         var isRunning: Bool
         var name: String
     }
 
     struct Provider: AppIntentControlValueProvider {
+        @available(iOSApplicationExtension 17.0, *)
         func previewValue(configuration: TimerConfiguration) -> Value {
-            RunningActivityWidgetControl.Value(isRunning: false, name: configuration.timerName)
+            RunLiveActivityWidgetControl.Value(isRunning: false, name: configuration.timerName)
         }
 
+        @available(iOSApplicationExtension 17.0, *)
         func currentValue(configuration: TimerConfiguration) async throws -> Value {
             let isRunning = true // Check if the timer is running
-            return RunningActivityWidgetControl.Value(isRunning: isRunning, name: configuration.timerName)
+            return RunLiveActivityWidgetControl.Value(isRunning: isRunning, name: configuration.timerName)
         }
     }
 }
 
+@available(iOSApplicationExtension 17.0, *)
 struct TimerConfiguration: ControlConfigurationIntent {
     static let title: LocalizedStringResource = "Timer Name Configuration"
 

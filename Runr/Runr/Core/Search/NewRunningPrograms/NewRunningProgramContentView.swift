@@ -11,13 +11,20 @@ struct NewRunningProgramContentView: View {
     // This view "owns" the view model for this program instance.
     @EnvironmentObject private var viewModel: NewRunningProgramViewModel
     let plan: NewRunningProgram // The program template is passed into this view
+    
+    /// Use the program loaded from Firestore if available.
+        var displayedProgram: NewRunningProgram {
+            viewModel.currentProgram ?? plan
+        }
+
 
     var body: some View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 0) {
-                    // Display a summary card of the running program template
-                    NewRunningProgramCardView(program: plan)
+                    
+                    // Use displayedProgram instead of plan
+                    NewRunningProgramCardView(program: displayedProgram)
                         .padding(.horizontal)
                         .padding(.bottom)
                     
@@ -26,33 +33,67 @@ struct NewRunningProgramContentView: View {
                           //  .padding(.horizontal)
                           //  .padding(.bottom)
                     
+                    Spacer()
+                    Spacer()
+                    
+                    ZStack(alignment: .leading) {
+                        Text("Todays Run")
+                            .font(.title2)
+                            .bold()
+                            .padding(.bottom, 16)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading) // This forces the container to use full width.
+                    .padding(.horizontal)
+                    
                     // NEW: Current Day Plan View
                     ShowCurrentDayPlanView()
                         .environmentObject(viewModel) // Ensure the view model is passed properly.
                         .padding(.horizontal)
-                        .padding(.top, 16)
+                        .padding(.bottom, 32)
                     
-                    Text("Weekly Breakdown")
-                        .font(.title2).bold()
-                        .padding(.horizontal)
-                        .padding(.bottom, 5)
+                    ZStack(alignment: .leading) {
+                        Text("Weekly Plans")
+                            .font(.title2)
+                            .bold()
+                            .padding(.bottom, 16)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading) // This forces the container to use full width.
+                    .padding(.horizontal)
+
                     
                     // Determine which weekly plan to display:
                     // If there's an active user program, use its weeklyPlan; otherwise, use the template.
                     // new might have to remove
-                    let displayedWeeklyPlan = mergeWeeklyPlans(template: plan.weeklyPlan,
-                                                                 user: viewModel.currentUserProgram?.weeklyPlan)
+                    // For weekly plans, merge the updated user data with the template's weekly plans:
+                                        let displayedWeeklyPlan = mergeWeeklyPlans(
+                                            template: displayedProgram.weeklyPlan,
+                                            user: viewModel.currentUserProgram?.weeklyPlan
+                                        )
 
                     
                     ForEach(Array(displayedWeeklyPlan.enumerated()), id: \.element.id) { index, singleWeek in
-                        WeeklyPlanCardView(
-                            plan: singleWeek,
-                            weekIndex: index,
-                            viewModel: _viewModel
-                        )
-                        .padding(.horizontal)
-                        .padding(.bottom)
+                                            WeeklyPlanCardView(
+                                                plan: singleWeek,
+                                                weekIndex: index,
+                                                viewModel: _viewModel
+                                            )
+                                            .padding(.horizontal)
+                                            .padding(.bottom)
+                                        }
+                    
+                    Button("Update Sample Running Program") {
+                        Task {
+                            await updateSampleRunningProgram()
+                        }
                     }
+
+                    
+                    Button("Update Beginner Marathon Template") {
+                                Task {
+                                    await updateBeginnerMarathonTemplate()
+                                }
+                            }
+                            .padding()
                     
                     // DO NOT REMOVE
                      //seeding running program template only click once
@@ -60,7 +101,7 @@ struct NewRunningProgramContentView: View {
                         Task {
                             do {
                                 // Use your sample program or a specific template you want to seed.
-                                try await seedTemplateIfNeeded(sampleProgram)
+                                try await seedAllRunningProgramTemplates()
                             } catch {
                                 print("Error seeding template: \(error.localizedDescription)")
                             }

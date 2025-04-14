@@ -15,30 +15,15 @@ struct RunrTabView: View {
     var body: some View {
         
         
-        TabView(selection: $selectedIndex){
-            FeedView()
-                .onAppear{
-                    selectedIndex = 0
-                }
-                .tabItem{
+        TabView(selection: $selectedIndex) {
+            FeedView(viewModel: FeedViewModel())
+                .onAppear { selectedIndex = 0 }
+                .tabItem {
                     Image(systemName: "house")
-                        .foregroundColor(.primary)
-                }.tag(0)
+                }
             
             
-            NewRunningProgramContentView(
-                plan: NewRunningProgram(
-                    title: "Sample Running Program",
-                    raceName: "Boston Marathon 2025",
-                    subtitle: "A new running challenge",
-                    finishDate: Date(),
-                    imageUrl: "https://via.placeholder.com/300",
-                    totalDistance: 500,
-                    planOverview: "This is a sample overview of the running program. It details the plan and what you can expect.",
-                    experienceLevel: "Beginner",
-                    weeklyPlan: sampleWeeklyPlans
-                )
-            )
+            RunningProgramLandingView()
             .onAppear {
                 print("Running Program clicked!")
                 selectedIndex = 1

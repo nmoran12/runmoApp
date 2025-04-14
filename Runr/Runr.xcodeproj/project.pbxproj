@@ -7,9 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		DA077C332D9190D5003F8C96 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DA077C322D9190D5003F8C96 /* WidgetKit.framework */; };
-		DA077C352D9190D5003F8C96 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DA077C342D9190D5003F8C96 /* SwiftUI.framework */; };
-		DA077C462D9190D6003F8C96 /* RunningActivityWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = DA077C302D9190D5003F8C96 /* RunningActivityWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		DA55CD352DA6A83700B93733 /* RunmoWatchApp Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = DA55CD282DA6A83300B93733 /* RunmoWatchApp Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		DA55CE952DACAB7900B93733 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DA077C322D9190D5003F8C96 /* WidgetKit.framework */; };
+		DA55CE962DACAB7900B93733 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DA077C342D9190D5003F8C96 /* SwiftUI.framework */; };
+		DA55CEA72DACAB7900B93733 /* RunLiveActivityWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = DA55CE942DACAB7900B93733 /* RunLiveActivityWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		DA6B59F42D7FF704003149D0 /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = DA6B59F32D7FF704003149D0 /* Kingfisher */; };
 		DA9BFA322D2CEF740082F301 /* User.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA9BFA312D2CEF740082F301 /* User.swift */; };
 		DA9BFA332D2CEF740082F301 /* Post.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA9BFA302D2CEF740082F301 /* Post.swift */; };
@@ -41,12 +42,19 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		DA077C442D9190D6003F8C96 /* PBXContainerItemProxy */ = {
+		DA55CD332DA6A83700B93733 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = DA9BF9842D2B92740082F301 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = DA077C2F2D9190D5003F8C96;
-			remoteInfo = RunningActivityWidgetExtension;
+			remoteGlobalIDString = DA55CD272DA6A83300B93733;
+			remoteInfo = "RunmoWatchApp Watch App";
+		};
+		DA55CEA52DACAB7900B93733 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = DA9BF9842D2B92740082F301 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DA55CE932DACAB7900B93733;
+			remoteInfo = RunLiveActivityWidgetExtension;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -57,17 +65,29 @@
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				DA077C462D9190D6003F8C96 /* RunningActivityWidgetExtension.appex in Embed Foundation Extensions */,
+				DA55CEA72DACAB7900B93733 /* RunLiveActivityWidgetExtension.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DA55CD392DA6A83700B93733 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				DA55CD352DA6A83700B93733 /* RunmoWatchApp Watch App.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		DA077C302D9190D5003F8C96 /* RunningActivityWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = RunningActivityWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		DA077C322D9190D5003F8C96 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		DA077C342D9190D5003F8C96 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		DA55CD282DA6A83300B93733 /* RunmoWatchApp Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "RunmoWatchApp Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		DA55CE942DACAB7900B93733 /* RunLiveActivityWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = RunLiveActivityWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		DA9BF98C2D2B92740082F301 /* Runr.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Runr.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DA9BFA302D2CEF740082F301 /* Post.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Post.swift; sourceTree = "<group>"; };
 		DA9BFA312D2CEF740082F301 /* User.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = User.swift; sourceTree = "<group>"; };
@@ -75,12 +95,31 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		DA077C4A2D9190D6003F8C96 /* Exceptions for "RunningActivityWidget" folder in "RunningActivityWidgetExtension" target */ = {
+		DA55CED12DACAD7E00B93733 /* Exceptions for "RunLiveActivityWidget" folder in "Runr" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				AppIntent.swift,
+				Assets.xcassets,
 				Info.plist,
+				RunLiveActivityWidget.swift,
+				RunLiveActivityWidgetBundle.swift,
+				RunLiveActivityWidgetControl.swift,
+				RunLiveActivityWidgetLiveActivity.swift,
 			);
-			target = DA077C2F2D9190D5003F8C96 /* RunningActivityWidgetExtension */;
+			target = DA9BF98B2D2B92740082F301 /* Runr */;
+		};
+		DA55CED22DACAD7E00B93733 /* Exceptions for "RunLiveActivityWidget" folder in "RunLiveActivityWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				AppIntent.swift,
+				Assets.xcassets,
+				LiveActivities/RunningActivityAttributes.swift,
+				RunLiveActivityWidget.swift,
+				RunLiveActivityWidgetBundle.swift,
+				RunLiveActivityWidgetControl.swift,
+				RunLiveActivityWidgetLiveActivity.swift,
+			);
+			target = DA55CE932DACAB7900B93733 /* RunLiveActivityWidgetExtension */;
 		};
 		DA9BFA272D2CBA010082F301 /* Exceptions for "Runr" folder in "Runr" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
@@ -92,12 +131,18 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		DA077C362D9190D5003F8C96 /* RunningActivityWidget */ = {
+		DA55CD292DA6A83300B93733 /* RunmoWatchApp Watch App */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "RunmoWatchApp Watch App";
+			sourceTree = "<group>";
+		};
+		DA55CECA2DACAD7E00B93733 /* RunLiveActivityWidget */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				DA077C4A2D9190D6003F8C96 /* Exceptions for "RunningActivityWidget" folder in "RunningActivityWidgetExtension" target */,
+				DA55CED12DACAD7E00B93733 /* Exceptions for "RunLiveActivityWidget" folder in "Runr" target */,
+				DA55CED22DACAD7E00B93733 /* Exceptions for "RunLiveActivityWidget" folder in "RunLiveActivityWidgetExtension" target */,
 			);
-			path = RunningActivityWidget;
+			path = RunLiveActivityWidget;
 			sourceTree = "<group>";
 		};
 		DA9BF98E2D2B92740082F301 /* Runr */ = {
@@ -111,12 +156,19 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		DA077C2D2D9190D5003F8C96 /* Frameworks */ = {
+		DA55CD252DA6A83300B93733 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				DA077C352D9190D5003F8C96 /* SwiftUI.framework in Frameworks */,
-				DA077C332D9190D5003F8C96 /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DA55CE912DACAB7900B93733 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DA55CE962DACAB7900B93733 /* SwiftUI.framework in Frameworks */,
+				DA55CE952DACAB7900B93733 /* WidgetKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -168,12 +220,13 @@
 			isa = PBXGroup;
 			children = (
 				DA9BF98E2D2B92740082F301 /* Runr */,
-				DA077C362D9190D5003F8C96 /* RunningActivityWidget */,
+				DA55CD292DA6A83300B93733 /* RunmoWatchApp Watch App */,
 				DA077C312D9190D5003F8C96 /* Frameworks */,
 				DA9BF98D2D2B92740082F301 /* Products */,
 				DA9BFA302D2CEF740082F301 /* Post.swift */,
 				DA9BFA312D2CEF740082F301 /* User.swift */,
 				DA9BFBAA2D34D2420082F301 /* GoogleService-Info.plist */,
+				DA55CECA2DACAD7E00B93733 /* RunLiveActivityWidget */,
 			);
 			sourceTree = "<group>";
 		};
@@ -181,7 +234,8 @@
 			isa = PBXGroup;
 			children = (
 				DA9BF98C2D2B92740082F301 /* Runr.app */,
-				DA077C302D9190D5003F8C96 /* RunningActivityWidgetExtension.appex */,
+				DA55CD282DA6A83300B93733 /* RunmoWatchApp Watch App.app */,
+				DA55CE942DACAB7900B93733 /* RunLiveActivityWidgetExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -189,26 +243,45 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		DA077C2F2D9190D5003F8C96 /* RunningActivityWidgetExtension */ = {
+		DA55CD272DA6A83300B93733 /* RunmoWatchApp Watch App */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = DA077C472D9190D6003F8C96 /* Build configuration list for PBXNativeTarget "RunningActivityWidgetExtension" */;
+			buildConfigurationList = DA55CD362DA6A83700B93733 /* Build configuration list for PBXNativeTarget "RunmoWatchApp Watch App" */;
 			buildPhases = (
-				DA077C2C2D9190D5003F8C96 /* Sources */,
-				DA077C2D2D9190D5003F8C96 /* Frameworks */,
-				DA077C2E2D9190D5003F8C96 /* Resources */,
+				DA55CD242DA6A83300B93733 /* Sources */,
+				DA55CD252DA6A83300B93733 /* Frameworks */,
+				DA55CD262DA6A83300B93733 /* Resources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				DA077C362D9190D5003F8C96 /* RunningActivityWidget */,
+				DA55CD292DA6A83300B93733 /* RunmoWatchApp Watch App */,
 			);
-			name = RunningActivityWidgetExtension;
+			name = "RunmoWatchApp Watch App";
 			packageProductDependencies = (
 			);
-			productName = RunningActivityWidgetExtension;
-			productReference = DA077C302D9190D5003F8C96 /* RunningActivityWidgetExtension.appex */;
+			productName = "RunmoWatchApp Watch App";
+			productReference = DA55CD282DA6A83300B93733 /* RunmoWatchApp Watch App.app */;
+			productType = "com.apple.product-type.application";
+		};
+		DA55CE932DACAB7900B93733 /* RunLiveActivityWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DA55CEA82DACAB7900B93733 /* Build configuration list for PBXNativeTarget "RunLiveActivityWidgetExtension" */;
+			buildPhases = (
+				DA55CE902DACAB7900B93733 /* Sources */,
+				DA55CE912DACAB7900B93733 /* Frameworks */,
+				DA55CE922DACAB7900B93733 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = RunLiveActivityWidgetExtension;
+			packageProductDependencies = (
+			);
+			productName = RunLiveActivityWidgetExtension;
+			productReference = DA55CE942DACAB7900B93733 /* RunLiveActivityWidgetExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
 		DA9BF98B2D2B92740082F301 /* Runr */ = {
@@ -219,13 +292,16 @@
 				DA9BF9892D2B92740082F301 /* Frameworks */,
 				DA9BF98A2D2B92740082F301 /* Resources */,
 				DA077C4B2D9190D6003F8C96 /* Embed Foundation Extensions */,
+				DA55CD392DA6A83700B93733 /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				DA077C452D9190D6003F8C96 /* PBXTargetDependency */,
+				DA55CD342DA6A83700B93733 /* PBXTargetDependency */,
+				DA55CEA62DACAB7900B93733 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
+				DA55CECA2DACAD7E00B93733 /* RunLiveActivityWidget */,
 				DA9BF98E2D2B92740082F301 /* Runr */,
 			);
 			name = Runr;
@@ -270,7 +346,10 @@
 				LastSwiftUpdateCheck = 1610;
 				LastUpgradeCheck = 1610;
 				TargetAttributes = {
-					DA077C2F2D9190D5003F8C96 = {
+					DA55CD272DA6A83300B93733 = {
+						CreatedOnToolsVersion = 16.1;
+					};
+					DA55CE932DACAB7900B93733 = {
 						CreatedOnToolsVersion = 16.1;
 					};
 					DA9BF98B2D2B92740082F301 = {
@@ -297,13 +376,21 @@
 			projectRoot = "";
 			targets = (
 				DA9BF98B2D2B92740082F301 /* Runr */,
-				DA077C2F2D9190D5003F8C96 /* RunningActivityWidgetExtension */,
+				DA55CD272DA6A83300B93733 /* RunmoWatchApp Watch App */,
+				DA55CE932DACAB7900B93733 /* RunLiveActivityWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		DA077C2E2D9190D5003F8C96 /* Resources */ = {
+		DA55CD262DA6A83300B93733 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DA55CE922DACAB7900B93733 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -321,7 +408,14 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		DA077C2C2D9190D5003F8C96 /* Sources */ = {
+		DA55CD242DA6A83300B93733 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DA55CE902DACAB7900B93733 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -340,15 +434,82 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		DA077C452D9190D6003F8C96 /* PBXTargetDependency */ = {
+		DA55CD342DA6A83700B93733 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = DA077C2F2D9190D5003F8C96 /* RunningActivityWidgetExtension */;
-			targetProxy = DA077C442D9190D6003F8C96 /* PBXContainerItemProxy */;
+			target = DA55CD272DA6A83300B93733 /* RunmoWatchApp Watch App */;
+			targetProxy = DA55CD332DA6A83700B93733 /* PBXContainerItemProxy */;
+		};
+		DA55CEA62DACAB7900B93733 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = DA55CE932DACAB7900B93733 /* RunLiveActivityWidgetExtension */;
+			targetProxy = DA55CEA52DACAB7900B93733 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-		DA077C482D9190D6003F8C96 /* Debug */ = {
+		DA55CD372DA6A83700B93733 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"RunmoWatchApp Watch App/Preview Content\"";
+				DEVELOPMENT_TEAM = Z49Y9GTD4Y;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = RunmoWatchApp;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "We need ur location to be able to track ur runs.";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = ios.Learning.Runmo;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ios.Learning.Runmo.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 11.1;
+			};
+			name = Debug;
+		};
+		DA55CD382DA6A83700B93733 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"RunmoWatchApp Watch App/Preview Content\"";
+				DEVELOPMENT_TEAM = Z49Y9GTD4Y;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = RunmoWatchApp;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "We need ur location to be able to track ur runs.";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = ios.Learning.Runmo;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ios.Learning.Runmo.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 11.1;
+			};
+			name = Release;
+		};
+		DA55CEA92DACAB7900B93733 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -357,16 +518,17 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = Z49Y9GTD4Y;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = RunningActivityWidget/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = RunningActivityWidget;
+				INFOPLIST_FILE = RunLiveActivityWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = RunLiveActivityWidget;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = ios.Learning.Runmo.RunningActivityWidget;
+				PRODUCT_BUNDLE_IDENTIFIER = ios.Learning.Runmo.RunLiveActivityWidget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -375,7 +537,7 @@
 			};
 			name = Debug;
 		};
-		DA077C492D9190D6003F8C96 /* Release */ = {
+		DA55CEAA2DACAB7900B93733 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -384,16 +546,17 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = Z49Y9GTD4Y;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = RunningActivityWidget/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = RunningActivityWidget;
+				INFOPLIST_FILE = RunLiveActivityWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = RunLiveActivityWidget;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = ios.Learning.Runmo.RunningActivityWidget;
+				PRODUCT_BUNDLE_IDENTIFIER = ios.Learning.Runmo.RunLiveActivityWidget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -534,10 +697,13 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Runr/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "This app reads your health data to help track your fitness progress.\n";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "This app writes some health data to help track your fitness progress";
-				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Please allow access to enjoy our app";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Please allow access to enjoy our app";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "This app needs your location to track your run.";
+				INFOPLIST_KEY_NSLocationUsageDescription = "This app needs your location to track your run.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "This app needs your location to track your run.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -569,10 +735,13 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Runr/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "This app reads your health data to help track your fitness progress.\n";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "This app writes some health data to help track your fitness progress";
-				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Please allow access to enjoy our app";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Please allow access to enjoy our app";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "This app needs your location to track your run.";
+				INFOPLIST_KEY_NSLocationUsageDescription = "This app needs your location to track your run.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "This app needs your location to track your run.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -594,11 +763,20 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		DA077C472D9190D6003F8C96 /* Build configuration list for PBXNativeTarget "RunningActivityWidgetExtension" */ = {
+		DA55CD362DA6A83700B93733 /* Build configuration list for PBXNativeTarget "RunmoWatchApp Watch App" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				DA077C482D9190D6003F8C96 /* Debug */,
-				DA077C492D9190D6003F8C96 /* Release */,
+				DA55CD372DA6A83700B93733 /* Debug */,
+				DA55CD382DA6A83700B93733 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		DA55CEA82DACAB7900B93733 /* Build configuration list for PBXNativeTarget "RunLiveActivityWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DA55CEA92DACAB7900B93733 /* Debug */,
+				DA55CEAA2DACAB7900B93733 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

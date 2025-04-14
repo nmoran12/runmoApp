@@ -85,9 +85,9 @@ class GhostRunnerManager: ObservableObject {
     /// Call this function periodically with the current elapsed time.
     func updateSelectedGhostRunnerPositions(elapsedTime: TimeInterval) {
         // --- DEBUGGING ---
-        print("--- DEBUG: Manager Update START (elapsedTime: \(String(format: "%.1f", elapsedTime))) ---")
+        //print("--- DEBUG: Manager Update START (elapsedTime: \(String(format: "%.1f", elapsedTime))) ---")
         guard !selectedGhostRunners.isEmpty else {
-             print("DEBUG: Manager Update - No selected ghosts. EXIT.")
+             //print("DEBUG: Manager Update - No selected ghosts. EXIT.")
              return
          }
         // --- END DEBUGGING ---

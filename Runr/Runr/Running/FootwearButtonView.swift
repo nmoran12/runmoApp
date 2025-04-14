@@ -50,7 +50,9 @@ struct FootwearButtonView: View {
             // Search bar
             TextField("Search or add new footwear...", text: $searchQuery)
                 .textFieldStyle(RoundedBorderTextFieldStyle())
+                .cornerRadius(12)
                 .padding(.top, 8)
+                .shadow(color: Color.black.opacity(0.20), radius: 8, x: 0, y: 4)
             
             // Footwear list with scrollable content
             ScrollView {
@@ -102,7 +104,7 @@ struct FootwearButtonView: View {
                     }
                     .padding()
                     .background(Color(UIColor.systemBackground))
-                    .cornerRadius(8)
+                    .cornerRadius(12)
                     .shadow(color: Color.primary.opacity(0.1), radius: 2, x: 0, y: 1)
                 }
             }
@@ -119,15 +121,15 @@ struct FootwearButtonView: View {
                 }
                 .padding()
                 .background(Color(UIColor.systemBackground))
-                .cornerRadius(8)
-                .shadow(color: Color.primary.opacity(0.1), radius: 2, x: 0, y: 1)
+                .cornerRadius(12)
+                .shadow(color: Color.black.opacity(0.20), radius: 8, x: 0, y: 4)
             }
             .padding(.bottom, 8)
         }
         .padding(.horizontal, 12)
         .frame(width: 300) // Fixed width to ensure proper display
-        .background(Color(.systemGroupedBackground))
-        .cornerRadius(10)
+        .background(.white)
+        .cornerRadius(12)
         .shadow(color: Color.black.opacity(0.2), radius: 10, x: 0, y: 5)
     }
     

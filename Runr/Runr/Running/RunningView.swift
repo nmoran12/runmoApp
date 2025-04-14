@@ -10,15 +10,17 @@ import SwiftUI
 import FirebaseFirestore
 #endif
 
-
 struct RunningView: View {
+    // MARK: - State Objects & Environment Variables
     @StateObject var runTracker = RunTracker()
-    @State private var isPressed = false
-    @State private var showPostRunDetails = false // Instead of navigation link
-    @State private var selectedFootwear: String = "Select Footwear"
-    @Environment(\.presentationMode) var presentationMode
     @StateObject var ghostRunnerManager = GhostRunnerManager() // Shared manager
-    
+    @Environment(\.presentationMode) var presentationMode
+    @EnvironmentObject var viewModel: NewRunningProgramViewModel
+
+    // MARK: - State Variables
+    @State private var isPressed = false
+    @State private var showPostRunDetails = false
+    @State private var selectedFootwear: String = "Select Footwear"
     @State private var caption: String = ""
     @State private var showPostAlert: Bool = false
     @State private var postAlertMessage: String = ""
@@ -27,220 +29,150 @@ struct RunningView: View {
     @State private var nextRankDistance: Double? = nil    // The next user's total distance
     @State private var distanceToNextRank: Double = 0.0   // Computed difference
     @State private var showFinalizeScreen = false
-    
-    var targetDistance: Double? = nil
-    
-    var runningProgramTargetDistance: Double?
-
-    @EnvironmentObject var viewModel: NewRunningProgramViewModel
-
-
-
-    // For controlling navigation to LeaderboardView
     @State private var showLeaderboard: Bool = false
-    
-    // Add this to track if we're showing loading state
     @State private var isLoadingRank: Bool = true
-    
-    // State to control showing the CalendarView.
     @State private var showCalendarView: Bool = false
     @State private var runs: [RunData] = []
-    
     @State private var showGoalsSettingView: Bool = false
 
+    // MARK: - Constant & Optional Variables
+    var targetDistance: Double? = nil
+    var runningProgramTargetDistance: Double?
+
     
+    // MARK: - Body
     var body: some View {
         NavigationStack {
             ZStack {
                 AreaMap(region: $runTracker.region)
                     .edgesIgnoringSafeArea(.all)
                 
-                // Overlay the ghost runner path if one is selected.
-                    if let ghostRunner = ghostRunnerManager.selectedGhostRunners.first {
-                        GhostRunnerPath(ghostRunner: ghostRunner, region: runTracker.region)
-                    }
+                // Overlay ghost runner path if one is selected
+                if let ghostRunner = ghostRunnerManager.selectedGhostRunners.first {
+                    GhostRunnerPath(ghostRunner: ghostRunner, region: runTracker.region)
+                }
                 
                 // UI Overlays
                 VStack(alignment: .trailing, spacing: 0) {
-                        
-                    VStack {
-                                Spacer()
-                                HStack {
-                                    Spacer()
-                                    FloatingActionButtonsView(
-                                        isRunning: $runTracker.isRunning,
-                                        showPostRunDetails: $showPostRunDetails,
-                                        selectedFootwear: $selectedFootwear,
-                                        ghostRunnerManager: ghostRunnerManager, // or your existing manager
-                                        calendarAction: {
-                                            showCalendarView = true
-                                        },
-                                        goalsAction: {
-                                            showGoalsSettingView = true
-                                        },
-                                        ghostRunnerAction: {
-                                            // Do something when Ghost Runner is tapped, or leave empty
-                                            print("Ghost Runner tapped")
-                                        }
-                                    )
-
-                                    .padding(16) // Adjust for positioning
-                                }
-                            }
-                    .onAppear {
-                        Task {
-                            // Fetch runs from your backend and assign to the runs state variable.
-                            self.runs = try await AuthService.shared.fetchUserRuns()
-                        }
-                    }
-                    .sheet(isPresented: $showGoalsSettingView) {
-                        GoalsSettingView()
-                    }
-
-                    .sheet(isPresented: $showCalendarView) {
-                        CalendarView(runs: runs)
-                    }
-                    
+                    topOverlayViews
                     Spacer()
-                    
-                    // Main stats display and controls
-                    VStack(spacing: 0) {
-                        if let userProgram = viewModel.currentUserProgram,
-                           let todayPlan = viewModel.getTodaysDailyPlan(),
-                           !viewModel.currentDailyRunIsCompleted {
-
-                            let dailyRunType = todayPlan.dailyRunType ?? "Unknown"
-                            
-                            RunningProgramBarView(
-                                targetDistance: viewModel.currentDailyTargetDistance,
-                                currentDistance: runTracker.distanceTraveled,
-                                dailyRunType: dailyRunType
-                            )
-
-                        } else if !ghostRunnerManager.selectedGhostRunners.isEmpty {
-                            GhostRunnerStatusView(
-                                ghostRunners: ghostRunnerManager.selectedGhostRunners,
-                                userDistance: runTracker.distanceTraveled
-                            )
-                        } else {
-                            leaderboardBar
-                        }
-                        
-                        // Main stats row
-                        statsRow
-                        
-                        if !showPostRunDetails {
-                            // Running controls
-                            runningControls
-                        } else {
-                            // Post-run expanded details (growing from bottom)
-                            postRunExpandedView
-                        }
-                    }
-                    .background(Color(.systemBackground))
+                    statsAndControlsView
                 }
             }
-            // Update navigation bar items to include a calendar button on the leading side.
             .navigationBarItems(
-                leading: HStack {
-                    Button(action: {
-                        runTracker.stopRun()
-                        runTracker.distanceTraveled = 0
-                        runTracker.elapsedTime = 0
-                        runTracker.isRunning = false
-                        
-                        // Reset ephemeral leaderboard info
-                        userPostedDistance = 0
-                        nextRankDistance = nil
-                        distanceToNextRank = 0
-                        userRank = nil
-                        
-                        // Hide the post-run UI if showing
-                        showPostRunDetails = false
-                    }) {
-                        Image(systemName: "chevron.left")
-                            .foregroundColor(.primary)
-                            .padding(8)
-                    }
-                },
-                trailing: Button(action: {
-                    // More options
-                }) {
-                    Image(systemName: "ellipsis")
-                        .foregroundColor(.primary)
-                        .padding(8)
-                }
+                leading: leadingNavigationButton,
+                trailing: trailingNavigationButton
             )
         }
-        .onAppear {
-            // --- LINK THE TRACKER AND MANAGER ---
-                    runTracker.setGhostRunnerManager(ghostRunnerManager)
-                    // --- END LINK ---
-            
-            // Your existing onAppear code for fetching leaderboard info etc.
-            Task {
-                guard let userId = AuthService.shared.userSession?.uid else { return }
-                let (rank, postedDist, nextDist) = await fetchLeaderboardInfo(for: userId)
-                self.userRank = rank
-                self.userPostedDistance = postedDist ?? 0
-                self.nextRankDistance = nextDist
-                computeDistanceToNextRank()
-                // Also fetch runs for calendar if needed here
-                self.runs = try await AuthService.shared.fetchUserRuns() // Assuming this is correct place
-            }
-            // Also load available ghost runners if needed
-            Task {
-                await ghostRunnerManager.loadAvailableGhostRunners()
-            }
-        }
-
+        .onAppear(perform: onViewAppear) // Set up necessary states when view appears
         .onReceive(runTracker.$distanceTraveled) { _ in
-            // This fires every time distanceTraveled changes
-            computeDistanceToNextRank()
+            computeDistanceToNextRank() // Update distance to the next rank on distance change
         }
-        // -- Alert for Post Success --
         .alert("Post Run", isPresented: $showPostAlert) {
-            Button("OK") {
-                // Hide the post-run details
-                showPostRunDetails = false
-                
-                // Reset the caption field
-                caption = ""
-                
-                // Stop the run and reset the runTracker properties
-                runTracker.stopRun()
-                runTracker.distanceTraveled = 0
-                runTracker.elapsedTime = 0
-                runTracker.isRunning = false
-                runTracker.paceString = "0:00"
-                
-                // Reset ephemeral leaderboard info
-                userPostedDistance = 0
-                nextRankDistance = nil
-                distanceToNextRank = 0
-                userRank = nil
-            }
+            Button("OK", action: resetPostRun) // Reset after a post alert confirmation
         } message: {
             Text(postAlertMessage)
         }
     }
     
-    // MARK: - UI Components
+    // MARK: - Top Overlay & Navigation Views
     
-    private var footwearButton: some View {
-            FootwearButtonView(selectedFootwear: $selectedFootwear)
-                .padding(.horizontal, 16)
-                .padding(.top, 10)
-                .transition(.opacity)
+    /// Displays the floating action buttons and associated sheets.
+    private var topOverlayViews: some View {
+        VStack {
+            Spacer()
+            HStack {
+                Spacer()
+                FloatingActionButtonsView(
+                    isRunning: $runTracker.isRunning,
+                    showPostRunDetails: $showPostRunDetails,
+                    selectedFootwear: $selectedFootwear,
+                    ghostRunnerManager: ghostRunnerManager,
+                    calendarAction: { showCalendarView = true },
+                    goalsAction: { showGoalsSettingView = true },
+                    ghostRunnerAction: {
+                        print("Ghost Runner tapped")
+                    }
+                )
+                .padding(16)
+            }
         }
+        .onAppear {
+            Task {
+                self.runs = try await AuthService.shared.fetchUserRuns() // Fetch user's runs for calendar
+            }
+        }
+        .sheet(isPresented: $showGoalsSettingView) {
+            GoalsSettingView()
+        }
+        .sheet(isPresented: $showCalendarView) {
+            CalendarView(runs: runs)
+        }
+    }
     
+    /// Combines statistics display and running controls in one view.
+    private var statsAndControlsView: some View {
+        VStack(spacing: 0) {
+            if let userProgram = viewModel.currentUserProgram,
+               let todayPlan = viewModel.getTodaysDailyPlan(),
+               !viewModel.currentDailyRunIsCompleted {
+                
+                let dailyRunType = todayPlan.dailyRunType ?? "Unknown"
+                RunningProgramBarView(
+                    targetDistance: viewModel.currentDailyTargetDistance,
+                    currentDistance: runTracker.distanceTraveled,
+                    dailyRunType: dailyRunType
+                )
+            } else if !ghostRunnerManager.selectedGhostRunners.isEmpty {
+                GhostRunnerStatusView(
+                    ghostRunners: ghostRunnerManager.selectedGhostRunners,
+                    userDistance: runTracker.distanceTraveled
+                )
+            } else {
+                leaderboardBar
+            }
+            
+            statsRow
+            
+            if !showPostRunDetails {
+                runningControls
+            } else {
+                postRunExpandedView
+            }
+        }
+        .background(Color(.systemBackground))
+    }
+    
+    // Navigation button to exit the run, resetting the run and leaderboard data.
+    private var leadingNavigationButton: some View {
+        HStack {
+            Button(action: resetRunAndLeaderboardInfo) {
+                Image(systemName: "chevron.left")
+                    .foregroundColor(.primary)
+                    .padding(8)
+            }
+        }
+    }
+    
+    // Navigation button for additional options.
+    private var trailingNavigationButton: some View {
+        Button(action: {
+            // More options
+        }) {
+            Image(systemName: "ellipsis")
+                .foregroundColor(.primary)
+                .padding(8)
+        }
+    }
+    
+    // MARK: - UI Component Computed Properties
+    
+    // A button-styled leaderboard display.
     private var leaderboardBar: some View {
         Button {
-            // On tap, navigate to LeaderboardView
             showLeaderboard = true
         } label: {
             HStack {
-                // Trophy icon in circle
                 Circle()
                     .fill(Color.blue.opacity(0.2))
                     .frame(width: 40, height: 40)
@@ -251,7 +183,6 @@ struct RunningView: View {
                     )
                     .padding(.leading, 5)
                 
-                // Leaderboard text
                 VStack(alignment: .leading, spacing: 1) {
                     if let rank = userRank {
                         Text("You are #\(rank) on the leaderboard")
@@ -259,15 +190,12 @@ struct RunningView: View {
                             .foregroundColor(.secondary)
                         
                         if rank > 1 {
-                            // Show how far to next rank
-                            Text(
-                                distanceToNextRank > 0
-                                ? String(format: "You are %.2f km away from the next rank", distanceToNextRank)
-                                : "You’ve surpassed the next rank if you post now!"
-                            )
-                            .font(.system(size: 15))
-                            .foregroundColor(.primary)
-                            .padding(.leading, 4)
+                            Text(distanceToNextRank > 0
+                                    ? String(format: "You are %.2f km away from the next rank", distanceToNextRank)
+                                    : "You’ve surpassed the next rank if you post now!")
+                                .font(.system(size: 15))
+                                .foregroundColor(.primary)
+                                .padding(.leading, 4)
                         } else {
                             Text("You are #1!")
                                 .font(.system(size: 15))
@@ -278,7 +206,6 @@ struct RunningView: View {
                         Text("Leaderboard")
                             .font(.system(size: 12, weight: .regular))
                             .foregroundColor(.secondary)
-                        
                         Text("Unable to load position")
                             .font(.system(size: 15))
                             .foregroundColor(.primary)
@@ -288,7 +215,6 @@ struct RunningView: View {
                 
                 Spacer()
                 
-                // ">" icon
                 Image(systemName: "chevron.right")
                     .font(.system(size: 14))
                     .foregroundColor(.secondary)
@@ -300,60 +226,27 @@ struct RunningView: View {
             .padding(.horizontal, 10)
             .padding(.top, 15)
         }
-        .buttonStyle(PlainButtonStyle()) // So it doesn't look like a default SwiftUI button
+        .buttonStyle(PlainButtonStyle())
         .background(
-            // Invisible NavigationLink that triggers on showLeaderboard = true
             NavigationLink(destination: LeaderboardsView(), isActive: $showLeaderboard) {
                 EmptyView()
             }
             .hidden()
         )
     }
-
     
+    // Displays running statistics in a row.
     private var statsRow: some View {
         HStack(spacing: 0) {
-            // AVG Pace Column
-            VStack(alignment: .center, spacing: 2) {
-                Text("AVG Pace")
-                    .font(.system(size: 14))
-                    .foregroundColor(.secondary)
-                
-                HStack(alignment: .bottom, spacing: 1) {
-                    Text(runTracker.paceString.replacingOccurrences(of: " / km", with: ""))
-                        .font(.system(size: 32, weight: .bold))
-                    
-                    Text("/km")
-                        .font(.system(size: 14))
-                        .foregroundColor(.secondary)
-                        .padding(.bottom, 4)
-                }
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
+            // Average Pace Column
+            statColumn(title: "AVG Pace", value: runTracker.paceString.replacingOccurrences(of: " / km", with: ""), unit: "/km", fontSize: 32)
             
             Divider()
                 .frame(width: 1, height: 70)
                 .background(Color.secondary.opacity(0.3))
             
             // Distance Column
-            VStack(alignment: .center, spacing: 2) {
-                Text("Distance")
-                    .font(.system(size: 14))
-                    .foregroundColor(.secondary)
-                
-                HStack(alignment: .bottom, spacing: 1) {
-                    Text(String(format: "%.2f", runTracker.distanceTraveled / 1000))
-                        .font(.system(size: 32, weight: .bold))
-                    
-                    Text("km")
-                        .font(.system(size: 14))
-                        .foregroundColor(.secondary)
-                        .padding(.bottom, 4)
-                }
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
+            statColumn(title: "Distance", value: String(format: "%.2f", runTracker.distanceTraveled / 1000), unit: "km", fontSize: 32)
             
             Divider()
                 .frame(width: 1, height: 70)
@@ -364,7 +257,6 @@ struct RunningView: View {
                 Text("Time")
                     .font(.system(size: 14))
                     .foregroundColor(.secondary)
-                
                 Text(formatTime(seconds: Int(runTracker.elapsedTime)))
                     .font(.system(size: 32, weight: .bold))
             }
@@ -374,12 +266,32 @@ struct RunningView: View {
         .background(Color(.systemBackground))
     }
     
+    // Creates a statistic column with a title, value, and unit.
+    private func statColumn(title: String, value: String, unit: String, fontSize: CGFloat) -> some View {
+        VStack(alignment: .center, spacing: 2) {
+            Text(title)
+                .font(.system(size: 14))
+                .foregroundColor(.secondary)
+            HStack(alignment: .bottom, spacing: 1) {
+                Text(value)
+                    .font(.system(size: fontSize, weight: .bold))
+                Text(unit)
+                    .font(.system(size: 14))
+                    .foregroundColor(.secondary)
+                    .padding(.bottom, 4)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+    }
+    
+    // Displays running start/stop control buttons.
     private var runningControls: some View {
-        if !runTracker.isRunning {
-            return AnyView(
+        Group {
+            if !runTracker.isRunning {
                 Button(action: {
                     withAnimation {
-                        runTracker.startRun()
+                        runTracker.startRun() // Start the run
                     }
                 }) {
                     Text("Start")
@@ -402,16 +314,11 @@ struct RunningView: View {
                 .padding(.vertical, 30)
                 .background(Color(.systemBackground))
                 .animation(.easeInOut(duration: 0.2), value: isPressed)
-            )
-        } else {
-            return AnyView(
+            } else {
                 Button(action: {
-                    // Pause the run first
-                    runTracker.pauseRun()
-                    
-                    // Finally, reveal the post-run details view
+                    runTracker.pauseRun() // Pause the run
                     withAnimation {
-                        showPostRunDetails = true
+                        showPostRunDetails = true // Show post-run details
                     }
                 }) {
                     Text("STOP")
@@ -423,8 +330,6 @@ struct RunningView: View {
                         .clipShape(Circle())
                         .shadow(color: .primary.opacity(0.2), radius: 4, x: 0, y: 2)
                 }
-
-
                 .scaleEffect(isPressed ? 1.1 : 1.0)
                 .opacity(isPressed ? 0.8 : 1.0)
                 .simultaneousGesture(
@@ -436,163 +341,27 @@ struct RunningView: View {
                 .padding(.vertical, 30)
                 .background(Color(.systemBackground))
                 .animation(.easeInOut(duration: 0.2), value: isPressed)
-            )
+            }
         }
     }
-
     
+    // Displays the expanded view after a run with additional stats, caption, and action buttons.
     private var postRunExpandedView: some View {
         VStack(spacing: 16) {
-            // Additional stats that appear when run is completed
-            HStack(spacing: 0) {
-                // Calories
-                VStack(alignment: .center, spacing: 2) {
-                    Text("Calories")
-                        .font(.system(size: 14))
-                        .foregroundColor(.secondary)
-                    
-                    HStack(alignment: .bottom, spacing: 1) {
-                        // Calculated calories based on distance/time
-                        let calories = Int(runTracker.distanceTraveled * 0.06)
-                        Text("\(calories)")
-                            .font(.system(size: 28, weight: .bold))
-                        
-                        Text("kcal")
-                            .font(.system(size: 14))
-                            .foregroundColor(.secondary)
-                            .padding(.bottom, 4)
-                    }
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                
-                Divider()
-                    .frame(width: 1, height: 70)
-                    .background(Color.secondary.opacity(0.3))
-                
-                // Elevation
-                VStack(alignment: .center, spacing: 2) {
-                    Text("Elevation")
-                        .font(.system(size: 14))
-                        .foregroundColor(.secondary)
-                    
-                    HStack(alignment: .bottom, spacing: 1) {
-                        Text("12")
-                            .font(.system(size: 28, weight: .bold))
-                        
-                        Text("m")
-                            .font(.system(size: 14))
-                            .foregroundColor(.secondary)
-                            .padding(.bottom, 4)
-                    }
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                
-                Divider()
-                    .frame(width: 1, height: 70)
-                    .background(Color.secondary.opacity(0.3))
-                
-                // Heart Rate
-                VStack(alignment: .center, spacing: 2) {
-                    Text("BPM")
-                        .font(.system(size: 14))
-                        .foregroundColor(.secondary)
-                    
-                    HStack(alignment: .bottom, spacing: 1) {
-                        Text("120")
-                            .font(.system(size: 28, weight: .bold))
-                        
-                        Text("bpm")
-                            .font(.system(size: 14))
-                            .foregroundColor(.secondary)
-                            .padding(.bottom, 4)
-                    }
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-            }
-            .background(Color(.systemBackground))
+            postRunStatsRow
             
-            // Caption input
+            // Caption input field
             TextField("Write a caption...", text: $caption)
                 .padding()
                 .background(Color(UIColor.systemGray6).opacity(0.6))
                 .cornerRadius(8)
                 .padding(.horizontal)
             
-            // Post Run Actions
-            // This button resumes the run so you can pick up from where you paused it.
-            HStack(spacing: 40) {
-                Button {
-                    // Resume action: simply hide the post-run details and resume the same run.
-                    withAnimation {
-                        runTracker.resumeRun()
-                        showPostRunDetails = false
-                    }
-                } label: {
-                    Text("Resume")
-                        .bold()
-                        .font(.title3)
-                        .foregroundColor(.white)
-                        .frame(width: 80, height: 80)
-                        .background(Color(.systemGreen))
-                        .clipShape(Circle())
-                        .shadow(color: .primary.opacity(0.2), radius: 4, x: 0, y: 2)
-                }
-                
-                
-                // "Post" button that takes you to the final posting screen
-                Button {
-                    // Just show the new finalize screen
-                    showFinalizeScreen = true
-                } label: {
-                    Text("Post")
-                        .bold()
-                        .font(.title3)
-                        .foregroundColor(.white)
-                        .frame(width: 80, height: 80)
-                        .background(Color.blue)
-                        .clipShape(Circle())
-                        .shadow(color: .primary.opacity(0.2), radius: 4, x: 0, y: 2)
-                }
-                
-                // 3) **Delete** button
-                Button {
-                    // "Delete" or "discard" the run
-                    runTracker.stopRun()
-                    runTracker.distanceTraveled = 0
-                    runTracker.elapsedTime = 0
-                    runTracker.isRunning = false
-                    runTracker.paceString = "0:00"
-                    
-                    // Reset ephemeral leaderboard info
-                    userPostedDistance = 0
-                    nextRankDistance = nil
-                    distanceToNextRank = 0
-                    userRank = nil
-                    
-                    // Hide the post-run UI
-                    showPostRunDetails = false
-                    
-                } label: {
-                    Text("Delete")
-                        .bold()
-                        .font(.title3)
-                        .foregroundColor(.white)
-                        .frame(width: 80, height: 80)
-                        .background(Color.red)
-                        .clipShape(Circle())
-                        .shadow(color: .primary.opacity(0.2), radius: 4, x: 0, y: 2)
-                }
-            }
-            .padding(.vertical, 20)
+            postRunActionButtons
         }
         .background(Color(.systemBackground))
         .transition(.move(edge: .bottom))
-        // Attach a .navigationDestination that listens to showFinalizeScreen
         .navigationDestination(isPresented: $showFinalizeScreen) {
-            // Present the new view
             FinalizeRunView(
                 runTracker: runTracker,
                 selectedFootwear: $selectedFootwear,
@@ -602,43 +371,177 @@ struct RunningView: View {
                 userRank: $userRank,
                 showPostRunDetails: $showPostRunDetails
             )
-
         }
     }
     
+    // Shows additional post-run statistics such as calories, elevation, and BPM.
+    private var postRunStatsRow: some View {
+        HStack(spacing: 0) {
+            // Calories Column
+            statColumn(title: "Calories", value: "\(Int(runTracker.distanceTraveled * 0.06))", unit: "kcal", fontSize: 28)
+            
+            Divider()
+                .frame(width: 1, height: 70)
+                .background(Color.secondary.opacity(0.3))
+            
+            // Elevation Column
+            statColumn(title: "Elevation", value: "12", unit: "m", fontSize: 28)
+            
+            Divider()
+                .frame(width: 1, height: 70)
+                .background(Color.secondary.opacity(0.3))
+            
+            // Heart Rate Column
+            statColumn(title: "BPM", value: "120", unit: "bpm", fontSize: 28)
+        }
+        .background(Color(.systemBackground))
+    }
+    
+    // Displays action buttons for resuming, posting, or deleting the run.
+    private var postRunActionButtons: some View {
+        HStack(spacing: 40) {
+            // Resume Button
+            Button {
+                withAnimation {
+                    runTracker.resumeRun() // Resume the paused run
+                    showPostRunDetails = false
+                }
+            } label: {
+                Text("Resume")
+                    .bold()
+                    .font(.title3)
+                    .foregroundColor(.white)
+                    .frame(width: 80, height: 80)
+                    .background(Color(.systemGreen))
+                    .clipShape(Circle())
+                    .shadow(color: .primary.opacity(0.2), radius: 4, x: 0, y: 2)
+            }
+            
+            // Post Button to show final posting screen
+            Button {
+                showFinalizeScreen = true // Navigate to final posting screen
+            } label: {
+                Text("Post")
+                    .bold()
+                    .font(.title3)
+                    .foregroundColor(.white)
+                    .frame(width: 80, height: 80)
+                    .background(Color.blue)
+                    .clipShape(Circle())
+                    .shadow(color: .primary.opacity(0.2), radius: 4, x: 0, y: 2)
+            }
+            
+            // Delete Button to discard the run
+            Button {
+                runTracker.stopRun() // Stop the run
+                runTracker.distanceTraveled = 0
+                runTracker.elapsedTime = 0
+                runTracker.isRunning = false
+                runTracker.paceString = "0:00"
+                
+                userPostedDistance = 0
+                nextRankDistance = nil
+                distanceToNextRank = 0
+                userRank = nil
+                showPostRunDetails = false
+            } label: {
+                Text("Delete")
+                    .bold()
+                    .font(.title3)
+                    .foregroundColor(.white)
+                    .frame(width: 80, height: 80)
+                    .background(Color.red)
+                    .clipShape(Circle())
+                    .shadow(color: .primary.opacity(0.2), radius: 4, x: 0, y: 2)
+            }
+        }
+        .padding(.vertical, 20)
+    }
     
     
-    // SOME LOGIC FUNCTIONS TO DO WITH THE RUNNING VIEW
-    // Returns (userRank, userDistance, nextRankDistance)
+    // MARK: - Lifecycle & Helper Methods
+    
+    // Called when the view appears. Sets up run tracker, leaderboard info, and ghost runners.
+    private func onViewAppear() {
+        // Link the runTracker with ghostRunnerManager
+        runTracker.setGhostRunnerManager(ghostRunnerManager)
+        
+        Task {
+            guard let userId = AuthService.shared.userSession?.uid else { return }
+            let (rank, postedDist, nextDist) = await fetchLeaderboardInfo(for: userId)
+            self.userRank = rank
+            self.userPostedDistance = postedDist ?? 0
+            self.nextRankDistance = nextDist
+            computeDistanceToNextRank() // Compute the distance required for next rank
+            
+            // Fetch runs for the calendar
+            self.runs = try await AuthService.shared.fetchUserRuns()
+        }
+        
+        // Load available ghost runners
+        Task {
+            await ghostRunnerManager.loadAvailableGhostRunners()
+        }
+    }
+    
+    // Resets the run and associated leaderboard info.
+    private func resetRunAndLeaderboardInfo() {
+        runTracker.stopRun()
+        runTracker.distanceTraveled = 0
+        runTracker.elapsedTime = 0
+        runTracker.isRunning = false
+        
+        userPostedDistance = 0
+        nextRankDistance = nil
+        distanceToNextRank = 0
+        userRank = nil
+        
+        showPostRunDetails = false
+    }
+    
+    // Resets post-run state after dismissing the post-run alert.
+    private func resetPostRun() {
+        showPostRunDetails = false
+        caption = ""
+        runTracker.stopRun()
+        runTracker.distanceTraveled = 0
+        runTracker.elapsedTime = 0
+        runTracker.isRunning = false
+        runTracker.paceString = "0:00"
+        
+        userPostedDistance = 0
+        nextRankDistance = nil
+        distanceToNextRank = 0
+        userRank = nil
+    }
+    
+    
+    // MARK: - Helper Functions
+    
+    // Fetches leaderboard information for a given user ID. Returns (userRank, userDistance, nextUserDistance)
     func fetchLeaderboardInfo(for userId: String) async -> (Int?, Double?, Double?) {
         let db = Firestore.firestore()
         
         do {
-            // Fetch all users sorted by totalDistance descending
             let snapshot = try await db.collection("users")
                 .order(by: "totalDistance", descending: true)
                 .getDocuments()
             
             let docs = snapshot.documents
             
-            // Find the current user
             guard let userIndex = docs.firstIndex(where: { $0.documentID == userId }) else {
                 return (nil, nil, nil)
             }
             
             let userDoc = docs[userIndex]
             let userDistance = userDoc.data()["totalDistance"] as? Double ?? 0
-            
-            // user rank is 1-indexed
             let userRank = userIndex + 1
             
-            // If user is not #1, find the distance of the next user up
             if userIndex > 0 {
-                let nextUserDoc = docs[userIndex - 1] // user above in the sorted array
+                let nextUserDoc = docs[userIndex - 1]
                 let nextUserDistance = nextUserDoc.data()["totalDistance"] as? Double ?? 0
                 return (userRank, userDistance, nextUserDistance)
             } else {
-                // user is #1, so there's no next user above them
                 return (userRank, userDistance, nil)
             }
         } catch {
@@ -647,34 +550,27 @@ struct RunningView: View {
         }
     }
     
-    // Helper function to format time
+    // Formats a time interval in seconds into a minute:second string.
     private func formatTime(seconds: Int) -> String {
         let minutes = seconds / 60
         let remainingSeconds = seconds % 60
         return String(format: "%d:%02d", minutes, remainingSeconds)
     }
     
-    // Helper function to compute how many kilometres to go until a user reaches the next
-    // rank on a leaderboard
+    // Computes the distance required to reach the next leaderboard rank.
     private func computeDistanceToNextRank() {
-        // If there's no next rank, user is #1 or rank is unknown
         guard let nextUserDist = nextRankDistance else {
             distanceToNextRank = 0
             return
         }
-        // The user's ephemeral distance is userPostedDistance + whatever they've run this session
         let ephemeralUserDistance = userPostedDistance + runTracker.distanceTraveled
-        
-        // How far behind next rank are we?
         let diff = nextUserDist - ephemeralUserDistance
-        // If user is already beyond that distance, set 0 or negative
         distanceToNextRank = diff > 0 ? diff : 0
     }
-
 }
 
+// MARK: - Preview
 #Preview {
     RunningView()
         .preferredColorScheme(.dark)
 }
-

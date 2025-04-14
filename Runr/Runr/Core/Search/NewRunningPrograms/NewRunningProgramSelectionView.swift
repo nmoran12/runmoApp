@@ -8,28 +8,16 @@
 import SwiftUI
 
 struct NewRunningProgramSelectionView: View {
-    @State private var navigateToExperience: Bool = false
-
     var body: some View {
-        ZStack {
-            VStack(spacing: 24) {
-                MarathonCardView()
-                    .frame(maxWidth: .infinity)
-                    .onTapGesture {
-                        print("Marathon card tapped")
-                        navigateToExperience = true
-                    }
-            }
-            // Hidden NavigationLink triggers when navigateToExperience becomes true.
+        VStack(spacing: 24) {
+            // Wrap the MarathonCardView in a NavigationLink for direct navigation.
             NavigationLink(
                 destination: RunnerExperienceSelectionView()
-                                .environmentObject(NewRunningProgramViewModel()),
-                isActive: $navigateToExperience,
-                label: {
-                    EmptyView()
-                }
-            )
-            .hidden() // Hides the link's label
+                                .environmentObject(NewRunningProgramViewModel())
+            ) {
+                MarathonCardView()
+                    .frame(maxWidth: .infinity)
+            }
         }
         .padding()
         .navigationTitle("Choose a Running Program")

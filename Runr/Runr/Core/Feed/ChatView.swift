@@ -98,7 +98,8 @@ struct ChatView: View {
             viewModel.loadMessages(conversationId: conversationId)
             viewModel.loadUserProfile(userId: userId)
         }
-        .ignoresSafeArea(.keyboard, edges: .bottom)
+        // Attach the updated keyboardAdaptive modifier
+        .keyboardAdaptive()
     }
     
     // Scrolls to the last message in the chat
@@ -117,9 +118,40 @@ struct ChatView: View {
     }
 }
 
+// MARK: - Keyboard Adaptive Modifier
+
+/// A view modifier that adjusts bottom padding based on the keyboard height.
+struct KeyboardAdaptive: ViewModifier {
+    @State private var keyboardHeight: CGFloat = 0
+    
+    func body(content: Content) -> some View {
+        content
+            .padding(.bottom, keyboardHeight)
+            .onAppear {
+                NotificationCenter.default.addObserver(forName: UIResponder.keyboardWillShowNotification,
+                                                       object: nil,
+                                                       queue: .main) { notification in
+                    if let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect {
+                        // Use the full keyboard height so the input bar sits directly above the keyboard.
+                        keyboardHeight = keyboardFrame.height
+                    }
+                }
+                NotificationCenter.default.addObserver(forName: UIResponder.keyboardWillHideNotification,
+                                                       object: nil,
+                                                       queue: .main) { _ in
+                    keyboardHeight = 0
+                }
+            }
+    }
+}
+
+extension View {
+    /// Makes the view adjust its bottom padding when the keyboard appears.
+    func keyboardAdaptive() -> some View {
+        self.modifier(KeyboardAdaptive())
+    }
+}
+
 #Preview {
     ChatView(conversationId: "testConversationId", userId: "partnerUserId")
 }
-
-
-

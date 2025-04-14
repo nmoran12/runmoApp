@@ -11,6 +11,9 @@ struct RunningProgramLandingView: View {
     @StateObject var viewModel = NewRunningProgramViewModel()
     // Retrieve the current user's username from your auth service.
     var currentUsername: String = AuthService.shared.currentUser?.username ?? "UnknownUser"
+    
+    let beginnerProgram = BeginnerTemplates.createBeginnerProgram(sampleWeeklyPlans: sampleWeeklyPlans)
+    let intermediateProgram = IntermediateTemplates.createIntermediateProgram(allWeeks: allWeeks)
 
     // Debug flag: Set to true to force showing the selection view even if there's an active program.
     // You can later remove this or only use it in DEBUG builds.
@@ -23,12 +26,17 @@ struct RunningProgramLandingView: View {
     var body: some View {
         Group {
             if viewModel.hasActiveProgram && !forceShowSelectionView {
-                // Use the updated template if available; otherwise, fall back to beginner18WeekProgram.
-                NewRunningProgramContentView(plan: viewModel.currentProgram ?? beginner18WeekProgram)
+                // New code: create the 18-week beginner program from your template helper
+                let generatedBeginnerProgram = BeginnerTemplates.create18WeekBeginnerProgram(allWeeks: allWeeks, totalDistanceOver18Weeks: totalDistanceOver18Weeks)
+
+                NewRunningProgramContentView(plan: viewModel.currentProgram ?? generatedBeginnerProgram)
+
                     .environmentObject(viewModel)
             } else {
-                NewRunningProgramSelectionView()
-                    .environmentObject(viewModel)
+                NavigationStack{
+                    NewRunningProgramSelectionView()
+                        .environmentObject(viewModel)
+                }
             }
 
         }

@@ -12,6 +12,9 @@ struct NewRunningProgramContentView: View {
     @EnvironmentObject private var viewModel: NewRunningProgramViewModel
     let plan: NewRunningProgram // The program template is passed into this view
     
+    let beginnerProgram = BeginnerTemplates.createBeginnerProgram(sampleWeeklyPlans: sampleWeeklyPlans)
+    let intermediateProgram = IntermediateTemplates.createIntermediateProgram(allWeeks: allWeeks)
+    
     /// Use the program loaded from Firestore if available.
         var displayedProgram: NewRunningProgram {
             viewModel.currentProgram ?? plan
@@ -45,7 +48,7 @@ struct NewRunningProgramContentView: View {
                     .frame(maxWidth: .infinity, alignment: .leading) // This forces the container to use full width.
                     .padding(.horizontal)
                     
-                    // NEW: Current Day Plan View
+                    // Current Day Plan View
                     ShowCurrentDayPlanView()
                         .environmentObject(viewModel) // Ensure the view model is passed properly.
                         .padding(.horizontal)
@@ -90,10 +93,18 @@ struct NewRunningProgramContentView: View {
                     
                     Button("Update Beginner Marathon Template") {
                                 Task {
-                                    await updateBeginnerMarathonTemplate()
+                                    await BeginnerTemplates.updateBeginnerMarathonTemplate(using: beginnerProgram)
                                 }
                             }
                             .padding()
+                    
+                    // NEW: Update Intermediate Marathon Template Button
+                    Button("Update Intermediate Marathon Template") {
+                        Task {
+                            await IntermediateTemplates.updateIntermediateMarathonTemplate(using: intermediateProgram)
+                        }
+                    }
+                    .padding()
                     
                     // DO NOT REMOVE
                      //seeding running program template only click once
@@ -166,3 +177,35 @@ struct NewRunningProgramContentView: View {
     }
 }
 
+// MARK: - Update Intermediate Marathon Template Function
+
+/// Creates and updates the Intermediate Marathon Running Program based on a sample template structure.
+/// The intermediate program uses similar structure as the sample but with updated values.
+@MainActor
+func updateIntermediateMarathonTemplate() async {
+    // Define the intermediate program using values specific to intermediate runners.
+    let intermediateProgram = NewRunningProgram(
+        id: UUID(),
+        title: "Intermediate Marathon Running Program",
+        raceName: "City Marathon 2025",
+        subtitle: "For runners looking to improve performance",
+        finishDate: Date().addingTimeInterval(60 * 60 * 24 * 150), // e.g., 150 days from now
+        imageUrl: "https://via.placeholder.com/300?text=Intermediate",
+        totalDistance: 500,
+        planOverview: """
+            This intermediate training program builds upon the sample running program template.
+            It is designed for runners who already have a base level of fitness and now want to
+            improve performance with additional speed, endurance, and strength workouts.
+            """,
+        experienceLevel: "Intermediate",
+        // Reuse the same weekly plan template from the sample program.
+        weeklyPlan: allWeeks
+    )
+    
+    do {
+        try await updateTemplate(intermediateProgram)
+        print("Template 'intermediate-marathon-running-program' updated successfully.")
+    } catch {
+        print("Error updating intermediate marathon template: \(error.localizedDescription)")
+    }
+}

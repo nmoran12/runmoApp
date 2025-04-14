@@ -22,11 +22,12 @@ struct RunrTabView: View {
                     Image(systemName: "house")
                 }
             
-            
-            RunningProgramLandingView()
-            .onAppear {
-                print("Running Program clicked!")
-                selectedIndex = 1
+            NavigationStack{
+                RunningProgramLandingView()
+                    .onAppear {
+                        print("Running Program clicked!")
+                        selectedIndex = 1
+                    }
             }
 
                 .tabItem{

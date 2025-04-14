@@ -8,6 +8,10 @@
 import SwiftUI
 
 struct RunnerExperienceSelectionView: View {
+    let beginnerProgram = BeginnerTemplates.createBeginnerProgram(sampleWeeklyPlans: sampleWeeklyPlans)
+    let intermediateProgram = IntermediateTemplates.createIntermediateProgram(allWeeks: allWeeks)
+    
+    
     var body: some View {
         VStack(spacing: 20) {
             Text("Select Your Experience Level")

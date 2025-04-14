@@ -360,38 +360,7 @@ func updateSampleRunningProgram() async {
 
 
 
-// multiple program running templates for beginner, intermediate, advanced marathons
-
-
-// BEGINNER RUNNING PROGRAM
-let beginnerProgram = NewRunningProgram(
-    title: "Beginner Marathon Running Program",
-    raceName: "City Marathon 2025",
-    subtitle: "A step-by-step program for new runners",
-    finishDate: Date().addingTimeInterval(60 * 60 * 24 * 180), // 6 months from now, for example
-    imageUrl: "https://via.placeholder.com/300?text=Beginner",
-    totalDistance: 400, // Your chosen total mileage
-    planOverview: "A program designed for those new to marathon training. Gradually build stamina and endurance.",
-    experienceLevel: "Beginner",
-    weeklyPlan: sampleWeeklyPlans // Reuse or define a specialized weekly plan here
-)
-
-let beginner18WeekProgram = NewRunningProgram(
-    id: UUID(),
-    title: "18-Week Beginner Marathon Program",
-    raceName: "Popular Beginner Plan",
-    subtitle: "Build up from short runs to your full marathon",
-    finishDate: Date().addingTimeInterval(60 * 60 * 24 * 7 * 18), // 18 weeks from now
-    imageUrl: "https://via.placeholder.com/300?text=Beginner18Weeks",
-    totalDistance: Int(totalDistanceOver18Weeks), // Convert Double to Int
-    planOverview: """
-        This 18-week beginner marathon training plan features gradual progression and two 
-        milestone races: a half marathon (Week 8) and a full marathon (Week 18). 
-        Each week includes three runs, two rest days, one long run, and a cross-training day.
-        """,
-    experienceLevel: "Beginner",
-    weeklyPlan: allWeeks
-)
+// Template for the weekly plans
 
 // Week 1
 let week1DailyPlans = [
@@ -616,51 +585,6 @@ let allWeeks: [WeeklyPlan] = [
 // And totalDistanceOver18Weeks is computed as:
 let totalDistanceOver18Weeks = allWeeks.reduce(0.0) { $0 + $1.weeklyTotalDistance }
 
-// Now, create your updated running program instance.
-// Make sure the title is "Beginner Marathon Running Program" so that
-// generateStableDocumentId(for:) produces the ID "beginner-marathon-running-program".
-let updatedBeginnerProgram = NewRunningProgram(
-    id: UUID(), // A new UUID is okay; the stable document ID comes from the title.
-    title: "Beginner Marathon Running Program",
-    raceName: "Popular Beginner Plan",
-    subtitle: "Build up from short runs to your full marathon",
-    finishDate: Date().addingTimeInterval(60 * 60 * 24 * 7 * 18), // 18 weeks from now
-    imageUrl: "https://via.placeholder.com/300?text=Beginner18Weeks",
-    totalDistance: Int(totalDistanceOver18Weeks), // Total kilometers over the program
-    planOverview: """
-        This 18-week beginner marathon training plan features gradual progression and two milestone races: 
-        a half marathon (Week 8) and a full marathon (Week 18). Each week includes three runs, two rest days, 
-        one long run, and a cross-training day.
-        """,
-    experienceLevel: "Beginner",
-    weeklyPlan: allWeeks
-)
-
-// Now update the Firestore template.
-// This function uses your existing seedTemplateIfNeeded(_:) helper which
-// checks for an existing document based on the stable ID and creates or updates it.
-@MainActor
-func updateBeginnerMarathonTemplate() async {
-    do {
-        try await updateTemplate(updatedBeginnerProgram)
-        print("Template 'beginner-marathon-running-program' updated successfully.")
-    } catch {
-        print("Error updating beginner marathon template: \(error.localizedDescription)")
-    }
-}
-
-
-let intermediateProgram = NewRunningProgram(
-    title: "Intermediate Marathon Running Program",
-    raceName: "City Marathon 2025",
-    subtitle: "For runners looking to improve performance",
-    finishDate: Date().addingTimeInterval(60 * 60 * 24 * 150),
-    imageUrl: "https://via.placeholder.com/300?text=Intermediate",
-    totalDistance: 500,
-    planOverview: "This program builds upon basic endurance training with additional speed and strength workouts.",
-    experienceLevel: "Intermediate",
-    weeklyPlan: sampleWeeklyPlans // Customize if needed
-)
 
 let advancedProgram = NewRunningProgram(
     title: "Advanced Marathon Running Program",

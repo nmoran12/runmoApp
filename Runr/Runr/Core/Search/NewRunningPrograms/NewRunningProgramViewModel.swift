@@ -26,6 +26,9 @@ class NewRunningProgramViewModel: ObservableObject {
     @Published var hasActiveProgram: Bool = false
     @Published var targetTimeSeconds: Double = 10800  // Default or initial value
     @Published var todaysDailyPlanOverride: DailyPlan? = nil
+    
+    let beginnerProgram = BeginnerTemplates.createBeginnerProgram(sampleWeeklyPlans: sampleWeeklyPlans)
+    let intermediateProgram = IntermediateTemplates.createIntermediateProgram(allWeeks: allWeeks)
 
     
     // Store the STABLE document ID for the currently loaded template program
@@ -339,13 +342,35 @@ func seedTemplateIfNeeded(_ template: NewRunningProgram) async throws {
 @MainActor
 func seedAllRunningProgramTemplates() async {
     do {
+        // 1) Construct the programs you need.
+        let beginnerProgram = BeginnerTemplates.createBeginnerProgram(sampleWeeklyPlans: sampleWeeklyPlans)
+        let intermediateProgram = IntermediateTemplates.createIntermediateProgram(allWeeks: allWeeks)
+        
+        // If you have a separate advanced function or inline advanced definition:
+        let advancedProgram = NewRunningProgram(
+            title: "Advanced Marathon Running Program",
+            raceName: "City Marathon 2025",
+            subtitle: "Challenging workouts for seasoned runners",
+            finishDate: Date().addingTimeInterval(60 * 60 * 24 * 120),
+            imageUrl: "https://via.placeholder.com/300?text=Advanced",
+            totalDistance: 600,
+            planOverview: "High-intensity workouts and advanced training techniques to peak your performance.",
+            experienceLevel: "Advanced",
+            weeklyPlan: sampleWeeklyPlans
+        )
+        
+        // 2) Now seed them into Firestore (or your DB)
         try await seedTemplateIfNeeded(beginnerProgram)
         try await seedTemplateIfNeeded(intermediateProgram)
         try await seedTemplateIfNeeded(advancedProgram)
+        
+        print("All templates seeded successfully!")
+        
     } catch {
         print("Error seeding running program templates: \(error.localizedDescription)")
     }
 }
+
 
 @MainActor
 func updateTemplate(_ template: NewRunningProgram) async throws {

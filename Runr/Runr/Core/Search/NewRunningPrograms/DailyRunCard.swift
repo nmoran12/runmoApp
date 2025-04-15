@@ -66,11 +66,8 @@ struct DailyRunCard: View {
                         isCompletedLocal = newCompletionState
                     }
                     Task {
-                        await viewModel.markDailyRunCompleted(
-                            weekIndex: weekIndex,
-                            dayIndex: dayIndex,
-                            completed: newCompletionState
-                        )
+                        await viewModel.markDailyRunCompleted(for: Date(), completed: newCompletionState)
+
                     }
                 } label: {
                     Image(systemName: isCompletedLocal ? "checkmark.circle.fill" : "circle")

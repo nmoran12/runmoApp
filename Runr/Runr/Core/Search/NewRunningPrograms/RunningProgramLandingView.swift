@@ -26,23 +26,25 @@ struct RunningProgramLandingView: View {
     var body: some View {
         Group {
             if viewModel.hasActiveProgram && !forceShowSelectionView {
-                // New code: create the 18-week beginner program from your template helper
                 let generatedBeginnerProgram = BeginnerTemplates.create18WeekBeginnerProgram(allWeeks: allWeeks, totalDistanceOver18Weeks: totalDistanceOver18Weeks)
-
-                NewRunningProgramContentView(plan: viewModel.currentProgram ?? generatedBeginnerProgram)
-
-                    .environmentObject(viewModel)
+                
+                // Use the active user program if available, converting it to NewRunningProgram.
+                if let userProgram = viewModel.currentUserProgram {
+                    NewRunningProgramContentView(plan: NewRunningProgram(from: userProgram))
+                        .environmentObject(viewModel)
+                } else {
+                    NewRunningProgramContentView(plan: viewModel.currentProgram ?? generatedBeginnerProgram)
+                        .environmentObject(viewModel)
+                }
             } else {
                 NavigationStack{
                     NewRunningProgramSelectionView()
                         .environmentObject(viewModel)
                 }
             }
-
         }
         .onAppear {
             Task {
-                // Only check for an active running program when debugging is not forcing the selection view.
                 if !forceShowSelectionView {
                     await viewModel.checkActiveUserProgram(for: currentUsername)
                     if viewModel.hasActiveProgram {
@@ -52,6 +54,7 @@ struct RunningProgramLandingView: View {
             }
         }
     }
+
 }
 
 struct RunningProgramLandingView_Previews: PreviewProvider {

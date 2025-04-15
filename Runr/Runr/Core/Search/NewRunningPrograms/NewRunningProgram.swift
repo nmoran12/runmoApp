@@ -97,22 +97,20 @@ struct NewRunningProgram: Identifiable {
 
 extension DailyPlan {
     init?(from data: [String: Any]) {
-        // Use defaults if fields are missing for backward compatibility.
         let dayStr = data["day"] as? String ?? "Unknown Day"
         
-        // Try to decode the distance from either a Double or an Int.
         var distance: Double = 0.0
         if let d = data["dailyDistance"] as? Double {
             distance = d
         } else if let i = data["dailyDistance"] as? Int {
             distance = Double(i)
+        } else if let s = data["dailyDistance"] as? String, let d = Double(s) {
+            distance = d
         }
         
         self.day = dayStr
         self.dailyDistance = distance
-        // For the completed flag, try Bool directly or default to false.
         self.isCompleted = data["completed"] as? Bool ?? false
-        // Other fields might be missing in older data.
         self.dailyDate = (data["dailyDate"] as? Timestamp)?.dateValue()
         self.dailyRunType = data["dailyRunType"] as? String
         self.dailyEstimatedDuration = data["dailyEstimatedDuration"] as? String
@@ -121,14 +119,13 @@ extension DailyPlan {
 }
 
 
+
 extension WeeklyPlan {
     init?(from data: [String: Any]) {
-        // First, decode the dailyPlans field in a flexible manner.
         var dailyPlansData: [[String: Any]] = []
         if let arr = data["dailyPlans"] as? [[String: Any]] {
             dailyPlansData = arr
         } else if let dict = data["dailyPlans"] as? [String: Any] {
-            // If stored as a dictionary keyed by index, sort by keys.
             let sortedKeys = dict.keys.sorted { (key1, key2) -> Bool in
                 if let int1 = Int(key1), let int2 = Int(key2) {
                     return int1 < int2
@@ -144,13 +141,11 @@ extension WeeklyPlan {
         
         var decodedDailyPlans = [DailyPlan]()
         for dayData in dailyPlansData {
-            // If decoding fails, we get a default DailyPlan with fallback values.
             if let day = DailyPlan(from: dayData) {
                 decodedDailyPlans.append(day)
             }
         }
         
-        // Use default values if these keys are missing.
         let weekNum = data["weekNumber"] as? Int ?? 0
         let weekTitle = data["weekTitle"] as? String ?? "Week \(weekNum)"
         let weeklyTotalWorkouts = data["weeklyTotalWorkouts"] as? Int ?? decodedDailyPlans.count
@@ -160,8 +155,9 @@ extension WeeklyPlan {
             weeklyTotalDistance = d
         } else if let i = data["weeklyTotalDistance"] as? Int {
             weeklyTotalDistance = Double(i)
+        } else if let s = data["weeklyTotalDistance"] as? String, let d = Double(s) {
+            weeklyTotalDistance = d
         } else {
-            // If the field is missing, calculate the sum from daily plans.
             weeklyTotalDistance = decodedDailyPlans.reduce(0.0) { $0 + $1.dailyDistance }
         }
         
@@ -176,6 +172,7 @@ extension WeeklyPlan {
     }
 }
 
+
 extension WeeklyPlan {
     /// Returns true if all active days (i.e. those with dailyDistance > 0) are marked as completed.
     var isCompleted: Bool {
@@ -189,38 +186,32 @@ extension WeeklyPlan {
 
 extension UserRunningProgram {
     init?(from data: [String: Any]) {
-        // Decode the required fields.
+        // Required string fields
         guard let idString = data["id"] as? String,
               let id = UUID(uuidString: idString),
               let templateId = data["templateId"] as? String,
               let title = data["title"] as? String,
               let subtitle = data["subtitle"] as? String,
-              let finishDateValue = data["finishDate"],
               let imageUrl = data["imageUrl"] as? String,
-              let totalDistance = data["totalDistance"] as? Int,
               let planOverview = data["planOverview"] as? String,
               let experienceLevel = data["experienceLevel"] as? String,
-              let username = data["username"] as? String,
-              let startDateValue = data["startDate"],
-              let overallCompletion = data["overallCompletion"] as? Int,
-              let userProgramActive = data["userProgramActive"] as? Bool,
-              let userProgramCompleted = data["userProgramCompleted"] as? Bool
+              let username = data["username"] as? String
         else {
             print("UserRunningProgram decoding failed: Missing required fields. Data: \(data)")
             return nil
         }
         
-        // Convert finishDate and startDate from Timestamp (or Date)
+        // Decode finishDate and startDate (from Timestamp or Date)
         var finishDate: Date?
-        if let ts = finishDateValue as? Timestamp {
+        if let ts = data["finishDate"] as? Timestamp {
             finishDate = ts.dateValue()
-        } else if let dt = finishDateValue as? Date {
+        } else if let dt = data["finishDate"] as? Date {
             finishDate = dt
         }
         var startDate: Date?
-        if let ts = startDateValue as? Timestamp {
+        if let ts = data["startDate"] as? Timestamp {
             startDate = ts.dateValue()
-        } else if let dt = startDateValue as? Date {
+        } else if let dt = data["startDate"] as? Date {
             startDate = dt
         }
         guard let fDate = finishDate, let sDate = startDate else {
@@ -228,11 +219,55 @@ extension UserRunningProgram {
             return nil
         }
         
-        // Decode the target race time; if not present, default to 10800 seconds.
-        let targetTime = data["targetTimeSeconds"] as? Double ?? 10800
+        // Decode totalDistance: if it’s a Double or numeric string, convert to Int.
+        let totalDistance: Int
+        if let i = data["totalDistance"] as? Int {
+            totalDistance = i
+        } else if let d = data["totalDistance"] as? Double {
+            totalDistance = Int(d)
+        } else if let s = data["totalDistance"] as? String, let d = Double(s) {
+            totalDistance = Int(d)
+        } else {
+            print("UserRunningProgram decoding failed: totalDistance not found or unparseable. Data: \(data)")
+            return nil
+        }
         
-        // Decode the weeklyPlan.
-        // (Assuming you have similar logic elsewhere; here’s a simple placeholder.)
+        // Decode overallCompletion similarly.
+        let overallCompletion: Int
+        if let i = data["overallCompletion"] as? Int {
+            overallCompletion = i
+        } else if let d = data["overallCompletion"] as? Double {
+            overallCompletion = Int(d)
+        } else if let s = data["overallCompletion"] as? String, let d = Double(s) {
+            overallCompletion = Int(d)
+        } else {
+            overallCompletion = 0
+        }
+        
+        // Helper for decoding booleans that might come in as numbers or strings.
+        func decodeBool(forKey key: String) -> Bool {
+            if let b = data[key] as? Bool { return b }
+            if let i = data[key] as? Int { return i != 0 }
+            if let s = data[key] as? String { return s == "1" || s.lowercased() == "true" }
+            return false
+        }
+        
+        let userProgramActive = decodeBool(forKey: "userProgramActive")
+        let userProgramCompleted = decodeBool(forKey: "userProgramCompleted")
+        
+        // Decode targetTimeSeconds (Double with fallback)
+        let targetTime: Double
+        if let d = data["targetTimeSeconds"] as? Double {
+            targetTime = d
+        } else if let i = data["targetTimeSeconds"] as? Int {
+            targetTime = Double(i)
+        } else if let s = data["targetTimeSeconds"] as? String, let d = Double(s) {
+            targetTime = d
+        } else {
+            targetTime = 10800
+        }
+        
+        // Decode weeklyPlan. This should handle arrays of dictionaries.
         let weeklyPlanArray: [WeeklyPlan]
         if let wpData = data["weeklyPlan"] as? [[String: Any]] {
             weeklyPlanArray = wpData.compactMap { WeeklyPlan(from: $0) }
@@ -240,7 +275,7 @@ extension UserRunningProgram {
             weeklyPlanArray = []
         }
         
-        // Assign values.
+        // Finally assign properties
         self.id = id
         self.templateId = templateId
         self.title = title
@@ -262,40 +297,48 @@ extension UserRunningProgram {
 }
 
 
- extension NewRunningProgram {
-    // Failable initializer to decode from Firestore dictionary
-     init?(from data: [String: Any]) {
-         // Safely unwrap all required fields
-         guard let idString = data["id"] as? String, // Expecting UUID as String from Firestore
-               let id = UUID(uuidString: idString), // Convert String back to UUID
-               let title = data["title"] as? String,
-               let subtitle = data["subtitle"] as? String,
-               let finishTimestamp = data["finishDate"] as? Timestamp, // Get Timestamp
-               let imageUrl = data["imageUrl"] as? String,
-               let totalDistance = data["totalDistance"] as? Int, // Assuming stored as Int
-               let planOverview = data["planOverview"] as? String,
-               let experienceLevel = data["experienceLevel"] as? String,
-               let weeklyPlanData = data["weeklyPlan"] as? [[String: Any]] // Array of Dictionaries
-         else {
-             print("Error decoding NewRunningProgram: Missing required fields or type mismatch. Data: \(data)")
-             return nil // Initialization failed
-         }
+extension NewRunningProgram {
+    init?(from data: [String: Any]) {
+        guard let idString = data["id"] as? String,
+              let id = UUID(uuidString: idString),
+              let title = data["title"] as? String,
+              let subtitle = data["subtitle"] as? String,
+              let finishTimestamp = data["finishDate"] as? Timestamp,
+              let imageUrl = data["imageUrl"] as? String,
+              let planOverview = data["planOverview"] as? String,
+              let experienceLevel = data["experienceLevel"] as? String,
+              let weeklyPlanData = data["weeklyPlan"] as? [[String: Any]]
+        else {
+            print("Error decoding NewRunningProgram: Missing required fields or type mismatch. Data: \(data)")
+            return nil
+        }
+        
+        // Attempt to parse totalDistance as Int even if stored as Double or String.
+        let totalDistance: Int
+        if let i = data["totalDistance"] as? Int {
+            totalDistance = i
+        } else if let d = data["totalDistance"] as? Double {
+            totalDistance = Int(d)
+        } else if let s = data["totalDistance"] as? String, let d = Double(s) {
+            totalDistance = Int(d)
+        } else {
+            print("Error decoding NewRunningProgram: totalDistance not found or unparseable. Data: \(data)")
+            return nil
+        }
+        
+        self.id = id
+        self.title = title
+        self.raceName = data["raceName"] as? String
+        self.subtitle = subtitle
+        self.finishDate = finishTimestamp.dateValue()
+        self.imageUrl = imageUrl
+        self.totalDistance = totalDistance
+        self.planOverview = planOverview
+        self.experienceLevel = experienceLevel
+        self.weeklyPlan = weeklyPlanData.compactMap { WeeklyPlan(from: $0) }
+    }
+}
 
-         // Assign properties
-         self.id = id
-         self.title = title
-         self.raceName = data["raceName"] as? String // Optional field
-         self.subtitle = subtitle
-         self.finishDate = finishTimestamp.dateValue() // Convert Timestamp to Date
-         self.imageUrl = imageUrl
-         self.totalDistance = totalDistance
-         self.planOverview = planOverview
-         self.experienceLevel = experienceLevel
-
-         // Decode nested weekly plans using their initializer
-         self.weeklyPlan = weeklyPlanData.compactMap { WeeklyPlan(from: $0) }
-     }
- }
 
 
 
@@ -355,6 +398,24 @@ func updateSampleRunningProgram() async {
     } catch {
         print("Error updating sample running program: \(error.localizedDescription)")
     }
+}
+
+// In NewRunningProgram.swift (or an appropriate shared file)
+extension NewRunningProgram {
+    init(from userProgram: UserRunningProgram) {
+        self.id = userProgram.id
+        self.title = userProgram.title
+        self.raceName = userProgram.raceName
+        self.subtitle = userProgram.subtitle
+        self.finishDate = userProgram.finishDate
+        self.imageUrl = userProgram.imageUrl
+        self.totalDistance = userProgram.totalDistance
+        self.planOverview = userProgram.planOverview
+        self.experienceLevel = userProgram.experienceLevel
+        self.weeklyPlan = userProgram.weeklyPlan
+    }
+    
+    
 }
 
 

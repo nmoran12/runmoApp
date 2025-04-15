@@ -106,6 +106,18 @@ struct NewRunningProgramContentView: View {
                     }
                     .padding()
                     
+
+                    Button("Reset Running Program") {
+                        Task {
+                            let currentUsername = AuthService.shared.currentUser?.username ?? "UnknownUser"
+                            // Use the updated intermediate template object.
+                            await viewModel.resetUserProgram(using: intermediateProgram, username: currentUsername)
+                        }
+                    }
+
+                    .padding()
+
+                    
                     // DO NOT REMOVE
                      //seeding running program template only click once
                     Button("Seed Running Program Template") {

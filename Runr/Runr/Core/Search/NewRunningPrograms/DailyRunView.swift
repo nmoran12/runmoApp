@@ -27,6 +27,7 @@ struct DailyRunView: View {
     }
     
     var body: some View {
+        NavigationView {
         ZStack {
             // Background gradient/light tone with plenty of white space
             LinearGradient(gradient: Gradient(colors: [Color.white, Color(UIColor.systemGray6)]),
@@ -155,6 +156,14 @@ struct DailyRunView: View {
                         .padding(.horizontal)
                         .shadow(color: primaryColor.opacity(0.3), radius: 8, x: 0, y: 4)
                     }
+                    // IMPORTANT: Add a hidden NavigationLink that becomes active when showRunningView is true.
+                    NavigationLink(
+                        destination: RunningView().environmentObject(programVM),
+                        isActive: $showRunningView
+                    ) {
+                        EmptyView()
+                    }
+                }
                     
                     Spacer(minLength: 30)
                 }

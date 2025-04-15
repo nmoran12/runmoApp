@@ -176,35 +176,50 @@ class NewRunningProgramViewModel: ObservableObject {
     // MARK: - Updating Daily Completion for User Instance
     
     /// Updates a day's completion in the active user instance.
-    @MainActor
-    func markDailyRunCompleted(weekIndex: Int, dayIndex: Int, completed: Bool) async {
-        guard var userProgram = currentUserProgram else {
-            print("MARK COMPLETE ERROR: No active user instance to update.")
-            return
+        /// Updates the DailyPlan for the given date (e.g. today) by marking it as completed (or not)
+        @MainActor
+        func markDailyRunCompleted(for date: Date = Date(), completed: Bool) async {
+            guard var userProgram = currentUserProgram else {
+                print("MARK COMPLETE ERROR: No active user instance to update.")
+                return
+            }
+            
+            // Find the index of the DailyPlan that matches the given date
+            var found = false
+            for (weekIndex, week) in userProgram.weeklyPlan.enumerated() {
+                if let dayIndex = week.dailyPlans.firstIndex(where: { daily in
+                    if let dailyDate = daily.dailyDate {
+                        return Calendar.current.isDate(dailyDate, inSameDayAs: date)
+                    }
+                    return false
+                }) {
+                    // Update that day's completion flag
+                    userProgram.weeklyPlan[weekIndex].dailyPlans[dayIndex].isCompleted = completed
+                    found = true
+                    break
+                }
+            }
+            
+            if !found {
+                print("MARK COMPLETE: No daily plan found for the given date.")
+                return
+            }
+            
+            // Update local state and notify via publisher.
+            self.currentUserProgram = userProgram
+            programUpdated.send()
+            
+            // Overwrite the entire document in Firestore
+            let docRef = db.collection("userRunningPrograms").document(userProgram.id.uuidString)
+            let fullDict = dictionaryFrom(userProgram: userProgram)
+            do {
+                try await docRef.setData(fullDict, merge: false)
+                print("MARK COMPLETE: Updated daily run completion status for date \(date).")
+            } catch {
+                print("MARK COMPLETE ERROR: Failed to update user instance: \(error.localizedDescription)")
+            }
         }
-        guard userProgram.weeklyPlan.indices.contains(weekIndex),
-              userProgram.weeklyPlan[weekIndex].dailyPlans.indices.contains(dayIndex) else {
-            print("MARK COMPLETE ERROR: Invalid week (\(weekIndex)) or day (\(dayIndex)) index in user instance.")
-            return
-        }
-        
-        // Update the local user instance (which should be complete)
-        userProgram.weeklyPlan[weekIndex].dailyPlans[dayIndex].isCompleted = completed
-        self.currentUserProgram = userProgram
-        programUpdated.send()
-        
-        // Instead of updating a single field, update the entire document so it always remains complete.
-        let docRef = db.collection("userRunningPrograms").document(userProgram.id.uuidString)
-        
-        let fullDict = dictionaryFrom(userProgram: userProgram)
-        print("MARK COMPLETE: Overwriting user instance doc '\(userProgram.id.uuidString)' with full data: \(fullDict)")
-        do {
-            try await docRef.setData(fullDict, merge: false)
-            print("MARK COMPLETE: User instance updated successfully.")
-        } catch let updateError {
-            print("MARK COMPLETE ERROR: User instance update failed: \(updateError.localizedDescription)")
-        }
-    }
+
     
     
 
@@ -371,6 +386,55 @@ func seedAllRunningProgramTemplates() async {
     }
 }
 
+extension NewRunningProgramViewModel {
+    @MainActor
+    func resetUserProgram(using template: NewRunningProgram, username: String) async {
+        // If there is an active program, delete it first.
+        var existingId: UUID? = nil
+        if let existingProgram = currentUserProgram {
+            existingId = existingProgram.id
+            let docId = existingProgram.id.uuidString
+            print("Reset: Deleting existing user program with id: \(docId)...")
+            let docRef = db.collection("userRunningPrograms").document(docId)
+            do {
+                try await docRef.delete()
+                print("Reset: Successfully deleted user program with id: \(docId)")
+            } catch {
+                print("Reset: Error deleting user program: \(error.localizedDescription)")
+                self.error = error
+                // Optionally, you might want to return here if deletion is critical.
+            }
+            // Clear local state.
+            self.currentUserProgram = nil
+            self.currentProgram = nil
+            self.hasActiveProgram = false
+            
+            // Wait briefly to ensure deletion is fully propagated.
+            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 second delay
+        } else {
+            print("Reset: No active user program found; nothing to delete.")
+        }
+        
+        // Create a new user program instance using the same document ID (if one was deleted)
+        let newProgram = UserRunningProgram(from: template, username: username, existingId: existingId)
+        let newData = dictionaryFrom(userProgram: newProgram)
+        let newDocId = newProgram.id.uuidString
+        let newDocRef = db.collection("userRunningPrograms").document(newDocId)
+        
+        do {
+            try await newDocRef.setData(newData, merge: false)
+            print("Reset: New user program written with id: \(newDocId)")
+            self.currentUserProgram = newProgram
+        } catch {
+            print("Reset: Error creating new user program: \(error.localizedDescription)")
+            self.error = error
+        }
+        
+        print("Reset: User program has been reset using the updated template.")
+    }
+}
+
+
 
 @MainActor
 func updateTemplate(_ template: NewRunningProgram) async throws {
@@ -503,8 +567,7 @@ extension NewRunningProgramViewModel {
             let targetDistance = currentDailyTargetDistance
             if runDistance >= targetDistance {
                 await markDailyRunCompleted(
-                    weekIndex: indices.weekIndex,
-                    dayIndex: indices.dayIndex,
+                    for: Date(),
                     completed: true
                 )
                 print("AutoMark: Today’s run marked as completed (runDistance: \(runDistance) km, target: \(targetDistance) km).")
@@ -579,7 +642,7 @@ extension NewRunningProgramViewModel {
             // Compare and mark the day as completed if the run's distance meets or exceeds the target.
             if runDistanceKm >= targetDistance {
                 if let indices = getTodaysDailyPlanIndices() {
-                    await markDailyRunCompleted(weekIndex: indices.weekIndex, dayIndex: indices.dayIndex, completed: true)
+                    await markDailyRunCompleted(for: Date(), completed: true)
                     print("checkMostRecentRunCompletion: Today's daily run marked as completed.")
                 } else {
                     print("checkMostRecentRunCompletion: Today's daily plan indices were not found.")

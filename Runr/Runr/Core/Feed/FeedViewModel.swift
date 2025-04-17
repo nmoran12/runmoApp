@@ -19,15 +19,14 @@ class FeedViewModel: ObservableObject {
     @Published var isFetching = false
     @Published var noMorePosts = false
 
-    // Optional footwear filter.
+    // If non-nil, we are filtering by footwear; this branch fetches the current user's runs.
+    // When nil, we fetch the feed of posts from users that the current user follows.
     let footwear: String?
 
-    // Initialize with an optional footwear filter.
     init(footwear: String? = nil) {
         self.footwear = footwear
     }
 
-    // Fetch posts or, if filtering by footwear, fetch runs from the user's runs subcollection.
     func fetchPosts(initial: Bool = false) async {
         guard !isFetching else { return }
         isFetching = true
@@ -38,14 +37,15 @@ class FeedViewModel: ObservableObject {
             posts = []
         }
         
-        // If we have a footwear filter, query the runs subcollection.
+        // --------- Branch 1: Filter by Footwear for Current User's Runs ---------
         if let footwear = footwear {
+            // Ensure we have the current user's UID.
             guard let userId = AuthService.shared.userSession?.uid else {
                 isFetching = false
                 return
             }
             
-            // Query the "runs" subcollection for runs with the given footwear.
+            // Query the "runs" subcollection for runs that have the specific footwear.
             var query: Query = Firestore.firestore()
                 .collection("users")
                 .document(userId)
@@ -54,7 +54,6 @@ class FeedViewModel: ObservableObject {
                 .order(by: "timestamp", descending: true)
                 .limit(to: 10)
             
-            // Use lastDocument for pagination, if available.
             if !initial, let lastDoc = lastDocument {
                 query = query.start(afterDocument: lastDoc)
             }
@@ -69,15 +68,17 @@ class FeedViewModel: ObservableObject {
                 lastDocument = runsSnapshot.documents.last
                 
                 var fetchedPosts: [Post] = []
+                // Convert each run document into a Post object.
                 for runDoc in runsSnapshot.documents {
                     let data = runDoc.data()
                     
-                    // Use the run document's ID as the Post id.
+                    // Use the run document's ID as the post ID.
                     let postId = runDoc.documentID
-                    // Extract common run data.
                     let timestamp = (data["timestamp"] as? Timestamp)?.dateValue() ?? Date()
                     let distance = data["distance"] as? Double ?? 0.0
                     let elapsedTime = data["elapsedTime"] as? Double ?? 0.0
+                    
+                    // Convert the coordinates array.
                     let routeCoordinatesArray = data["routeCoordinates"] as? [[String: Any]] ?? []
                     let routeCoordinates = routeCoordinatesArray.compactMap { dict -> CLLocationCoordinate2D? in
                         guard let lat = dict["latitude"] as? Double,
@@ -93,12 +94,11 @@ class FeedViewModel: ObservableObject {
                         routeCoordinates: routeCoordinates
                     )
                     
-                    // Build a Post object. We assume these runs are your own,
-                    // so ownerUid is the current user and caption, likes, etc., can be defaulted.
+                    // Since these are current user's runs, you can set the post's owner information accordingly.
                     let post = Post(
                         id: postId,
                         ownerUid: userId,
-                        caption: "", // No caption by default.
+                        caption: "",
                         likes: 0,
                         imageUrl: "",
                         timestamp: timestamp,
@@ -123,16 +123,33 @@ class FeedViewModel: ObservableObject {
             return
         }
         
-        // Otherwise (if no footwear filter provided), query the posts collection as before.
-        var query: Query = Firestore.firestore().collection("posts")
-            .order(by: "timestamp", descending: true)
-            .limit(to: 10)
-        
-        if !initial, let lastDoc = lastDocument {
-            query = query.start(afterDocument: lastDoc)
-        }
-        
+        // --------- Branch 2: Filter Feed by Followed Users ---------
+        // Instead of referencing a non-existent 'following' property on the user,
+        // we fetch the list of followed IDs from Firestore each time:
         do {
+            let followedIds = try await AuthService.shared.fetchFollowingList()
+            
+            // If the current user isn't following anyone, display an empty feed.
+            guard !followedIds.isEmpty else {
+                DispatchQueue.main.async {
+                    self.posts = []
+                    self.noMorePosts = true
+                }
+                isFetching = false
+                return
+            }
+            
+            // IMPORTANT: Firestore’s "in" operator only supports up to 10 values.
+            // If the current user follows more than 10 people, you'll need to split the array into batches.
+            var query: Query = Firestore.firestore().collection("posts")
+                .whereField("ownerUid", in: followedIds)
+                .order(by: "timestamp", descending: true)
+                .limit(to: 10)
+            
+            if !initial, let lastDoc = lastDocument {
+                query = query.start(afterDocument: lastDoc)
+            }
+            
             let postsSnapshot = try await query.getDocuments()
             if postsSnapshot.documents.isEmpty {
                 noMorePosts = true
@@ -142,6 +159,7 @@ class FeedViewModel: ObservableObject {
             
             lastDocument = postsSnapshot.documents.last
             var fetchedPosts: [Post] = []
+            
             for postDoc in postsSnapshot.documents {
                 let postData = postDoc.data()
                 guard
@@ -156,7 +174,7 @@ class FeedViewModel: ObservableObject {
                     continue
                 }
                 
-                // Fetch run data (if needed) from the corresponding run document.
+                // Fetch associated run data from the posted run.
                 let userRef = Firestore.firestore().collection("users").document(userId)
                 let runRef = userRef.collection("runs").document(runId)
                 let runSnapshot = try? await runRef.getDocument()
@@ -171,9 +189,8 @@ class FeedViewModel: ObservableObject {
                 }
                 
                 let routeCoordinates = routeCoordinatesArray.compactMap { dict -> CLLocationCoordinate2D? in
-                    guard
-                        let lat = dict["latitude"] as? Double,
-                        let lon = dict["longitude"] as? Double
+                    guard let lat = dict["latitude"] as? Double,
+                          let lon = dict["longitude"] as? Double
                     else { return nil }
                     return CLLocationCoordinate2D(latitude: lat, longitude: lon)
                 }
@@ -195,7 +212,6 @@ class FeedViewModel: ObservableObject {
                     user: User(id: userId, username: username, email: ""),
                     runData: run
                 )
-                
                 fetchedPosts.append(post)
             }
             
@@ -207,7 +223,7 @@ class FeedViewModel: ObservableObject {
                 }
             }
         } catch {
-            print("DEBUG: Failed to fetch posts with error \(error.localizedDescription)")
+            print("DEBUG: Failed to fetch feed posts with error \(error.localizedDescription)")
         }
         
         isFetching = false

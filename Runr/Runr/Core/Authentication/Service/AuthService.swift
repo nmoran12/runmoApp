@@ -197,6 +197,35 @@ class AuthService: ObservableObject {
         return runs
     }
 
+    /// Fetches the current user's runs in paginated batches.
+        /// - Parameters:
+        ///   - lastDocument: The last DocumentSnapshot from the previous batch (or nil for the first batch)
+        ///   - limit: The number of runs to fetch (default 7)
+        /// - Returns: A tuple containing the fetched runs and the last document (if any)
+        func fetchUserRunsPaginated(lastDocument: DocumentSnapshot? = nil, limit: Int = 7) async throws -> ([RunData], DocumentSnapshot?) {
+            guard let uid = Auth.auth().currentUser?.uid else { return ([], nil) }
+            var query: Query = Firestore.firestore()
+                .collection("users")
+                .document(uid)
+                .collection("runs")
+                .order(by: "date", descending: true)
+                .limit(to: limit)
+            
+            if let lastDoc = lastDocument {
+                query = query.start(afterDocument: lastDoc)
+            }
+            
+            let snapshot = try await query.getDocuments()
+            let runs = snapshot.documents.compactMap { doc -> RunData? in
+                do {
+                    return try doc.data(as: RunData.self)
+                } catch {
+                    print("DEBUG: Failed to decode run data with error \(error.localizedDescription)")
+                    return nil
+                }
+            }
+            return (runs, snapshot.documents.last)
+        }
 
     
     
@@ -267,5 +296,26 @@ extension AuthService {
             print("DEBUG: Error fetching download URL for \(storagePath): \(error.localizedDescription)")
             throw error
         }
+    }
+    
+    // this fetches the list of users that the current user follows
+    func fetchFollowingList() async throws -> [String] {
+        guard let currentUserId = Auth.auth().currentUser?.uid else {
+            return []
+        }
+        
+        let doc = try await Firestore.firestore()
+            .collection("users")
+            .document(currentUserId)
+            .getDocument()
+        
+        guard let data = doc.data() else {
+            return []
+        }
+        
+        // "following" is the array field in the user document.
+        // Change the string "following" if your Firestore field is named differently.
+        let followingList = data["following"] as? [String] ?? []
+        return followingList
     }
 }

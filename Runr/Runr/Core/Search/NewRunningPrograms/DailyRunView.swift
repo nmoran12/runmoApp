@@ -158,7 +158,8 @@ struct DailyRunView: View {
                     }
                     // IMPORTANT: Add a hidden NavigationLink that becomes active when showRunningView is true.
                     NavigationLink(
-                        destination: RunningView().environmentObject(programVM),
+                        destination: RunningView(targetDistance: daily.dailyDistance)
+                                        .environmentObject(programVM),
                         isActive: $showRunningView
                     ) {
                         EmptyView()

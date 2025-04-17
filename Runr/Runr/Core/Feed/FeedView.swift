@@ -44,7 +44,10 @@ struct FeedView: View {
                     }
             )
             .onAppear {
-                Task { await viewModel.fetchPosts(initial: true) }
+                // Only fetch posts if there are none in the cache.
+                    if viewModel.posts.isEmpty {
+                        Task { await viewModel.fetchPosts(initial: true) }
+                    }
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

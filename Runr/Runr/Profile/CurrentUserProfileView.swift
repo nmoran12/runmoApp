@@ -16,7 +16,11 @@ struct CurrentUserProfileView: View {
     @State private var totalTime: Double?
     @State private var averagePace: Double?
     @State private var showMenu = false
-    @State private var displayedRunsCount = 5
+    
+    // Pagination state variables
+    @State private var lastRunDocument: DocumentSnapshot? = nil
+    @State private var loadingMore: Bool = false
+    @State private var reachedEnd: Bool = false
     
     // Image Selection States
     @State private var selectedImage: UIImage?
@@ -32,7 +36,6 @@ struct CurrentUserProfileView: View {
     @State private var showCalendarView = false
     
     @State private var showTargetRaceTimeUpdate: Bool = false
-
 
     var body: some View {
         NavigationStack {
@@ -54,7 +57,6 @@ struct CurrentUserProfileView: View {
                     Button("Update Target Race Time") {
                         showTargetRaceTimeUpdate.toggle()
                     }
-
                     Button("Calendar") {
                         showCalendarView = true
                     }
@@ -76,7 +78,6 @@ struct CurrentUserProfileView: View {
                 .sheet(isPresented: $showCalendarView) {
                     CalendarView(runs: runs)
                 }
-
                 .sheet(isPresented: $showPrivacyPolicy) {
                     NavigationStack {
                         PrivacyPolicyView()
@@ -111,11 +112,10 @@ struct CurrentUserProfileView: View {
                         }
                     )
                 }
-            
                 .sheet(isPresented: $showTargetRaceTimeUpdate) {
-                    NavigationStack { // Wrap in a NavigationStack if you wish to keep a title bar, etc.
+                    NavigationStack {
                         TargetRaceTimeInputView()
-                            .environmentObject(NewRunningProgramViewModel()) // You may wish to use the same instance already injected in the app.
+                            .environmentObject(NewRunningProgramViewModel())
                             .navigationTitle("Update Target Race Time")
                     }
                 }
@@ -127,8 +127,8 @@ struct CurrentUserProfileView: View {
                 }
         }
     }
-
-    // MARK: - MAIN CONTENT (Extracted from body)
+    
+    // MARK: - MAIN CONTENT
     private var mainContent: some View {
         ScrollView {
             if let user = user {
@@ -143,29 +143,35 @@ struct CurrentUserProfileView: View {
                         isImagePickerPresented = true
                     }
                 )
-
                 if runs.isEmpty {
                     Text("No runs yet")
                         .font(.footnote)
                         .foregroundColor(.secondary)
                 } else {
-                    ForEach(runs.prefix(displayedRunsCount)) { run in
-                        RunCell(
-                            run: run,
-                            user: user,
-                            isFirst: rankChecker.isFirst,
-                            isCurrentUser: Auth.auth().currentUser?.uid == user.id
-                        )
-                        // When the last run appears, check if there are more to load and then increase the count.
-                        .onAppear {
-                            if run == runs.prefix(displayedRunsCount).last && displayedRunsCount < runs.count {
-                                // Increase by 5 or any other desired increment
-                                displayedRunsCount += 5
+                    // Use LazyVStack for efficient rendering of many cells.
+                    LazyVStack {
+                        ForEach(runs) { run in
+                            RunCell(
+                                run: run,
+                                user: user,
+                                isFirst: rankChecker.isFirst,
+                                isCurrentUser: Auth.auth().currentUser?.uid == user.id
+                            )
+                            .onAppear {
+                                // When the last run is about to appear, trigger loading more runs.
+                                if run == runs.last && !reachedEnd {
+                                    Task {
+                                        await loadMoreRuns()
+                                    }
+                                }
                             }
+                        }
+                        if loadingMore {
+                            ProgressView("Loading more runs...")
+                                .padding()
                         }
                     }
                 }
-                
             } else {
                 ProgressView("Loading profile...")
             }
@@ -180,7 +186,6 @@ struct CurrentUserProfileView: View {
     
     private func updateBio() {
         guard let userId = user?.id else { return }
-        
         Firestore.firestore().collection("users").document(userId)
             .updateData(["bio": newBio]) { error in
                 if let error = error {
@@ -203,18 +208,39 @@ struct CurrentUserProfileView: View {
                 self.totalTime = currentUser.totalTime
                 self.averagePace = currentUser.averagePace
                 
-                self.runs = try await AuthService.shared.fetchUserRuns()
-                self.runs.sort { $0.date > $1.date }
+                // Load the first page (7 runs) using the paginated method.
+                let (fetchedRuns, lastDoc) = try await AuthService.shared.fetchUserRunsPaginated(lastDocument: nil, limit: 7)
+                self.runs = fetchedRuns.sorted { $0.date > $1.date }
+                self.lastRunDocument = lastDoc
+                if fetchedRuns.count < 7 {
+                    reachedEnd = true
+                }
             }
         } catch {
             print("DEBUG: Failed to load profile data with error \(error.localizedDescription)")
         }
     }
     
+    private func loadMoreRuns() async {
+        guard !loadingMore, !reachedEnd, let lastRunDoc = lastRunDocument else { return }
+        loadingMore = true
+        do {
+            let (moreRuns, newLastDoc) = try await AuthService.shared.fetchUserRunsPaginated(lastDocument: lastRunDoc, limit: 7)
+            let sortedNewRuns = moreRuns.sorted { $0.date > $1.date }
+            self.runs.append(contentsOf: sortedNewRuns)
+            self.lastRunDocument = newLastDoc
+            if moreRuns.count < 7 {
+                reachedEnd = true
+            }
+        } catch {
+            print("DEBUG: Failed to load more runs with error \(error.localizedDescription)")
+        }
+        loadingMore = false
+    }
+    
     private func handleProfileImageUpload(_ image: UIImage? = nil) async {
         let imageToUpload = image ?? selectedImage
         guard let imageToUpload else { return }
-        
         do {
             let imageUrl = try await AuthService.shared.uploadProfileImage(imageToUpload)
             await MainActor.run {
@@ -234,4 +260,3 @@ struct CurrentUserProfileView: View {
 #Preview {
     CurrentUserProfileView()
 }
-

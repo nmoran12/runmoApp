@@ -9,35 +9,39 @@ import SwiftUI
 
 struct MarathonCardView: View {
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.gray.opacity(0.2))
-                .shadow(radius: 4)
-            HStack {
-                Image(systemName: "figure.run")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 60, height: 60)
-                    .padding()
+        ZStack(alignment: .bottomLeading) {
+            Image("marathon-image")
+                .resizable()
+                .scaledToFill()
+                .overlay(Color.black.opacity(0.3))
+                .clipped()
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Personalise it for you")
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.8))
                 Text("Marathon Running Program")
                     .font(.headline)
-                    .padding()
-                Spacer()
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
             }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 12)
         }
-        .frame(height: 100)
+        // Maintain a height = width * 0.45
+        .aspectRatio(1 / 0.45, contentMode: .fit)
         .frame(maxWidth: .infinity)
-        // Add an invisible background to force hit-testing:
-        .background(Color.clear)
-        // This ensures the entire area is tappable:
-        .contentShape(Rectangle())
+        .cornerRadius(12)
+        .shadow(color: Color.black.opacity(0.2), radius: 8, x: 0, y: 4)
     }
 }
+
 
 struct MarathonCardView_Previews: PreviewProvider {
     static var previews: some View {
         MarathonCardView()
             .padding()
             .previewLayout(.sizeThatFits)
+            .background(Color(.systemBackground))
     }
 }

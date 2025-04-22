@@ -10,24 +10,34 @@ import SwiftUI
 struct NewRunningProgramSelectionView: View {
     var body: some View {
         VStack(spacing: 24) {
-            // Wrap the MarathonCardView in a NavigationLink for direct navigation.
             NavigationLink(
                 destination: RunnerExperienceSelectionView()
-                                .environmentObject(NewRunningProgramViewModel())
+                    .environmentObject(NewRunningProgramViewModel())
             ) {
                 MarathonCardView()
                     .frame(maxWidth: .infinity)
             }
+
+            Spacer()
         }
         .padding()
-        .navigationTitle("Choose a Running Program")
+        .frame(maxHeight: .infinity, alignment: .top)
+        //.navigationTitle("Running Programs")
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Text("Start a Program")
+                    .font(.system(size: 20, weight: .semibold))
+            }
+        }
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
     }
-}
 
-struct NewRunningProgramSelectionView_Previews: PreviewProvider {
-    static var previews: some View {
-        NavigationView {
-            NewRunningProgramSelectionView()
+    
+    struct NewRunningProgramSelectionView_Previews: PreviewProvider {
+        static var previews: some View {
+            NavigationView {
+                NewRunningProgramSelectionView()
+            }
         }
     }
 }

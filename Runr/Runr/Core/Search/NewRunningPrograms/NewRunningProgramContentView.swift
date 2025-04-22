@@ -26,18 +26,12 @@ struct NewRunningProgramContentView: View {
             ScrollView {
                 VStack(spacing: 0) {
                     
-                    // Use displayedProgram instead of plan
+                    // Displaying running program overview card
                     NewRunningProgramCardView(program: displayedProgram)
                         .padding(.horizontal)
                         .padding(.bottom)
                     
-                    // For a marathon target, for example, insert the estimated time view here:
-                   // EstimatedRunTimeView(targetDistance: 42.2)
-                          //  .padding(.horizontal)
-                          //  .padding(.bottom)
-                    
-                    Spacer()
-                    Spacer()
+                    //Spacer()
                     
                     ZStack(alignment: .leading) {
                         Text("Todays Run")
@@ -45,12 +39,12 @@ struct NewRunningProgramContentView: View {
                             .bold()
                             .padding(.bottom, 16)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading) // This forces the container to use full width.
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal)
                     
                     // Current Day Plan View
                     ShowCurrentDayPlanView()
-                        .environmentObject(viewModel) // Ensure the view model is passed properly.
+                        .environmentObject(viewModel)
                         .padding(.horizontal)
                         .padding(.bottom, 32)
                     
@@ -60,14 +54,11 @@ struct NewRunningProgramContentView: View {
                             .bold()
                             .padding(.bottom, 16)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading) // This forces the container to use full width.
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal)
 
                     
-                    // Determine which weekly plan to display:
-                    // If there's an active user program, use its weeklyPlan; otherwise, use the template.
-                    // new might have to remove
-                    // For weekly plans, merge the updated user data with the template's weekly plans:
+                    // Displaying weekly plans
                                         let displayedWeeklyPlan = mergeWeeklyPlans(
                                             template: displayedProgram.weeklyPlan,
                                             user: viewModel.currentUserProgram?.weeklyPlan
@@ -98,7 +89,6 @@ struct NewRunningProgramContentView: View {
                             }
                             .padding()
                     
-                    // NEW: Update Intermediate Marathon Template Button
                     Button("Update Intermediate Marathon Template") {
                         Task {
                             await IntermediateTemplates.updateIntermediateMarathonTemplate(using: intermediateProgram)
@@ -123,7 +113,6 @@ struct NewRunningProgramContentView: View {
                     Button("Seed Running Program Template") {
                         Task {
                             do {
-                                // Use your sample program or a specific template you want to seed.
                                 try await seedAllRunningProgramTemplates()
                             } catch {
                                 print("Error seeding template: \(error.localizedDescription)")
@@ -133,42 +122,42 @@ struct NewRunningProgramContentView: View {
 
                     
                     // Display a message if an active program is found.
-                                        if viewModel.hasActiveProgram {
-                                            Text("You already have an active running program.")
-                                                .foregroundColor(.red)
-                                                .padding()
-                                        }
-                                        
-                                        // The "Start Program" button now creates a user instance.
-                                        Button(action: {
-                                            Task {
-                                                // Retrieve the user's username from AuthService.
-                                                let currentUsername = AuthService.shared.currentUser?.username ?? "UnknownUser"
-                                                
-                                                // Before starting, check if the user already has an active program.
-                                                await viewModel.checkActiveUserProgram(for: currentUsername)
-                                                
-                                                // Only start a new program if none is active.
-                                                if !viewModel.hasActiveProgram {
-                                                    await viewModel.startUserRunningProgram(from: plan, username: currentUsername)
-                                                    // After creating a user instance, update the check.
-                                                    await viewModel.checkActiveUserProgram(for: currentUsername)
-                                                }
-                                            }
-                                        }) {
-                                            Text("Start Program")
-                                                .padding()
-                                                .frame(maxWidth: .infinity)
-                                                .background(viewModel.hasActiveProgram ? Color.gray : Color.green)
-                                                .foregroundColor(.white)
-                                                .cornerRadius(10)
-                                        }
-                                        // Disable the button if an active program exists.
-                                        .disabled(viewModel.hasActiveProgram)
-                                        .padding()
-                                    }
-                                }
+                    if viewModel.hasActiveProgram {
+                        Text("You already have an active running program.")
+                            .foregroundColor(.red)
+                            .padding()
+                    }
+                    
+                    // The "Start Program" button now creates a user instance.
+                    Button(action: {
+                        Task {
+                            // Retrieve the user's username from AuthService.
+                            let currentUsername = AuthService.shared.currentUser?.username ?? "UnknownUser"
+                            
+                            // Before starting, check if the user already has an active program.
+                            await viewModel.checkActiveUserProgram(for: currentUsername)
+                            
+                            // Only start a new program if none is active.
+                            if !viewModel.hasActiveProgram {
+                                await viewModel.startUserRunningProgram(from: plan, username: currentUsername)
+                                // After creating a user instance, update the check.
+                                await viewModel.checkActiveUserProgram(for: currentUsername)
                             }
+                        }
+                    }) {
+                        Text("Start Program")
+                            .padding()
+                            .frame(maxWidth: .infinity)
+                            .background(viewModel.hasActiveProgram ? Color.gray : Color.green)
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
+                    }
+                    // Disable the button if an active program exists.
+                    .disabled(viewModel.hasActiveProgram)
+                    .padding()
+                }
+            }
+        }
         .navigationTitle(plan.title)
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
@@ -191,11 +180,10 @@ struct NewRunningProgramContentView: View {
 
 // MARK: - Update Intermediate Marathon Template Function
 
-/// Creates and updates the Intermediate Marathon Running Program based on a sample template structure.
-/// The intermediate program uses similar structure as the sample but with updated values.
+// Creates and updates the Intermediate Marathon Running Program based on a sample template structure.
+// The intermediate program uses similar structure as the sample but with updated values.
 @MainActor
 func updateIntermediateMarathonTemplate() async {
-    // Define the intermediate program using values specific to intermediate runners.
     let intermediateProgram = NewRunningProgram(
         id: UUID(),
         title: "Intermediate Marathon Running Program",

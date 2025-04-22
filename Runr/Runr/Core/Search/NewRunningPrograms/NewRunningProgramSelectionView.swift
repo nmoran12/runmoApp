@@ -8,11 +8,14 @@
 import SwiftUI
 
 struct NewRunningProgramSelectionView: View {
+    @EnvironmentObject var viewModel: NewRunningProgramViewModel
+    @EnvironmentObject var onboardingData: OnboardingData
+
     var body: some View {
         VStack(spacing: 24) {
             NavigationLink(
+                // RunnerExperienceSelectionView will automatically see both env‑objects
                 destination: RunnerExperienceSelectionView()
-                    .environmentObject(NewRunningProgramViewModel())
             ) {
                 MarathonCardView()
                     .frame(maxWidth: .infinity)
@@ -22,7 +25,6 @@ struct NewRunningProgramSelectionView: View {
         }
         .padding()
         .frame(maxHeight: .infinity, alignment: .top)
-        //.navigationTitle("Running Programs")
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Text("Start a Program")
@@ -31,13 +33,15 @@ struct NewRunningProgramSelectionView: View {
         }
         .background(Color(.systemGroupedBackground).ignoresSafeArea())
     }
+}
 
-    
-    struct NewRunningProgramSelectionView_Previews: PreviewProvider {
-        static var previews: some View {
-            NavigationView {
-                NewRunningProgramSelectionView()
-            }
+struct NewRunningProgramSelectionView_Previews: PreviewProvider {
+    static var previews: some View {
+        NavigationView {
+            NewRunningProgramSelectionView()
+                // ← Inject both env‑objects for the preview
+                .environmentObject(NewRunningProgramViewModel())
+                .environmentObject(OnboardingData())
         }
     }
 }

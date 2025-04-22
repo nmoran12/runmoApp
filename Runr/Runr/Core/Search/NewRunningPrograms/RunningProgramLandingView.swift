@@ -9,6 +9,7 @@ import SwiftUI
 
 struct RunningProgramLandingView: View {
     @StateObject var viewModel = NewRunningProgramViewModel()
+    @StateObject private var onboardingData = OnboardingData()    // ← Add this
     // Retrieve the current user's username from your auth service.
     var currentUsername: String = AuthService.shared.currentUser?.username ?? "UnknownUser"
     
@@ -40,6 +41,7 @@ struct RunningProgramLandingView: View {
                 NavigationStack{
                     NewRunningProgramSelectionView()
                         .environmentObject(viewModel)
+                        .environmentObject(onboardingData)   // ← Pass OnboardingData down
                 }
             }
         }

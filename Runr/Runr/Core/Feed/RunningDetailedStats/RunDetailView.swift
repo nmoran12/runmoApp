@@ -346,7 +346,7 @@ struct RunDetailView: View {
                             .padding()
                             .background(Color.white)
                             .cornerRadius(10)
-                            .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
+                            .shadow(color: Color.black.opacity(0.20), radius: 8, x: 0, y: 4)
                             .padding(.horizontal)
                             .padding(.top, 16)
                 
@@ -370,7 +370,7 @@ struct RunDetailView: View {
                     .padding()
                     .background(Color.white)
                     .cornerRadius(10)
-                    .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
+                    .shadow(color: Color.black.opacity(0.20), radius: 8, x: 0, y: 4)
                     .padding(.horizontal)
                     .padding(.top, 16)
                 }
@@ -455,7 +455,7 @@ struct RunDetailView: View {
                 .padding()
                 .background(Color.white)
                 .cornerRadius(10)
-                .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
+                .shadow(color: Color.black.opacity(0.20), radius: 8, x: 0, y: 4)
                 .padding(.horizontal)
                 .padding(.top, 16)
 
@@ -474,7 +474,7 @@ struct RunDetailView: View {
                     .padding()
                     .background(Color.white)
                     .cornerRadius(10)
-                    .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
+                    .shadow(color: Color.black.opacity(0.20), radius: 8, x: 0, y: 4)
                     .padding(.horizontal)
                     .padding(.top, 16)
                 }
@@ -486,7 +486,7 @@ struct RunDetailView: View {
                         .padding()
                         .background(Color.white)
                         .cornerRadius(10)
-                        .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
+                        .shadow(color: Color.black.opacity(0.20), radius: 8, x: 0, y: 4)
                         .padding(.horizontal)
                         .padding(.top, 16)
                 }

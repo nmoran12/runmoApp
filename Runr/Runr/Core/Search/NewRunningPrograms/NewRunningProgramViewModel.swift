@@ -26,6 +26,8 @@ class NewRunningProgramViewModel: ObservableObject {
     @Published var hasActiveProgram: Bool = false
     @Published var targetTimeSeconds: Double = 10800  // Default or initial value
     @Published var todaysDailyPlanOverride: DailyPlan? = nil
+    @Published var todaysRunData: RunData?
+    private let runTracker = RunTracker()
     
     let beginnerProgram = BeginnerTemplates.createBeginnerProgram(sampleWeeklyPlans: sampleWeeklyPlans)
     let intermediateProgram = IntermediateTemplates.createIntermediateProgram(allWeeks: allWeeks)
@@ -63,6 +65,18 @@ class NewRunningProgramViewModel: ObservableObject {
             print("Error loading active user program: \(error.localizedDescription)")
         }
     }
+    
+    // gets todays run data and shows it in the completed run view.
+    @MainActor
+      func loadTodaysRunData() async {
+        guard let dailyPlan = getTodaysDailyPlan() else { return }
+          let allRuns = await runTracker.fetchRuns()                  // returns [RunData]
+        // Find most recent run on the same day, distance >= target
+        let matching = allRuns
+          .filter { Calendar.current.isDate($0.date, inSameDayAs: dailyPlan.dailyDate!) }
+          .first { $0.distance / 1_000 >= dailyPlan.dailyDistance }
+        self.todaysRunData = matching
+      }
 
 
     
@@ -450,22 +464,38 @@ func updateTemplate(_ template: NewRunningProgram) async throws {
 
 
 
+/// Merges the user’s completion flags into the template weekly plan by matching each day
 func mergeWeeklyPlans(template: [WeeklyPlan], user: [WeeklyPlan]?) -> [WeeklyPlan] {
-    // If there's no user progress, return the template as is.
     guard let user = user else { return template }
-    
-    // Assume same ordering and count; if not, you might need to merge by unique identifiers.
     var merged = template
-    
-    // Loop through weeks and days to update the completed flag.
+    let calendar = Calendar.current
+
+    // Only iterate weeks you actually have user data for
     for weekIndex in 0..<min(template.count, user.count) {
-        for dayIndex in 0..<min(template[weekIndex].dailyPlans.count, user[weekIndex].dailyPlans.count) {
-            // Use the user instance value
-            merged[weekIndex].dailyPlans[dayIndex].isCompleted = user[weekIndex].dailyPlans[dayIndex].isCompleted
+        let userWeek = user[weekIndex]
+        // For each day in the template, find the corresponding user day
+        for tDayIndex in 0..<merged[weekIndex].dailyPlans.count {
+            let tDay = merged[weekIndex].dailyPlans[tDayIndex]
+            
+            // First try to match by exact date (if both have dailyDate)
+            if let tDate = tDay.dailyDate,
+               let uMatch = userWeek.dailyPlans.first(where: {
+                   guard let uDate = $0.dailyDate else { return false }
+                   return calendar.isDate(uDate, inSameDayAs: tDate)
+               }) {
+                merged[weekIndex].dailyPlans[tDayIndex].isCompleted = uMatch.isCompleted
+            
+            // Fallback: match by the day name ("Monday", "Tuesday", etc.)
+            } else if let uMatch = userWeek.dailyPlans.first(where: {
+                $0.day.caseInsensitiveCompare(tDay.day) == .orderedSame
+            }) {
+                merged[weekIndex].dailyPlans[tDayIndex].isCompleted = uMatch.isCompleted
+            }
         }
     }
     return merged
 }
+
 
 func dictionaryFrom(day: DailyPlan) -> [String: Any] {
     return [

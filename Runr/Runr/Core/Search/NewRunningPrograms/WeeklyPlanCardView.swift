@@ -13,14 +13,14 @@ struct WeeklyPlanCardView: View {
     @EnvironmentObject var viewModel: NewRunningProgramViewModel
 
     // Helper: Determine if the given week is the current week based on the program's start date.
+    // Returns true if this card’s weekIndex matches today’s scheduled week.
     private func isCurrentWeek() -> Bool {
-        guard let startDate = viewModel.currentUserProgram?.startDate else { return false }
-        let calendar = Calendar.current
-        // Calculate the number of weeks since the program started.
-        let diff = calendar.dateComponents([.weekOfYear], from: startDate, to: Date())
-        let currentWeekIndex = diff.weekOfYear ?? 0
-        return currentWeekIndex == weekIndex
+        guard let todayWeek = viewModel.getTodaysDailyPlanIndices()?.weekIndex else {
+            return false
+        }
+        return todayWeek == weekIndex
     }
+
     
     // Helper: Determine if a given daily plan is scheduled for today and is in the current week.
     private func isTodayInCurrentWeek(_ dayPlan: DailyPlan) -> Bool {

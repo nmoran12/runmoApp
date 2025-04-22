@@ -97,7 +97,7 @@ struct TrainingEffectCard: View {
         .background(
             RoundedRectangle(cornerRadius: 16)
                 .fill(Color(.secondarySystemGroupedBackground))
-                .shadow(radius: 4, x: 0, y: 2)
+                .shadow(color: Color.black.opacity(0.20), radius: 8, x: 0, y: 4)
         )
         .padding([.horizontal, .top])
     }

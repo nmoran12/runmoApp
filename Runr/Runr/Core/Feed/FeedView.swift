@@ -1,76 +1,114 @@
 //
 //  FeedView.swift
-//  Runr
+//  Runmo
 //
 //  Created by Noah Moran on 6/1/2025.
+//
 //
 
 import SwiftUI
 
 @MainActor
 struct FeedView: View {
-    @StateObject var viewModel = FeedViewModel()
+    @StateObject private var viewModel: FeedViewModel
     @State private var navigateToMessages = false
-    
-    // Remove the default argument so the initializer requires an explicit FeedViewModel.
-        init(viewModel: FeedViewModel) {
-            _viewModel = StateObject(wrappedValue: viewModel)
-        }
-    
+
+    // search toggle + VM
+    @State private var isSearchActive = false
+    @StateObject private var searchVM = ExploreViewModel()
+    @Namespace    private var searchAnim
+
+    init(viewModel: FeedViewModel? = nil) {
+        _viewModel = StateObject(wrappedValue: viewModel ?? FeedViewModel())
+    }
+
     var body: some View {
         NavigationStack {
             ZStack {
-                ScrollView {
-                    PostListView(
-                        posts: viewModel.posts,
-                        isFetching: viewModel.isFetching,
-                        noMorePosts: viewModel.noMorePosts
-                    ) {
-                        Task { await viewModel.fetchPosts() }
-                    }
-                    .padding(.top, 8)
-                }
-                
-                NavigationLink(destination: MessagesView(), isActive: $navigateToMessages) {
-                    EmptyView()
-                }
-            }
-            .gesture(
-                DragGesture(minimumDistance: 20)
-                    .onEnded { value in
-                        if value.translation.width > 100 && abs(value.translation.height) < 50 {
-                            navigateToMessages = true
+                if isSearchActive {
+                    UserSearchListView(viewModel: searchVM)
+                } else {
+                    ScrollView {
+                        PostListView(
+                            posts: viewModel.posts,
+                            isFetching: viewModel.isFetching,
+                            noMorePosts: viewModel.noMorePosts
+                        ) {
+                            Task { await viewModel.fetchPosts() }
                         }
+                        .padding(.top, 8)
                     }
-            )
+                }
+
+                NavigationLink(destination: MessagesView(),
+                               isActive: $navigateToMessages) { EmptyView() }
+            }
+            .gesture(DragGesture(minimumDistance: 20).onEnded {
+                if $0.translation.width > 100 && abs($0.translation.height) < 50 {
+                    navigateToMessages = true
+                }
+            })
             .onAppear {
-                // Only fetch posts if there are none in the cache.
-                    if viewModel.posts.isEmpty {
-                        Task { await viewModel.fetchPosts(initial: true) }
-                    }
+                if viewModel.posts.isEmpty {
+                    Task { await viewModel.fetchPosts(initial: true) }
+                }
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+                // Always show the Runmo title
+                ToolbarItem(placement: .navigationBarLeading) {
                     Text("Runmo")
                         .fontWeight(.semibold)
                         .font(.system(size: 20))
-                        .foregroundColor(.primary)
                 }
-                
-                // <-- Replace your single ToolbarItem with this group:
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    // Search icon
-                    NavigationLink(destination: RunrSearchView()) {
-                        Image(systemName: "magnifyingglass")
-                            .imageScale(.large)
-                            .foregroundColor(.primary)
-                    }
-                    // Messages icon
-                    NavigationLink(destination: MessagesView()) {
-                        Image(systemName: "paperplane")
-                            .imageScale(.large)
-                            .foregroundColor(.primary)
+
+                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                    HStack(spacing: 8) {
+                        if isSearchActive {
+                            // Search text field with the search icon on the left and Cancel button on the right
+                            HStack {
+                                Image(systemName: "magnifyingglass")
+                                    .matchedGeometryEffect(id: "searchIcon", in: searchAnim)
+                                TextField("Search users…", text: $searchVM.searchText)
+                                    .disableAutocorrection(true)
+                                    .autocapitalization(.none)
+                                
+                                Button("Cancel") {
+                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                        isSearchActive = false
+                                        searchVM.searchText = ""
+                                    }
+                                }
+                                .foregroundColor(.blue)
+                            }
+                            .padding(.vertical, 6)
+                            .padding(.horizontal, 8)
+                            .background(Color(.systemGray6))
+                            .cornerRadius(16)
+                            .matchedGeometryEffect(id: "searchBar", in: searchAnim)
+                            .transition(.asymmetric(
+                                insertion: .move(edge: .trailing),
+                                removal: .move(edge: .trailing).combined(with: .opacity)
+                            ))
+                        } else {
+                            Spacer()
+                                .frame(width: 0)
+                                .matchedGeometryEffect(id: "searchBar", in: searchAnim)
+                            
+                            Button {
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                    isSearchActive = true
+                                }
+                            } label: {
+                                Image(systemName: "magnifyingglass")
+                                    .matchedGeometryEffect(id: "searchIcon", in: searchAnim)
+                            }
+                        }
+                        
+                        // always show the messages icon
+                        NavigationLink(destination: MessagesView()) {
+                            Image(systemName: "paperplane")
+                        }
                     }
                 }
             }
@@ -78,36 +116,32 @@ struct FeedView: View {
     }
 }
 
-
-// This subview handles displaying the list of posts in a LazyVStack
-// and triggers `fetchMoreAction` when the user scrolls to the last post.
+// PostListView unchanged...
 struct PostListView: View {
     let posts: [Post]
     let isFetching: Bool
     let noMorePosts: Bool
     let fetchMoreAction: () -> Void
-    
+
     var body: some View {
         LazyVStack(spacing: 16) {
-            ForEach(posts.indices, id: \.self) { index in
-                NavigationLink(destination: RunDetailView(post: posts[index])) {
-                    FeedCell(post: posts[index])
+            ForEach(posts.indices, id: \.self) { i in
+                NavigationLink(destination: RunDetailView(post: posts[i])) {
+                    FeedCell(post: posts[i])
                 }
-                .buttonStyle(PlainButtonStyle())
+                .buttonStyle(.plain)
                 .onAppear {
-                    // If we're at the last post, and not currently fetching,
-                    // and we still have more posts, fetch more
-                    if index == posts.count - 1, !isFetching, !noMorePosts {
+                    if i == posts.count - 1, !isFetching, !noMorePosts {
                         fetchMoreAction()
                     }
                 }
             }
-            // Loading Indicator or "No More Posts"
+
             if isFetching {
-                ProgressView("Loading more posts...")
+                ProgressView("Loading more posts…")
                     .padding(.vertical, 16)
             } else if noMorePosts {
-                Text("No More Posts to Display")
+                Text("Follow some people to see posts!")
                     .font(.footnote)
                     .foregroundColor(.secondary)
                     .padding(.vertical, 16)
@@ -115,11 +149,3 @@ struct PostListView: View {
         }
     }
 }
-
-
-
-
-
-
-
-

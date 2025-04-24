@@ -19,6 +19,11 @@ struct ProfileView: View {
     @State private var isFirst = false
     @StateObject private var rankChecker = UserRankChecker()
     @Environment(\.dismiss) var dismiss
+    
+    // Pagination state
+    @State private var lastRunDocument: DocumentSnapshot? = nil
+    @State private var loadingMore: Bool = false
+    @State private var reachedEnd: Bool = false
 
     // Determine if the profile belongs to the current user.
         private var isCurrentUser: Bool {
@@ -38,33 +43,51 @@ struct ProfileView: View {
     }
 
     var body: some View {
-            VStack(spacing: 0) {
-                if !isCurrentUser {
-                    // Custom header
-                    HStack {
-                        Button { dismiss() } label: {
-                            Image(systemName: "chevron.left")
-                                .foregroundColor(.primary)
-                                .font(.title2)
-                        }
-                        Spacer()
-                        Text(user.username ?? "Profile")
-                            .font(.headline)
-                        Spacer()
-                        Color.clear.frame(width: 44, height: 44)
+        // 1) Build the core VStack once and store in a local constant
+        let layout = VStack(spacing: 0) {
+            if !isCurrentUser {
+                HStack {
+                    Button { dismiss() } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.title2)
+                            .foregroundColor(.primary)
                     }
-                    .padding(.vertical, 10)
-                    .padding(.horizontal)
-                    .background(Color(.systemBackground))
+                    Spacer()
+                    Text(user.username ?? "Profile")
+                        .font(.headline)
+                    Spacer()
+                    Color.clear.frame(width: 44, height: 44)
                 }
-                
-                ScrollView {
-                    mainContent
+                .padding(.vertical, 10)
+                .padding(.horizontal)
+                .background(Color(.systemBackground))
+            }
+
+            ScrollView {
+                mainContent
+            }
+        }
+
+        // 2) For other users, wrap in a ZStack that fills the top safe area
+            return Group {
+                if !isCurrentUser {
+                    ZStack(alignment: .top) {
+                        // fills behind the notch with systemBackground
+                        Color(.systemBackground)
+                            .ignoresSafeArea(edges: .top)
+                        layout
+                    }
+                } else {
+                    layout
                 }
             }
             .navigationBarHidden(true)
             .navigationBarBackButtonHidden(true)
             .toolbar(.hidden, for: .navigationBar)
+            .task {
+                await loadInitialRuns()
+                await rankChecker.checkIfUserIsFirst(userId: user.id)
+            }
         }
     
     @ViewBuilder
@@ -99,24 +122,70 @@ struct ProfileView: View {
                     .font(.footnote)
                     .foregroundColor(.secondary)
             } else {
-                ForEach(runs) { run in
-                    RunCell(
-                        run: run,
-                        user: user,
-                        isFirst: rankChecker.isFirst,
-                        isCurrentUser: Auth.auth().currentUser?.uid == user.id
-                    )
+                LazyVStack(spacing: 12) {
+                    ForEach(runs) { run in
+                        RunCell(
+                            run: run,
+                            user: user,
+                            isFirst: rankChecker.isFirst,
+                            isCurrentUser: isCurrentUser
+                        )
+                        .onAppear {
+                            // only when the very last loaded run scrolls into view...
+                            if run == runs.last, !reachedEnd {
+                                Task { await loadMoreRuns() }
+                            }
+                        }
+                    }
+                    
+                    if loadingMore {
+                        ProgressView("Loading more runs…")
+                            .padding()
+                    }
                 }
-
-            }
-        }
-        .onAppear {
-            Task {
-                await fetchUserRuns()
-                await rankChecker.checkIfUserIsFirst(userId: user.id)
+                
             }
         }
     }
+    
+    private func loadInitialRuns() async {
+            isLoading = true
+            do {
+                let (firstPage, lastDoc) = try await AuthService.shared
+                    .fetchUserRunsPaginated(
+                        for: user.id,
+                        lastDocument: nil,
+                        limit: 7
+                    )
+                runs = firstPage.sorted { $0.date > $1.date }
+                lastRunDocument = lastDoc
+                reachedEnd = firstPage.count < 7
+            } catch {
+                print("DEBUG: Failed to load runs for \(user.id) — \(error)")
+            }
+            isLoading = false
+        }
+
+        private func loadMoreRuns() async {
+            guard !loadingMore, !reachedEnd, let lastDoc = lastRunDocument else { return }
+            loadingMore = true
+            do {
+                let (nextPage, newLast) = try await AuthService.shared
+                    .fetchUserRunsPaginated(
+                        for: user.id,
+                        lastDocument: lastDoc,
+                        limit: 7
+                    )
+                let sorted = nextPage.sorted { $0.date > $1.date }
+                runs.append(contentsOf: sorted)
+                lastRunDocument = newLast
+                if nextPage.count < 7 { reachedEnd = true }
+            } catch {
+                print("DEBUG: Failed to load more runs — \(error)")
+            }
+            loadingMore = false
+        }
+
 
     // MARK: - Fetch user's runs
     private func fetchUserRuns() async {

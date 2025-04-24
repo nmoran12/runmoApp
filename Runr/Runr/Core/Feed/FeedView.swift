@@ -26,7 +26,16 @@ struct FeedView: View {
         NavigationStack {
             ZStack {
                 if isSearchActive {
-                    UserSearchListView(viewModel: searchVM)
+                    VStack(spacing: 0) {
+                        // Empty view to ensure proper spacing below navigation bar
+                        Rectangle()
+                            .fill(Color.clear)
+                            .frame(height: 1)
+                        
+                        // User search results with no spacing
+                        UserSearchListView(viewModel: searchVM)
+                            .padding(.top, 0)
+                    }
                 } else {
                     ScrollView {
                         PostListView(
@@ -112,6 +121,8 @@ struct FeedView: View {
                     }
                 }
             }
+            // This modifier ensures the content extends directly under the navigation bar
+            .ignoresSafeArea(edges: isSearchActive ? .top : [])
         }
     }
 }

@@ -49,12 +49,13 @@ class AuthService: ObservableObject {
             "followers": FieldValue.arrayUnion([currentUserId])
         ])
         
-        // Optionally, update the current user's following list.
+        // This updates the user's following list
         try await currentUserRef.updateData([
             "following": FieldValue.arrayUnion([userId])
         ])
     }
     
+    // This allows a user to unfollow another user
     func unfollowUser(userId: String) async throws {
         guard let currentUserId = Auth.auth().currentUser?.uid else { return }
         
@@ -67,12 +68,12 @@ class AuthService: ObservableObject {
             "followers": FieldValue.arrayRemove([currentUserId])
         ])
         
-        // Remove from the current user's "following" array
         try await currentUserRef.updateData([
             "following": FieldValue.arrayRemove([userId])
         ])
     }
 
+    // Checks if the current user follows a specific user
     func isCurrentUserFollowingUser(_ userId: String) async throws -> Bool {
         guard let currentUserId = Auth.auth().currentUser?.uid else { return false }
         
@@ -132,6 +133,7 @@ class AuthService: ObservableObject {
 
     
     
+    // Allows a user to log in
     @MainActor
     func login(withEmail email: String, password: String) async throws {
             do {
@@ -143,6 +145,7 @@ class AuthService: ObservableObject {
             }
         }
     
+    // Allows a user to sign up
     @MainActor
     func createUser(email: String, password: String, username: String, realName: String) async throws -> AuthDataResult {
         do {
@@ -160,6 +163,12 @@ class AuthService: ObservableObject {
             print("DEBUG: Failed to register user with error \(error.localizedDescription)")
             throw error
         }
+    }
+    
+    // This function is used to sign out of a user profile
+    func signout(){
+        try? Auth.auth().signOut()
+        self.userSession = nil
     }
 
     
@@ -182,7 +191,7 @@ class AuthService: ObservableObject {
         return runs
     }
     
-    // Function to fetch ANY USER's runs
+    // Function to fetch ANY USER's runs all at once. This is used when you need all the data at once
     func fetchUserRuns(for userId: String) async throws -> [RunData] {
         let snapshot = try await Firestore.firestore().collection("users").document(userId).collection("runs").getDocuments()
         let runs = snapshot.documents.compactMap { doc -> RunData? in
@@ -197,11 +206,8 @@ class AuthService: ObservableObject {
         return runs
     }
 
-    /// Fetches the current user's runs in paginated batches.
-        /// - Parameters:
-        ///   - lastDocument: The last DocumentSnapshot from the previous batch (or nil for the first batch)
-        ///   - limit: The number of runs to fetch (default 7)
-        /// - Returns: A tuple containing the fetched runs and the last document (if any)
+    // Fetches the current user's runs in paginated batches.
+    // It fetches 7 runs at a time, and you can swipe down to load more
         func fetchUserRunsPaginated(lastDocument: DocumentSnapshot? = nil, limit: Int = 7) async throws -> ([RunData], DocumentSnapshot?) {
             guard let uid = Auth.auth().currentUser?.uid else { return ([], nil) }
             var query: Query = Firestore.firestore()
@@ -226,6 +232,35 @@ class AuthService: ObservableObject {
             }
             return (runs, snapshot.documents.last)
         }
+    
+    // Fetches *any* user's runs in paginated batches.
+    func fetchUserRunsPaginated(
+        for userId: String,
+        lastDocument: DocumentSnapshot? = nil,
+        limit: Int = 7
+    ) async throws -> ([RunData], DocumentSnapshot?) {
+        var query: Query = Firestore.firestore()
+            .collection("users")
+            .document(userId)
+            .collection("runs")
+            .order(by: "date", descending: true)
+            .limit(to: limit)
+
+        if let lastDoc = lastDocument {
+            query = query.start(afterDocument: lastDoc)
+        }
+
+        let snapshot = try await query.getDocuments()
+        let runs = snapshot.documents.compactMap { doc -> RunData? in
+            do { return try doc.data(as: RunData.self) }
+            catch {
+                print("DEBUG: decode error in paginated for \(userId): \(error)")
+                return nil
+            }
+        }
+        return (runs, snapshot.documents.last)
+    }
+
 
     
     
@@ -246,11 +281,6 @@ class AuthService: ObservableObject {
         }
     }
 
-    // This function is used to sign out of a user profile
-    func signout(){
-        try? Auth.auth().signOut()
-        self.userSession = nil
-    }
     
     private func uploadUserData(uid: String, username: String, email: String, realName: String) async {
         // Initialize with an empty tags array
@@ -263,7 +293,7 @@ class AuthService: ObservableObject {
 
 
 extension AuthService {
-    /// Fetch a user document from Firestore by its UID.
+    // Fetch a user document from Firestore by its UID.
     func fetchUser(for uid: String) async throws -> User {
         let doc = try await Firestore.firestore()
             .collection("users")
@@ -280,11 +310,7 @@ extension AuthService {
         return user
     }
 
-    /// Fetches a download URL for an image stored in Firebase Storage.
-    /// - Parameters:
-    ///   - filename: The name of the file (e.g., "someImage.jpg").
-    ///   - folder: The folder/path in Storage (default: "runningProgramImages").
-    /// - Returns: A string containing the download URL.
+    // Fetches a download URL for an image stored in Firebase Storage.
     func fetchDownloadURL(for filename: String, in folder: String = "runningProgramImages") async throws -> String {
         let storagePath = "\(folder)/\(filename)"
         let reference = Storage.storage().reference().child(storagePath)
@@ -314,7 +340,6 @@ extension AuthService {
         }
         
         // "following" is the array field in the user document.
-        // Change the string "following" if your Firestore field is named differently.
         let followingList = data["following"] as? [String] ?? []
         return followingList
     }

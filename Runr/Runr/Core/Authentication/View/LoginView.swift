@@ -40,17 +40,6 @@ struct LoginView: View {
                 }
                 
                 Button {
-                    print("Show forgot password")
-                } label: {
-                    Text("Forgot Password?")
-                        .font(.footnote)
-                        .fontWeight(.semibold)
-                        .padding(.top)
-                        .padding(.trailing, 28)
-                }
-                .frame(maxWidth: .infinity, alignment: .trailing)
-                
-                Button {
                     Task {
                         do {
                             try await viewModel.signIn()
@@ -78,34 +67,6 @@ struct LoginView: View {
                         .cornerRadius(8)
                 }
                 .padding(.vertical)
-                
-                
-
-                HStack{
-                    Rectangle()
-                        .frame(width: (UIScreen.main.bounds.width / 2) - 40, height: 0.5)
-                    
-                    Text("OR")
-                        .font(.footnote)
-                        .fontWeight(.semibold)
-                    
-                    Rectangle()
-                        .frame(width: (UIScreen.main.bounds.width / 2) - 40, height: 0.5)
-                        
-                }
-                .foregroundColor(.gray)
-                
-                HStack{
-                    Image("facebook_logo")
-                        .resizable()
-                        .frame(width: 20, height: 20)
-                    
-                    Text("Continue with Facebook")
-                        .font(.footnote)
-                        .fontWeight(.semibold)
-                        .foregroundColor(Color(.systemBlue))
-                }
-                .padding(.top, 8)
                 
                 Spacer()
                 

@@ -61,12 +61,11 @@ struct LeaderboardsCell: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
+        .background(Color(UIColor.systemBackground))
         //.background(rankColor().opacity(0.3))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .cornerRadius(16)
         .padding(.horizontal)
-        .shadow(color: colorScheme == .dark ? Color.black.opacity(0.3) : Color.primary.opacity(0.05),
-                radius: 2, x: 0, y: 1)
-        .background(.white)
+        .shadow(color: Color.black.opacity(0.20), radius: 8, x: 0, y: 4)
     }
 }
 

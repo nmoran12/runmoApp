@@ -17,9 +17,9 @@ struct BestEffortsCardView: View {
     
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: 16)
                 .fill(Color.white)
-                .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
+                .shadow(color: Color.black.opacity(0.2), radius: 8, x: 0, y: 4)
             
             VStack(alignment: .leading, spacing: 16) {
                 // Title and subtext
@@ -56,6 +56,7 @@ struct BestEffortsCardView: View {
                 }
             }
             .padding(16)
+            
         }
         .onAppear {
             viewModel.loadPersonalBests()

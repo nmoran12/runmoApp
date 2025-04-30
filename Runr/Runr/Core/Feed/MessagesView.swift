@@ -14,19 +14,17 @@ struct MessagesView: View {
     @Environment(\.dismiss) private var dismiss  // For dismissing the view
 
     var filteredConversations: [Conversation] {
-        let sortedConversations = viewModel.conversations.sorted {
-            ($0.lastMessage?.timestamp ?? Date.distantPast) >
-            ($1.lastMessage?.timestamp ?? Date.distantPast)
-        }
-        if searchText.isEmpty {
-            return sortedConversations
-        } else {
-            return sortedConversations.filter { conversation in
-                conversation.otherUserName?.lowercased()
-                    .contains(searchText.lowercased()) ?? false
-            }
-        }
+      let sorted = viewModel.conversations.sorted {
+        ($0.lastMessage?.timestamp ?? .distantPast) >
+        ($1.lastMessage?.timestamp ?? .distantPast)
+      }
+      let bySearch = searchText.isEmpty
+        ? sorted
+        : sorted.filter { $0.otherUserName?.lowercased().contains(searchText.lowercased()) == true }
+      // drop any with no “other user”
+      return bySearch.filter { $0.otherUserId != nil }
     }
+
     
     var body: some View {
         NavigationStack {
@@ -41,20 +39,23 @@ struct MessagesView: View {
                 
                 // Conversations List
                 List {
-                    ForEach(filteredConversations) { conversation in
-                        NavigationLink(
-                            destination: ChatView(
-                                conversationId: conversation.id,
-                                userId: conversation.otherUserId ?? ""
-                            )
-                        ) {
-                            conversationRow(conversation)
-                        }
-                        .padding(.vertical, 6)
-                        .listRowSeparator(.hidden)
+                  // only keep ones with a valid otherUserId
+                  ForEach(filteredConversations.filter { $0.otherUserId != nil }) { convo in
+                    NavigationLink(
+                      destination: ChatView(
+                        conversationId: convo.id,
+                        // force‐unwrap is safe now because we filtered out nil
+                        userId: convo.otherUserId!
+                      )
+                    ) {
+                      conversationRow(convo)
                     }
+                    .padding(.vertical, 6)
+                    .listRowSeparator(.hidden)
+                  }
                 }
                 .listStyle(PlainListStyle())
+
             }
             // Custom toolbar for a back button style nav bar
             .navigationBarTitleDisplayMode(.inline)

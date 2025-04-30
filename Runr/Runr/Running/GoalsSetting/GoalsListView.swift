@@ -7,13 +7,14 @@
 
 import SwiftUI
 
-// Animation extension
+// Smooth focus animation
 extension Animation {
     static var goalFocus: Animation {
-        .easeInOut(duration: 0.4) // Changed to a smoother ease-in-out animation
+        .easeInOut(duration: 0.4)
     }
 }
 
+// Reusable swipe-to-delete modifier
 extension View {
     func swipeToDelete(removeAction: @escaping () -> Void) -> some View {
         self.swipeActions(edge: .trailing, allowsFullSwipe: true) {
@@ -24,31 +25,29 @@ extension View {
     }
 }
 
-
 struct GoalsListView: View {
     let selectedGoalType: GoalsView.GoalType
     @Binding var addedDistanceGoals: [Goal]
     @Binding var addedPerformanceGoals: [Goal]
     @Binding var addedPersonalGoals: [Goal]
     let focusGoal: Goal?
-    let onLongPress: ((Goal, GoalsView.GoalType) -> Void)?
+    let onLongPress: (Goal, GoalsView.GoalType) -> Void
 
-    // Change animatingGoalID to String? to match Goal.id
     @State private var animatingGoalID: String? = nil
 
-    // Computed property for the currently relevant goals array based on selected type
+    // Pick the right array based on the current segment
     private var currentGoals: [Goal] {
         switch selectedGoalType {
-        case .distance: return addedDistanceGoals
+        case .distance:    return addedDistanceGoals
         case .performance: return addedPerformanceGoals
-        case .personal: return addedPersonalGoals
+        case .personal:    return addedPersonalGoals
         }
     }
 
-    // Computed property to reorder goals with focus goal first
+    // If a goal is “focused,” it floats to the top
     private var reorderedGoals: [Goal] {
-        // Make sure focusGoal actually belongs to the current list before prepending
-        guard let focus = focusGoal, currentGoals.contains(where: { $0.id == focus.id }) else {
+        guard let focus = focusGoal,
+              currentGoals.contains(where: { $0.id == focus.id }) else {
             return currentGoals
         }
         return [focus] + currentGoals.filter { $0.id != focus.id }
@@ -56,62 +55,69 @@ struct GoalsListView: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            // Static Examples (Keep or remove as needed)
-            // You might want to make these dynamic too or remove them eventually
+            // (Optional) Your static example slot
             switch selectedGoalType {
             case .distance:
-                // You might want to pass a static Goal object here instead
-                 StaticGoalItemViewExample( /* Pass static data */ )
+                StaticGoalItemViewExample()
             case .performance:
-                 StaticGoalItemViewExample( /* Pass static data */ )
+                StaticGoalItemViewExample()
             case .personal:
-                 StaticGoalItemViewExample( /* Pass static data */ )
+                StaticGoalItemViewExample()
             }
 
-
-            // --- Use ForEach with the new GoalRowView ---
-            ForEach(reorderedGoals) { goal in // Iterate over the computed reorderedGoals
-                GoalRowView( // Use the extracted view
+            // Dynamic list of real goals
+            ForEach(reorderedGoals) { goal in
+                GoalRowView(
                     goal: goal,
-                    goalType: selectedGoalType, // Pass the current selected type
-                    focusGoal: self.focusGoal, // Pass the overall focusGoal state
-                    animatingGoalID: self.animatingGoalID, // Pass the animation state
-                    onLongPress: self.onLongPress, // Pass the long press handler closure
-                    onDelete: removeGoal // Pass the removeGoal function
+                    goalType: selectedGoalType,
+                    focusGoal: focusGoal,
+                    animatingGoalID: animatingGoalID,
+                    onLongPress: onLongPress,
+                    onDelete: { goalItem in
+                        handleDelete(goalItem)
+                    }
                 )
+                .swipeToDelete {
+                    handleDelete(goal)
+                }
             }
+
         }
-        // Keep the animation modifier for the whole VStack if needed
         .animation(.goalFocus, value: focusGoal?.id)
     }
 
-    // removeGoal function remains the same
+    /// 1. Deletes in Firestore  2. Removes from the local array so the UI updates instantly
+    private func handleDelete(_ goal: Goal) {
+        Task {
+            do {
+                try await GoalsService.shared.deleteUserGoal(goal.id)
+                print("Deleted goal \(goal.id)")
+            } catch {
+                print("Failed to delete goal:", error)
+            }
+        }
+        removeGoal(goal)
+    }
+
+    /// Just peels off the deleted goal from the proper binding
     private func removeGoal(_ goal: Goal) {
-         // Note: Consider adding deletion from Firestore here as well
         switch selectedGoalType {
         case .distance:
-            addedDistanceGoals.removeAll { $0.id == goal.id }
+            addedDistanceGoals.removeAll    { $0.id == goal.id }
         case .performance:
             addedPerformanceGoals.removeAll { $0.id == goal.id }
         case .personal:
-            addedPersonalGoals.removeAll { $0.id == goal.id }
+            addedPersonalGoals.removeAll    { $0.id == goal.id }
         }
-         // If the removed goal was the focus goal, clear the focus
-         if focusGoal?.id == goal.id {
-             // You might need to communicate this back to GoalsView if focusGoalTuple is there
-             // Or handle focus clearing within the onLongPress logic in GoalsView
-         }
-     }
+    }
+}
 
-     // Placeholder for static examples if you keep them separate
-      struct StaticGoalItemViewExample: View {
-          // Add properties for static data
-          var body: some View {
-              // Simplified GoalItemView or specific layout for static examples
-              Text("Static Example Goal")
-                  .padding()
-                  .background(Color.gray.opacity(0.1))
-                  .cornerRadius(12)
-          }
-      }
+// Simple placeholder for your static examples
+struct StaticGoalItemViewExample: View {
+    var body: some View {
+        Text("Static Example Goal")
+            .padding()
+            .background(Color.gray.opacity(0.1))
+            .cornerRadius(12)
+    }
 }

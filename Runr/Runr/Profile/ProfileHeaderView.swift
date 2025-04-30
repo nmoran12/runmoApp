@@ -267,18 +267,29 @@ struct ProfileHeaderView: View {
         }
         .task {
             do {
-                let runs = try await authService.fetchUserRuns()
-                runCount = runs.count
+                // pick the right fetch call
+                let userRuns: [RunData]
+                if isCurrentUser {
+                    userRuns = try await authService.fetchUserRuns()
+                } else {
+                    userRuns = try await authService.fetchUserRuns(for: user.id)
+                }
+
+                // update your runCount
+                runCount = userRuns.count
+
+                // keep your follow-state logic
                 let followingStatus = try await authService.isCurrentUserFollowingUser(user.id)
                 isFollowing = followingStatus
-                
-                // Update the user's tags in Firestore
-                let dynamicTags = TagsManager.computeTags(from: runs)
-                        try await TagsManager.updateUserTags(dynamicTags)
-                    } catch {
-                        print("Failed to update user tags: \(error.localizedDescription)")
-                    }
+
+                // recompute any tags based on that exact run list
+                let dynamicTags = TagsManager.computeTags(from: userRuns)
+                try await TagsManager.updateUserTags(dynamicTags)
+            } catch {
+                print("DEBUG: Failed to load runs or tags: \(error.localizedDescription)")
             }
+        }
+
         .navigationDestination(isPresented: .constant(showChat)) {
             ChatView(conversationId: generatedConversationId, userId: user.id)
         }

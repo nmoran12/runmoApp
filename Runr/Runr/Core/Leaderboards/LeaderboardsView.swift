@@ -97,7 +97,7 @@ struct LeaderboardsView: View {
         
         var body: some View {
             ZStack {
-                Color(.systemGroupedBackground)
+                Color(UIColor.systemBackground)
                     .ignoresSafeArea()
                 
                 VStack(spacing: 16) {
@@ -140,10 +140,9 @@ struct LeaderboardsView: View {
                         }
                         .padding(.bottom, 10)
                     }
-                    //.background(Color.primary)
                     .background(Color(UIColor.systemBackground))
                     .cornerRadius(12)
-                    .shadow(color: colorScheme == .dark ? Color.black.opacity(0.3) : Color.primary.opacity(0.05), radius: 4, x: 0, y: 2)
+                    .shadow(color: Color.black.opacity(0.20), radius: 8, x: 0, y: 4)
                     .padding(.horizontal)
                     
                     // NEW: Segmented control for location scope, using dynamic labels.
@@ -186,13 +185,8 @@ struct LeaderboardsView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .background(Color(UIColor.systemBackground))
-                        .cornerRadius(12)
-                        .background(Color(UIColor.systemBackground))
-                        .cornerRadius(12)
-                        .shadow(color: colorScheme == .dark ? Color.black.opacity(0.4) : Color.black.opacity(0.1),
-                                radius: colorScheme == .dark ? 6 : 4, x: 0, y: 3)
-
-                        // black.opacity = 0.05 4 0 2
+                        .cornerRadius(16)
+                        .shadow(color: Color.black.opacity(0.20), radius: 8, x: 0, y: 4)
                         .padding(.horizontal)
                     }
                     
@@ -203,10 +197,9 @@ struct LeaderboardsView: View {
                                 if index >= 3 {
                                     ZStack(alignment: .leading) {
                                         // Use a card-like background color that adapts
-                                        RoundedRectangle(cornerRadius: 10)
-                                            .fill(Color(UIColor.secondarySystemBackground))
-                                            .shadow(color: colorScheme == .dark ? Color.black.opacity(0.4) : Color.black.opacity(0.1),
-                                                    radius: colorScheme == .dark ? 4 : 2, x: 0, y: 2)
+                                        RoundedRectangle(cornerRadius: 16)
+                                            .fill(Color(UIColor.systemBackground))
+                                            .shadow(color: Color.black.opacity(0.20), radius: 8, x: 0, y: 4)
 
                                         LeaderboardsCell(user: viewModel.users[index],
                                                          rank: index + 1,

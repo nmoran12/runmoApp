@@ -118,7 +118,8 @@ struct OverallHeartRateZonesView: View {
         }
         .padding()
         .background(Color.white)  // White background for the card.
+        .frame(maxWidth: .infinity)    
         .cornerRadius(16)
-        .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+        .shadow(color: Color.black.opacity(0.2), radius: 8, x: 0, y: 4)
     }
 }

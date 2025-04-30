@@ -248,3 +248,21 @@ class GoalsService {
          return "allTime"
      }
 }
+
+extension GoalsService {
+  /// Deletes a single goal document by its ID.
+  func deleteUserGoal(_ goalId: String) async throws {
+    guard let userId = currentUserId else {
+      throw NSError(domain: "Runr.GoalsService",
+                    code: -1,
+                    userInfo: [NSLocalizedDescriptionKey: "No user logged in."])
+    }
+    let goalDoc = db
+      .collection("users")
+      .document(userId)
+      .collection("goals")
+      .document(goalId)
+    try await goalDoc.delete()
+    print("GOALS: Deleted goal \(goalId) from Firestore.")
+  }
+}

@@ -5,342 +5,203 @@
 //  Created by Noah Moran on 13/1/2025.
 //
 
+
 import Foundation
 import SwiftUI
 import Firebase
 import FirebaseAuth
-import FirebaseFirestoreCombineSwift
+import FirebaseFirestore
 import FirebaseStorage
 
-class AuthService: ObservableObject {
-    
-    // Variables, States, etc.
+/// Centralized service for authentication, profile, social, and run data operations.
+final class AuthService: ObservableObject {
+    // MARK: - Published Properties
     @Published var userSession: FirebaseAuth.User?
     @Published var currentUser: User?
-    
+
+    // MARK: - Shared Instance
     static let shared = AuthService()
-    
+
+    // MARK: - Private Properties
     private let storageRef = Storage.storage().reference()
-    
-    init() {
+
+    // MARK: - Initialization
+    private init() {
         self.userSession = Auth.auth().currentUser
-        if let _ = self.userSession {
-            Task {
-                do {
-                    try await loadUserData()
-                } catch {
-                    print("DEBUG: Failed to load user data in init: \(error.localizedDescription)")
-                }
-            }
+        if userSession != nil {
+            Task { try? await self.loadUserData() }
         }
     }
+}
 
-    
-    // This is a function to be able to follow a user
-    func followUser(userId: String) async throws {
-        guard let currentUserId = Auth.auth().currentUser?.uid else { return }
-        
-        let targetUserRef = Firestore.firestore().collection("users").document(userId)
-        let currentUserRef = Firestore.firestore().collection("users").document(currentUserId)
-        
-        // Update the followed user's document: increment followerCount and add currentUserId to followers array.
-        try await targetUserRef.updateData([
-            "followerCount": FieldValue.increment(Int64(1)),
-            "followers": FieldValue.arrayUnion([currentUserId])
-        ])
-        
-        // This updates the user's following list
-        try await currentUserRef.updateData([
-            "following": FieldValue.arrayUnion([userId])
-        ])
-    }
-    
-    // This allows a user to unfollow another user
-    func unfollowUser(userId: String) async throws {
-        guard let currentUserId = Auth.auth().currentUser?.uid else { return }
-        
-        let targetUserRef = Firestore.firestore().collection("users").document(userId)
-        let currentUserRef = Firestore.firestore().collection("users").document(currentUserId)
-        
-        // Decrement follower count on the target user
-        try await targetUserRef.updateData([
-            "followerCount": FieldValue.increment(Int64(-1)),
-            "followers": FieldValue.arrayRemove([currentUserId])
-        ])
-        
-        try await currentUserRef.updateData([
-            "following": FieldValue.arrayRemove([userId])
-        ])
-    }
-
-    // Checks if the current user follows a specific user
-    func isCurrentUserFollowingUser(_ userId: String) async throws -> Bool {
-        guard let currentUserId = Auth.auth().currentUser?.uid else { return false }
-        
-        let currentUserRef = Firestore.firestore().collection("users").document(currentUserId)
-        let snapshot = try await currentUserRef.getDocument()
-        if let data = snapshot.data(), let followingArray = data["following"] as? [String] {
-            return followingArray.contains(userId)
-        }
-        return false
-    }
-
-    
-    // Uploads a profile image to Firebase Storage and updates Firestore with the image URL
-    func uploadProfileImage(_ image: UIImage) async throws -> String {
-        guard let userId = Auth.auth().currentUser?.uid else {
-            throw URLError(.badURL)
-        }
-        guard let imageData = image.jpegData(compressionQuality: 0.4) else {
-            throw URLError(.badURL)
-        }
-
-        let profileImageRef = Storage.storage().reference().child("profile_images/\(userId).jpg")
-        let metadata = StorageMetadata()
-        metadata.contentType = "image/jpeg"
-
-        print("DEBUG: Starting image upload for user \(userId)...")
-
-        // Upload the image and check for completion
-        do {
-            let metadataResult = try await profileImageRef.putDataAsync(imageData, metadata: metadata)
-            print("DEBUG: Image successfully uploaded with metadata: \(metadataResult)")
-        } catch {
-            print("DEBUG: Error uploading image to Firebase Storage: \(error.localizedDescription)")
-            throw error
-        }
-
-        // Retrieve download URL AFTER successful upload
-        do {
-            let downloadURL = try await profileImageRef.downloadURL()
-            print("DEBUG: Retrieved download URL: \(downloadURL.absoluteString)")
-
-            // Update Firestore with new profile image URL
-            let userRef = Firestore.firestore().collection("users").document(userId)
-            try await userRef.updateData(["profileImageUrl": downloadURL.absoluteString])
-
-            DispatchQueue.main.async {
-                self.currentUser?.profileImageUrl = downloadURL.absoluteString
-            }
-
-            return downloadURL.absoluteString
-        } catch {
-            print("DEBUG: Failed to retrieve download URL: \(error.localizedDescription)")
-            throw error
-        }
-    }
-
-
-    
-    
-    // Allows a user to log in
+// MARK: - Authentication (Login / Signup / Sign Out)
+extension AuthService {
+    /// Signs in a user with email and password.
     @MainActor
     func login(withEmail email: String, password: String) async throws {
-            do {
-                let result = try await Auth.auth().signIn(withEmail: email, password: password)
-                self.userSession = result.user
-                try await loadUserData() // Load user data after login
-            } catch {
-                print("DEBUG: Failed to log in with error \(error.localizedDescription)")
-            }
-        }
-    
-    // Allows a user to sign up
+        let result = try await Auth.auth().signIn(withEmail: email, password: password)
+        self.userSession = result.user
+        try await loadUserData()
+    }
+
+    /// Creates a new user account and uploads initial profile data.
     @MainActor
     func createUser(email: String, password: String, username: String, realName: String) async throws -> AuthDataResult {
-        do {
-            let result = try await Auth.auth().createUser(withEmail: email, password: password)
-            self.userSession = result.user
-            print("DEBUG: Did create user..")
-            
-            await uploadUserData(uid: result.user.uid, username: username, email: email, realName: realName)
-            print("DEBUG: Did upload user data...")
-            
-            try await loadUserData() // Load user data after creation
-            
-            return result // Return the result so it can be used in RegistrationViewModel.swift
-        } catch {
-            print("DEBUG: Failed to register user with error \(error.localizedDescription)")
-            throw error
-        }
+        let result = try await Auth.auth().createUser(withEmail: email, password: password)
+        self.userSession = result.user
+        await uploadUserData(uid: result.user.uid, username: username, email: email, realName: realName)
+        try await loadUserData()
+        return result
     }
-    
-    // This function is used to sign out of a user profile
-    func signout(){
+
+    /// Signs out the current user.
+    func signout() {
         try? Auth.auth().signOut()
         self.userSession = nil
     }
-
-    
-    // Function to fetch the current user's previous runs
-    func fetchUserRuns() async throws -> [RunData] {
-        guard let uid = Auth.auth().currentUser?.uid else { return [] }
-        
-        let snapshot = try await Firestore.firestore().collection("users").document(uid).collection("runs").getDocuments()
-        
-        let runs = snapshot.documents.compactMap { doc -> RunData? in
-            do {
-                let data = try doc.data(as: RunData.self)
-                return data
-            } catch {
-                print("DEBUG: Failed to decode run data with error \(error.localizedDescription)")
-                return nil
-            }
-        }
-        
-        return runs
-    }
-    
-    // Function to fetch ANY USER's runs all at once. This is used when you need all the data at once
-    func fetchUserRuns(for userId: String) async throws -> [RunData] {
-        let snapshot = try await Firestore.firestore().collection("users").document(userId).collection("runs").getDocuments()
-        let runs = snapshot.documents.compactMap { doc -> RunData? in
-            do {
-                let data = try doc.data(as: RunData.self)
-                return data
-            } catch {
-                print("DEBUG: Failed to decode run data with error \(error.localizedDescription)")
-                return nil
-            }
-        }
-        return runs
-    }
-
-    // Fetches the current user's runs in paginated batches.
-    // It fetches 7 runs at a time, and you can swipe down to load more
-        func fetchUserRunsPaginated(lastDocument: DocumentSnapshot? = nil, limit: Int = 7) async throws -> ([RunData], DocumentSnapshot?) {
-            guard let uid = Auth.auth().currentUser?.uid else { return ([], nil) }
-            var query: Query = Firestore.firestore()
-                .collection("users")
-                .document(uid)
-                .collection("runs")
-                .order(by: "date", descending: true)
-                .limit(to: limit)
-            
-            if let lastDoc = lastDocument {
-                query = query.start(afterDocument: lastDoc)
-            }
-            
-            let snapshot = try await query.getDocuments()
-            let runs = snapshot.documents.compactMap { doc -> RunData? in
-                do {
-                    return try doc.data(as: RunData.self)
-                } catch {
-                    print("DEBUG: Failed to decode run data with error \(error.localizedDescription)")
-                    return nil
-                }
-            }
-            return (runs, snapshot.documents.last)
-        }
-    
-    // Fetches *any* user's runs in paginated batches.
-    func fetchUserRunsPaginated(
-        for userId: String,
-        lastDocument: DocumentSnapshot? = nil,
-        limit: Int = 7
-    ) async throws -> ([RunData], DocumentSnapshot?) {
-        var query: Query = Firestore.firestore()
-            .collection("users")
-            .document(userId)
-            .collection("runs")
-            .order(by: "date", descending: true)
-            .limit(to: limit)
-
-        if let lastDoc = lastDocument {
-            query = query.start(afterDocument: lastDoc)
-        }
-
-        let snapshot = try await query.getDocuments()
-        let runs = snapshot.documents.compactMap { doc -> RunData? in
-            do { return try doc.data(as: RunData.self) }
-            catch {
-                print("DEBUG: decode error in paginated for \(userId): \(error)")
-                return nil
-            }
-        }
-        return (runs, snapshot.documents.last)
-    }
-
-
-    
-    
-    // This function loads user data from the Google Firebase database
-    // Specifically, it loads the CURRENT USER's data, it only works for the current user
-    func loadUserData() async throws {
-        guard let uid = Auth.auth().currentUser?.uid else { return }
-        
-        let snapshot = try await Firestore.firestore().collection("users").document(uid).getDocument()
-        
-        if let data = snapshot.data() {
-            let user = try Firestore.Decoder().decode(User.self, from: data)
-            DispatchQueue.main.async {
-                self.userSession = Auth.auth().currentUser
-                self.currentUser = user
-            }
-            print("DEBUG: Loaded user data: \(user)")
-        }
-    }
-
-    
-    private func uploadUserData(uid: String, username: String, email: String, realName: String) async {
-        // Initialize with an empty tags array
-        let user = User(id: uid, username: username, email: email, realName: realName, tags: [])
-        guard let encodedUser = try? Firestore.Encoder().encode(user) else { return }
-        try? await Firestore.firestore().collection("users").document(user.id).setData(encodedUser)
-    }
-
 }
 
-
+// MARK: - Profile Data (Load / Upload)
 extension AuthService {
-    // Fetch a user document from Firestore by its UID.
-    func fetchUser(for uid: String) async throws -> User {
-        let doc = try await Firestore.firestore()
+    /// Loads the current user's profile data from Firestore.
+    func loadUserData() async throws {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        let snapshot = try await Firestore.firestore()
             .collection("users")
             .document(uid)
             .getDocument()
-        
-        // Check if the document actually exists
-        guard doc.exists else {
+        guard let data = snapshot.data() else { return }
+        let user = try Firestore.Decoder().decode(User.self, from: data)
+        DispatchQueue.main.async {
+            self.userSession = Auth.auth().currentUser
+            self.currentUser = user
+        }
+    }
+
+    /// Uploads a profile image to Storage and updates Firestore with its URL.
+    func uploadProfileImage(_ image: UIImage) async throws -> String {
+        guard let uid = Auth.auth().currentUser?.uid else { throw URLError(.badURL) }
+        guard let imageData = image.jpegData(compressionQuality: 0.4) else { throw URLError(.badURL) }
+        let ref = storageRef.child("profile_images/\(uid).jpg")
+        _ = try await ref.putDataAsync(imageData, metadata: StorageMetadata())
+        let url = try await ref.downloadURL()
+        try await Firestore.firestore()
+            .collection("users")
+            .document(uid)
+            .updateData(["profileImageUrl": url.absoluteString])
+        DispatchQueue.main.async { self.currentUser?.profileImageUrl = url.absoluteString }
+        return url.absoluteString
+    }
+
+    /// Saves initial user data (username, email, realName) in Firestore after registration.
+    private func uploadUserData(uid: String, username: String, email: String, realName: String) async {
+        let newUser = User(id: uid, username: username, email: email, realName: realName, tags: [])
+        guard let data = try? Firestore.Encoder().encode(newUser) else { return }
+        try? await Firestore.firestore().collection("users").document(uid).setData(data)
+    }
+}
+
+// MARK: - Social (Follow / Unfollow / Check Following)
+extension AuthService {
+    /// Follows a user: increments their followerCount and updates current user's following list.
+    func followUser(userId: String) async throws {
+        guard let myId = Auth.auth().currentUser?.uid else { return }
+        let userRef = Firestore.firestore().collection("users").document(userId)
+        let meRef   = Firestore.firestore().collection("users").document(myId)
+        try await userRef.updateData([
+            "followerCount": FieldValue.increment(Int64(1)),
+            "followers": FieldValue.arrayUnion([myId])
+        ])
+        try await meRef.updateData(["following": FieldValue.arrayUnion([userId])])
+    }
+
+    /// Unfollows a user: decrements their followerCount and updates current user's following list.
+    func unfollowUser(userId: String) async throws {
+        guard let myId = Auth.auth().currentUser?.uid else { return }
+        let userRef = Firestore.firestore().collection("users").document(userId)
+        let meRef   = Firestore.firestore().collection("users").document(myId)
+        try await userRef.updateData([
+            "followerCount": FieldValue.increment(Int64(-1)),
+            "followers": FieldValue.arrayRemove([myId])
+        ])
+        try await meRef.updateData(["following": FieldValue.arrayRemove([userId])])
+    }
+
+    /// Returns whether the current user is following the given user.
+    func isCurrentUserFollowingUser(_ userId: String) async throws -> Bool {
+        guard let myId = Auth.auth().currentUser?.uid else { return false }
+        let snapshot = try await Firestore.firestore().collection("users").document(myId).getDocument()
+        let following = snapshot.data()?[
+            "following"
+        ] as? [String] ?? []
+        return following.contains(userId)
+    }
+
+    /// Fetches the list of user IDs that the current user is following.
+    func fetchFollowingList() async throws -> [String] {
+        guard let myId = Auth.auth().currentUser?.uid else { return [] }
+        let snapshot = try await Firestore.firestore().collection("users").document(myId).getDocument()
+        return snapshot.data()?[
+            "following"
+        ] as? [String] ?? []
+    }
+}
+
+// MARK: - Run Data (Fetch All / Fetch Paginated)
+extension AuthService {
+    /// Fetches all runs for the current user.
+    func fetchUserRuns() async throws -> [RunData] {
+        guard let uid = Auth.auth().currentUser?.uid else { return [] }
+        return try await fetchRuns(from: uid)
+    }
+
+    /// Fetches all runs for any specified user.
+    func fetchUserRuns(for userId: String) async throws -> [RunData] {
+        return try await fetchRuns(from: userId)
+    }
+
+    /// Shared helper to fetch runs collection for a user.
+    private func fetchRuns(from userId: String) async throws -> [RunData] {
+        let snap = try await Firestore.firestore().collection("users").document(userId).collection("runs").getDocuments()
+        return snap.documents.compactMap { try? $0.data(as: RunData.self) }
+    }
+
+    /// Fetches runs in paginated batches for either current or specified user.
+    func fetchUserRunsPaginated(
+        for userId: String? = nil,
+        lastDocument: DocumentSnapshot? = nil,
+        limit: Int = 7
+    ) async throws -> ([RunData], DocumentSnapshot?) {
+        let uid = userId ?? Auth.auth().currentUser?.uid
+        guard let validId = uid else { return ([], nil) }
+        var query = Firestore.firestore()
+            .collection("users")
+            .document(validId)
+            .collection("runs")
+            .order(by: "date", descending: true)
+            .limit(to: limit)
+        if let lastDoc = lastDocument {
+            query = query.start(afterDocument: lastDoc)
+        }
+        let snap = try await query.getDocuments()
+        let results = snap.documents.compactMap { try? $0.data(as: RunData.self) }
+        return (results, snap.documents.last)
+    }
+}
+
+// MARK: - Utilities (User Fetch / Storage URL)
+extension AuthService {
+    /// Retrieves a single User by UID.
+    func fetchUser(for uid: String) async throws -> User {
+        let doc = try await Firestore.firestore().collection("users").document(uid).getDocument()
+        guard doc.exists, let user = try? doc.data(as: User.self) else {
             throw URLError(.badServerResponse)
         }
-        
-        let user = try doc.data(as: User.self)
-        
         return user
     }
 
-    // Fetches a download URL for an image stored in Firebase Storage.
+    /// Retrieves a download URL for a file in Firebase Storage.
     func fetchDownloadURL(for filename: String, in folder: String = "runningProgramImages") async throws -> String {
-        let storagePath = "\(folder)/\(filename)"
-        let reference = Storage.storage().reference().child(storagePath)
-        
-        do {
-            let url = try await reference.downloadURL()
-            return url.absoluteString
-        } catch {
-            print("DEBUG: Error fetching download URL for \(storagePath): \(error.localizedDescription)")
-            throw error
-        }
-    }
-    
-    // this fetches the list of users that the current user follows
-    func fetchFollowingList() async throws -> [String] {
-        guard let currentUserId = Auth.auth().currentUser?.uid else {
-            return []
-        }
-        
-        let doc = try await Firestore.firestore()
-            .collection("users")
-            .document(currentUserId)
-            .getDocument()
-        
-        guard let data = doc.data() else {
-            return []
-        }
-        
-        // "following" is the array field in the user document.
-        let followingList = data["following"] as? [String] ?? []
-        return followingList
+        return try await storageRef.child("\(folder)/\(filename)").downloadURL().absoluteString
     }
 }

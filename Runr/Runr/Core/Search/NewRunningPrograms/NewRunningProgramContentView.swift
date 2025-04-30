@@ -8,180 +8,147 @@
 import SwiftUI
 
 struct NewRunningProgramContentView: View {
-    // This view "owns" the view model for this program instance.
     @EnvironmentObject private var viewModel: NewRunningProgramViewModel
-    let plan: NewRunningProgram // The program template is passed into this view
-    
+    let plan: NewRunningProgram
+
     let beginnerProgram = BeginnerTemplates.createBeginnerProgram(sampleWeeklyPlans: sampleWeeklyPlans)
     let intermediateProgram = IntermediateTemplates.createIntermediateProgram(allWeeks: allWeeks)
-    
-    /// Use the program loaded from Firestore if available.
-        var displayedProgram: NewRunningProgram {
-            viewModel.currentProgram ?? plan
-        }
 
+    // Use the program loaded from Firestore if available.
+    var displayedProgram: NewRunningProgram {
+        viewModel.currentProgram ?? plan
+    }
 
     var body: some View {
-        NavigationView {
-            ScrollView {
-                VStack(spacing: 0) {
-                    
-                    // Displaying running program overview card
-                    NewRunningProgramCardView(program: displayedProgram)
-                        .padding(.horizontal)
-                        .padding(.bottom)
-                    
-                    //Spacer()
-                    
-                    ZStack(alignment: .leading) {
-                        Text("Todays Run")
-                            .font(.title2)
-                            .bold()
-                            .padding(.bottom, 16)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal)
-                    
-                    // Current Day Plan View
-                    ShowCurrentDayPlanView()
-                        .environmentObject(viewModel)
-                        .padding(.horizontal)
-                        .padding(.bottom, 32)
-                    
-                    ZStack(alignment: .leading) {
-                        Text("Weekly Plans")
-                            .font(.title2)
-                            .bold()
-                            .padding(.bottom, 16)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+        ScrollView {
+            VStack(spacing: 16) {
+                // Overview card
+                NewRunningProgramCardView(program: displayedProgram)
                     .padding(.horizontal)
 
-                    
-                    // Displaying weekly plans
-                                        let displayedWeeklyPlan = mergeWeeklyPlans(
-                                            template: displayedProgram.weeklyPlan,
-                                            user: viewModel.currentUserProgram?.weeklyPlan
-                                        )
-
-                    
-                    ForEach(Array(displayedWeeklyPlan.enumerated()), id: \.element.id) { index, singleWeek in
-                                            WeeklyPlanCardView(
-                                                plan: singleWeek,
-                                                weekIndex: index,
-                                                viewModel: _viewModel
-                                            )
-                                            .padding(.horizontal)
-                                            .padding(.bottom)
-                                        }
-                    
-                    Button("Update Sample Running Program") {
-                        Task {
-                            await updateSampleRunningProgram()
-                        }
-                    }
-
-                    
-                    Button("Update Beginner Marathon Template") {
-                                Task {
-                                    await BeginnerTemplates.updateBeginnerMarathonTemplate(using: beginnerProgram)
-                                }
-                            }
-                            .padding()
-                    
-                    Button("Update Intermediate Marathon Template") {
-                        Task {
-                            await IntermediateTemplates.updateIntermediateMarathonTemplate(using: intermediateProgram)
-                        }
-                    }
-                    .padding()
-                    
-
-                    Button("Reset Running Program") {
-                        Task {
-                            let currentUsername = AuthService.shared.currentUser?.username ?? "UnknownUser"
-                            // Use the updated intermediate template object.
-                            await viewModel.resetUserProgram(using: intermediateProgram, username: currentUsername)
-                        }
-                    }
-
-                    .padding()
-
-                    
-                    // DO NOT REMOVE
-                     //seeding running program template only click once
-                    Button("Seed Running Program Template") {
-                        Task {
-                            do {
-                                try await seedAllRunningProgramTemplates()
-                            } catch {
-                                print("Error seeding template: \(error.localizedDescription)")
-                            }
-                        }
-                    }
-
-                    
-                    // Display a message if an active program is found.
-                    if viewModel.hasActiveProgram {
-                        Text("You already have an active running program.")
-                            .foregroundColor(.red)
-                            .padding()
-                    }
-                    
-                    // The "Start Program" button now creates a user instance.
-                    Button(action: {
-                        Task {
-                            // Retrieve the user's username from AuthService.
-                            let currentUsername = AuthService.shared.currentUser?.username ?? "UnknownUser"
-                            
-                            // Before starting, check if the user already has an active program.
-                            await viewModel.checkActiveUserProgram(for: currentUsername)
-                            
-                            // Only start a new program if none is active.
-                            if !viewModel.hasActiveProgram {
-                                await viewModel.startUserRunningProgram(from: plan, username: currentUsername)
-                                // After creating a user instance, update the check.
-                                await viewModel.checkActiveUserProgram(for: currentUsername)
-                            }
-                        }
-                    }) {
-                        Text("Start Program")
-                            .padding()
-                            .frame(maxWidth: .infinity)
-                            .background(viewModel.hasActiveProgram ? Color.gray : Color.green)
-                            .foregroundColor(.white)
-                            .cornerRadius(10)
-                    }
-                    // Disable the button if an active program exists.
-                    .disabled(viewModel.hasActiveProgram)
-                    .padding()
+                // Today's Run header
+                ZStack(alignment: .leading) {
+                    Text("Todays Run")
+                        .font(.title2)
+                        .bold()
+                        .padding(.bottom, 16)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal)
+
+                // Current Day Plan
+                ShowCurrentDayPlanView()
+                    .environmentObject(viewModel)
+                    .padding(.horizontal)
+                    .padding(.bottom, 32)
+
+                // Weekly Plans header
+                ZStack(alignment: .leading) {
+                    Text("Weekly Plans")
+                        .font(.title2)
+                        .bold()
+                        .padding(.bottom, 16)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal)
+
+                // Display weekly plans
+                let displayedWeeklyPlan = mergeWeeklyPlans(
+                    template: displayedProgram.weeklyPlan,
+                    user: viewModel.currentUserProgram?.weeklyPlan
+                )
+
+                ForEach(Array(displayedWeeklyPlan.enumerated()), id: \.element.id) { index, singleWeek in
+                    WeeklyPlanCardView(
+                        plan: singleWeek,
+                        weekIndex: index,
+                        viewModel: _viewModel
+                    )
+                    .padding(.horizontal)
+                    .padding(.bottom)
+                }
+
+                // Action buttons for seeding, changing running programs, etc.
+                Button("Update Sample Running Program") {
+                    Task { await updateSampleRunningProgram() }
+                }
+
+                Button("Update Beginner Marathon Template") {
+                    Task { await BeginnerTemplates.updateBeginnerMarathonTemplate(using: beginnerProgram) }
+                }
+                .padding()
+
+                Button("Update Intermediate Marathon Template") {
+                    Task { await IntermediateTemplates.updateIntermediateMarathonTemplate(using: intermediateProgram) }
+                }
+                .padding()
+
+                Button("Reset Running Program") {
+                    Task {
+                        let currentUsername = AuthService.shared.currentUser?.username ?? "UnknownUser"
+                        await viewModel.resetUserProgram(
+                            using: intermediateProgram,
+                            username: currentUsername
+                        )
+                    }
+                }
+                .padding()
+
+                Button("Seed Running Program Template") {
+                    Task {
+                        do {
+                            try await seedAllRunningProgramTemplates()
+                        } catch {
+                            print("Error seeding template: \(error.localizedDescription)")
+                        }
+                    }
+                }
+
+                if viewModel.hasActiveProgram {
+                    Text("You already have an active running program.")
+                        .foregroundColor(.red)
+                        .padding()
+                }
+
+                Button(action: {
+                    Task {
+                        let currentUsername = AuthService.shared.currentUser?.username ?? "UnknownUser"
+                        await viewModel.checkActiveUserProgram(for: currentUsername)
+                        if !viewModel.hasActiveProgram {
+                            await viewModel.startUserRunningProgram(from: plan, username: currentUsername)
+                            await viewModel.checkActiveUserProgram(for: currentUsername)
+                        }
+                    }
+                }) {
+                    Text("Start Program")
+                        .padding()
+                        .frame(maxWidth: .infinity)
+                        .background(viewModel.hasActiveProgram ? Color.gray : Color.green)
+                        .foregroundColor(.white)
+                        .cornerRadius(10)
+                }
+                .disabled(viewModel.hasActiveProgram)
+                .padding()
             }
         }
         .navigationTitle(plan.title)
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             Task {
-                // Load the template as before.
                 await viewModel.loadProgram(titled: plan.title)
                 let currentUsername = AuthService.shared.currentUser?.username ?? "UnknownUser"
                 await viewModel.checkActiveUserProgram(for: currentUsername)
                 if viewModel.hasActiveProgram {
-                    // Load the active user instance.
                     await viewModel.loadActiveUserProgram(for: currentUsername)
                 }
             }
-            print("Program Content View appeared. Attempting to load program: \(plan.title)")
         }
-
-        .background(Color(.systemGroupedBackground).ignoresSafeArea())
+        .background(Color(.systemBackground).ignoresSafeArea())
     }
 }
 
 // MARK: - Update Intermediate Marathon Template Function
 
-// Creates and updates the Intermediate Marathon Running Program based on a sample template structure.
-// The intermediate program uses similar structure as the sample but with updated values.
 @MainActor
 func updateIntermediateMarathonTemplate() async {
     let intermediateProgram = NewRunningProgram(
@@ -189,7 +156,7 @@ func updateIntermediateMarathonTemplate() async {
         title: "Intermediate Marathon Running Program",
         raceName: "City Marathon 2025",
         subtitle: "For runners looking to improve performance",
-        finishDate: Date().addingTimeInterval(60 * 60 * 24 * 150), // e.g., 150 days from now
+        finishDate: Date().addingTimeInterval(60 * 60 * 24 * 150),
         imageUrl: "https://via.placeholder.com/300?text=Intermediate",
         totalDistance: 500,
         planOverview: """
@@ -198,10 +165,9 @@ func updateIntermediateMarathonTemplate() async {
             improve performance with additional speed, endurance, and strength workouts.
             """,
         experienceLevel: "Intermediate",
-        // Reuse the same weekly plan template from the sample program.
         weeklyPlan: allWeeks
     )
-    
+
     do {
         try await updateTemplate(intermediateProgram)
         print("Template 'intermediate-marathon-running-program' updated successfully.")

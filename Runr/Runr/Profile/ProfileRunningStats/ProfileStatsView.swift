@@ -122,9 +122,11 @@ struct ProfileStatsView: View {
                 
                 if !filteredRuns.isEmpty {
                     HeartRateZoneChartView(runs: filteredRuns)
-                        .padding(.horizontal)
                         .padding(.top, 16)
+                        .padding(.horizontal) // around the card
+
                 }
+
                 
 
 
@@ -173,8 +175,9 @@ struct CombinedStatsCardView: View {
         }
         .padding()
         .background(Color.white)
+        .frame(maxWidth: .infinity)    
         .cornerRadius(16)
-        .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+        .shadow(color: Color.black.opacity(0.2), radius: 8, x: 0, y: 4)
     }
     
     // Helper function to format elapsed time.

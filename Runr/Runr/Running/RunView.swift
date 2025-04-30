@@ -190,7 +190,6 @@ class RunTracker: NSObject, ObservableObject {
 
     
     // Uploading the run data to google firebase database
-    // --- MODIFIED: uploadRunData Function ---
     func uploadRunData(withCaption caption: String, footwear: String) async {
         guard let userId = AuthService.shared.userSession?.uid else {
             print("UPLOAD ERROR: No user logged in.")
@@ -204,29 +203,25 @@ class RunTracker: NSObject, ObservableObject {
 
         let db = Firestore.firestore()
         let userRef = db.collection("users").document(userId)
-        let runCompletionDate = Date() // Capture completion date
+        let runCompletionDate = Date()
 
-        // --- NEW: Compute and Format TRIMP ---
-        // Replace the placeholder average HR with your actual measured value if available.
         let avgHR: Double = 140.0
         let durationMinutes = self.elapsedTime / 60.0
         let calculator = TrainingEffectCalculator(hrRest: 60, hrMax: 190, b: 1.92)
         let trimpRaw = calculator.computeTRIMP(avgHR: avgHR, durationMinutes: durationMinutes)
         let trimpStatUnformatted = calculator.trainingEffect(from: trimpRaw)
-        // Format it to one decimal place and convert back to Double.
         let formattedTRIMP = Double(String(format: "%.1f", trimpStatUnformatted)) ?? trimpStatUnformatted
         print("DEBUG: Computed trimpStat = \(formattedTRIMP)")
-        // --- END NEW ---
 
         do {
-            // 1. Fetch username (already have this logic)
+            // Fetch username
             let userSnapshot = try await userRef.getDocument()
             guard let username = userSnapshot.data()?["username"] as? String else {
                 print("UPLOAD ERROR: Username not found for userId \(userId)")
                 return
             }
 
-            // 2. Generate Run ID (already have this logic)
+            // Generate run ID
             let timestampString = runCompletionDate.formatted(date: .numeric, time: .standard)
                 .replacingOccurrences(of: "/", with: "-")
                 .replacingOccurrences(of: ":", with: "-")
@@ -234,7 +229,7 @@ class RunTracker: NSObject, ObservableObject {
             let runId = "\(username)_\(timestampString)_\(UUID().uuidString.prefix(4))"
             let runRef = userRef.collection("runs").document(runId)
 
-            // 3. Prepare Run Data Dictionary (now including the formattedTRIMP value)
+            // Prepare Run Data dictionary
             let runDataForUpload: [String: Any] = [
                 "date": Timestamp(date: runCompletionDate), // Use completion date
                 "distance": self.distanceTraveled, // Store distance in METERS
@@ -249,15 +244,14 @@ class RunTracker: NSObject, ObservableObject {
                 },
                 "caption": caption,
                 "footwear": footwear,
-                // <-- New field for TRIMP stat stored as a Double with one decimal -->
                 "trimpStat": formattedTRIMP
             ]
 
-            // 4. Save the Run Data
+            // Save the Run Data
             try await runRef.setData(runDataForUpload)
             print("DEBUG: Run data uploaded successfully with Run ID: \(runId) and trimpStat: \(formattedTRIMP)")
 
-            // 5. Update User Aggregate Stats (Transaction)
+            // Update User Aggregate Stats
             let validFootwear = footwear.isEmpty ? "Unknown" : footwear
             try await db.runTransaction({ (transaction, errorPointer) -> Any? in
                 do {
@@ -289,7 +283,7 @@ class RunTracker: NSObject, ObservableObject {
                 }
             })
 
-            // 6. Create Feed Post (if applicable)
+            // Create Feed Post (if applicable)
             let postRef = db.collection("posts").document(runId)
             let postData: [String: Any] = [
                 "id": runId,
@@ -305,7 +299,7 @@ class RunTracker: NSObject, ObservableObject {
             try await postRef.setData(postData)
             print("DEBUG: Feed post created successfully for Run ID: \(runId)")
 
-            // 7. Update Goals Progress
+            // Update Goals Progress (if applicable)
             print("DEBUG: Attempting to update goals progress...")
             await GoalsService.shared.updateGoalsProgress(
                 runDistance: self.distanceTraveled,
@@ -363,8 +357,8 @@ class RunTracker: NSObject, ObservableObject {
                  return
              }
 
-             let distanceKm = distanceTraveled / 1000.0 // Ensure floating point division
-             guard distanceKm > 0, elapsedTime > 0 else { return } // Avoid division by zero
+             let distanceKm = distanceTraveled / 1000.0
+             guard distanceKm > 0, elapsedTime > 0 else { return }
 
              let paceInSecondsPerKm = elapsedTime / distanceKm // Pace calculation
 
@@ -416,7 +410,7 @@ extension RunTracker: CLLocationManagerDelegate {
         guard let location = locations.last else { return }
         
         // Check location accuracy - ignore inaccurate points if needed
-          guard location.horizontalAccuracy >= 0 && location.horizontalAccuracy < 50 else { // Example: Ignore if accuracy is worse than 50m
+          guard location.horizontalAccuracy >= 0 && location.horizontalAccuracy < 50 else { // Ignore if accuracy is worse than 50m
               print("DEBUG: Ignoring inaccurate location point. Accuracy: \(location.horizontalAccuracy)")
               return
           }
@@ -446,7 +440,7 @@ extension RunTracker: CLLocationManagerDelegate {
             self?.region.center = location.coordinate
         }
         
-        // NEW: Update user's location data once using the current location (if not already updated)
+        // Update user's location data once using the current location (if not already updated)
         if !hasUpdatedUserLocation {
             updateUserLocation(with: location)
             hasUpdatedUserLocation = true

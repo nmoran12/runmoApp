@@ -2,7 +2,7 @@
 
 NOTE: The old name for this project was called "Runr", however that seems to be already taken by a running company so my new name is "Runmo". If you see Runr alot in files or file names, I am in the process of fixing that.
 
-This is a running app that I have created for educational purposes
+This is a running app that I have created for learning purposes.
 
 
 # Runmo - iOS Running App

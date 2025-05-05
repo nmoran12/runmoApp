@@ -109,7 +109,14 @@ struct NewRunningProgramContentView: View {
                         .foregroundColor(.red)
                         .padding()
                 }
-
+                
+                // Leave space at bottom of scroll
+            }
+            .padding(.bottom, 80)
+        }
+        .safeAreaInset(edge: .bottom) {
+            VStack(spacing: 8) {
+                Divider()
                 Button(action: {
                     Task {
                         let currentUsername = AuthService.shared.currentUser?.username ?? "UnknownUser"
@@ -128,7 +135,9 @@ struct NewRunningProgramContentView: View {
                         .cornerRadius(10)
                 }
                 .disabled(viewModel.hasActiveProgram)
-                .padding()
+                .padding(.horizontal)
+                .padding(.bottom, UIApplication.shared.windows.first?.safeAreaInsets.bottom ?? 16)
+                .background(Color(.systemBackground))
             }
         }
         .navigationTitle(plan.title)

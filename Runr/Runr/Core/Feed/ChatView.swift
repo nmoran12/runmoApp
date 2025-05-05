@@ -132,7 +132,6 @@ struct KeyboardAdaptive: ViewModifier {
                                                        object: nil,
                                                        queue: .main) { notification in
                     if let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect {
-                        // Use the full keyboard height so the input bar sits directly above the keyboard.
                         keyboardHeight = keyboardFrame.height
                     }
                 }

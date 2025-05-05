@@ -14,12 +14,16 @@ struct NewRunningProgramSelectionView: View {
     var body: some View {
         VStack(spacing: 24) {
             NavigationLink(
-                // RunnerExperienceSelectionView will automatically see both env‑objects
-                destination: RunnerExperienceSelectionView()
+                destination:
+                    RunnerExperienceSelectionView(onNext: { level in
+                        onboardingData.experience = level
+                        onboardingData.currentStep = .age
+                    })
             ) {
                 MarathonCardView()
                     .frame(maxWidth: .infinity)
             }
+
 
             Spacer()
         }

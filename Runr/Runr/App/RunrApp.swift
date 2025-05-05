@@ -24,6 +24,8 @@ struct RunrApp: App {
     @StateObject var registrationViewModel = RegistrationViewModel()
     @StateObject var newProgramVM = NewRunningProgramViewModel()
     @StateObject var connectivityManager = iOSConnectivityManager.shared
+    @StateObject private var onboardingData = OnboardingData()
+
 
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
 
@@ -36,11 +38,13 @@ struct RunrApp: App {
                         .environmentObject(authService)
                         .environmentObject(registrationViewModel)
                         .environmentObject(newProgramVM)
+                        .environmentObject(onboardingData)
                 } else {
                     RunrTabView()
                         .environmentObject(authService)
                         .environmentObject(runTracker)
                         .environmentObject(newProgramVM)
+                        .environmentObject(onboardingData)
                 }
                 
                 

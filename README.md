@@ -2,16 +2,16 @@
 
 NOTE: The old name for this project was called "Runr", however that seems to be already taken by a running company so my new name is "Runmo". If you see Runr alot in files or file names, I am in the process of fixing that.
 
-This is a running app that I have created for educational purposes
+This is a running app that I have created for learning purposes.
 
 
 # Runmo - iOS Running App
 
-Runmo is an iOS running app designed to inspire and connect runners. Runmo lets users track their runs in real time, compare stats on leaderboards, and stay connected with friends—all while pursuing personal goals and accessing advanced running insights.
+Runmo is an iOS running app designed to inspire and connect runners. Runmo lets users track their runs in real time, compare stats on leaderboards, and stay connected with friends—all while following a personalised running program and accessing advanced running insights.
 
 
 ## 🚀 About Me
-My name is Noah Moran, I am doing a Bachelor of Computer Science at the University of Adelaide. I am currently in my second year.
+I’m Noah Moran, a second-year Computer Science major at the University of Adelaide. I’m passionate about software development and eager to apply my studies to real-world projects.
 ## Contact
 
 For any questions, feature requests, or general inquiries, feel free to reach out:
@@ -20,7 +20,7 @@ Noah Moran
 - Email: noahmoran2002@gmail.com
 
 ## Screenshots
-Here are some screenshots of my app, as of 1/04/25. 
+Below are the latest screenshots of my app (as of April 1, 2025).
 
 ### Profile View
 <img src="https://github.com/user-attachments/assets/d60dee3b-2245-48ca-8ea7-73fcd83dfdf6" alt="Screenshot" width="250" />
@@ -49,7 +49,7 @@ Here are some screenshots of my app, as of 1/04/25.
 - Messaging: Chat with friends and fellow runners.
 - User Search: Easily find and connect with other users.
 - Explore Page: Discover curated running programs and blogs.
-- Content Creation: Write and upload your own running programs and blogs.
+- Running Programs: Create a personalised running program for yourself.
 - Comprehensive Profiles: Build and customize your own fully-fledged profile.
 - Run Tracking: Keep track of your real-time run stats.
 - Footwear Wear Tracking: Monitor the lifespan of your running shoes.

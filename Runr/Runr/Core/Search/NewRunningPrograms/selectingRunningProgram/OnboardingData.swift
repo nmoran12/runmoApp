@@ -15,6 +15,10 @@ enum ExperienceLevel: String {
   case beginner, intermediate //, advanced
 }
 
+enum OnboardingStep: Hashable {
+  case experience, age, gender, done
+}
+
 enum Gender: String, CaseIterable {
   case female, male, nonBinary = "non‑binary", preferNotToSay = "prefer-not-to-say"
 

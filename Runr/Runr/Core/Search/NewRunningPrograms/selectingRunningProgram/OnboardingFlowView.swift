@@ -5,13 +5,6 @@
 //  Created by Noah Moran on 5/5/2025.
 //
 
-enum OnboardingStep: Hashable {
-  case experience
-  case age
-  case gender
-  case done
-}
-
 
 import SwiftUI
 

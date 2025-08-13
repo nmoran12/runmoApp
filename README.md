@@ -11,7 +11,7 @@ Runmo is an iOS running app designed to inspire and connect runners. Runmo lets 
 
 
 ## 🚀 About Me
-I’m Noah Moran, a second-year Computer Science major at the University of Adelaide. I’m passionate about software development and eager to apply my studies to real-world projects.
+I’m Noah Moran, a third-year Computer Science major at the University of Adelaide. I’m passionate about software development and eager to apply my studies to real-world projects.
 ## Contact
 
 For any questions, feature requests, or general inquiries, feel free to reach out:

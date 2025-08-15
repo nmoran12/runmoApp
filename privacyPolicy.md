@@ -1,4 +1,3 @@
-##Privacy Policy
 Privacy Policy — Runmo
 
 Effective: August 15, 2025

@@ -79,7 +79,7 @@ When you delete your account (Profile → ••• → Delete Account), we dele
 
 7) Your choices & rights
 
-Access, correct, delete your data: available in-app (Delete Account) or by contacting us at ☐support@yourdomain.com.
+Access, correct, delete your data: available in-app (Delete Account) or by contacting me at noahmoran2002@gmail.com
 
 Location permissions: change anytime in iOS Settings → Privacy → Location Services → Runmo.
 

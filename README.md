@@ -49,11 +49,9 @@ Below are the latest screenshots of my app (as of April 1, 2025).
 - Messaging: Chat with friends and fellow runners.
 - User Search: Easily find and connect with other users.
 - Explore Page: Discover curated running programs and blogs.
-- Running Programs: Create a personalised running program for yourself.
 - Comprehensive Profiles: Build and customize your own fully-fledged profile.
 - Run Tracking: Keep track of your real-time run stats.
 - Footwear Wear Tracking: Monitor the lifespan of your running shoes.
-- HealthKit Synchronization: Seamlessly sync data with Apple’s Health app.
 - User Authentication: Secure sign-up and login processes.
 - Leaderboards: Compare your performance with friends and strangers on weekly, monthly, and yearly leaderboards across multiple categories.
 ## Installation
